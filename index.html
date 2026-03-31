@@ -16,6 +16,7 @@ body { margin: 0; font-family: Arial; background: #0a0a12; color: white; }
 .card { background: #16162a; padding: 15px; margin-bottom: 15px; border-radius: 10px; }
 input { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 6px; border: none; }
 button { width: 100%; padding: 12px; background: #6366f1; color: white; border: none; border-radius: 8px; font-weight: bold; margin-bottom: 8px; }
+.small-btn { background: #f43f5e; }
 </style>
 </head>
 
@@ -89,7 +90,12 @@ function App() {
         React.createElement("p", null, "Calories: " + totals.calories),
         React.createElement("p", null, "Protein: " + totals.protein),
         React.createElement("p", null, "Carbs: " + totals.carbs),
-        React.createElement("p", null, "Fat: " + totals.fat)
+        React.createElement("p", null, "Fat: " + totals.fat),
+
+        React.createElement("button", {
+          className: "small-btn",
+          onClick: () => setEntries([])
+        }, "Clear Day")
       ),
 
       React.createElement("div", { className: "card" },
@@ -159,12 +165,21 @@ function App() {
         React.createElement("h3", null, "Saved Meals"),
 
         savedMeals.map((meal, i) =>
-          React.createElement("button", {
-            key: i,
-            onClick: () => {
-              setEntries([...entries, ...meal.items]);
-            }
-          }, meal.name)
+          React.createElement("div", { key: i },
+
+            React.createElement("button", {
+              onClick: () => {
+                setEntries([...entries, ...meal.items]);
+              }
+            }, meal.name),
+
+            React.createElement("button", {
+              className: "small-btn",
+              onClick: () => {
+                setSavedMeals(savedMeals.filter((_, index) => index !== i));
+              }
+            }, "Delete")
+          )
         )
       ),
 
