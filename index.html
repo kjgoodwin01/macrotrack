@@ -32,9 +32,8 @@ button { width:100%; padding:11px; border-radius:10px; border:none; margin-botto
 .danger { background:#ef4444; }
 
 .entry { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1f2235; font-size:14px; }
-.weight { display:flex; justify-content:space-between; font-size:14px; padding:6px 0; }
 
-.feedback { font-size:14px; margin-top:6px; }
+.feedback { margin-top:6px; font-size:14px; }
 .good { color:#10b981; }
 .bad { color:#ef4444; }
 .neutral { color:#9ca3af; }
@@ -50,15 +49,15 @@ const { useState, useEffect } = React;
 function App() {
 
   const [entries, setEntries] = useState(() => JSON.parse(localStorage.getItem("entries")) || []);
-  const [savedMeals, setSavedMeals] = useState(() => JSON.parse(localStorage.getItem("savedMeals")) || []);
   const [weightLog, setWeightLog] = useState(() => JSON.parse(localStorage.getItem("weightLog")) || []);
 
   const [form, setForm] = useState({ name:"", calories:"", protein:"", carbs:"", fat:"" });
   const [weightInput, setWeightInput] = useState("");
+
   const [targetRate, setTargetRate] = useState(-0.5);
+  const [calorieTarget, setCalorieTarget] = useState(2500);
 
   useEffect(() => localStorage.setItem("entries", JSON.stringify(entries)), [entries]);
-  useEffect(() => localStorage.setItem("savedMeals", JSON.stringify(savedMeals)), [savedMeals]);
   useEffect(() => localStorage.setItem("weightLog", JSON.stringify(weightLog)), [weightLog]);
 
   const addEntry = () => {
@@ -69,7 +68,7 @@ function App() {
 
   const addWeight = () => {
     if (!weightInput) return;
-    const newEntry = { weight:+weightInput, date:new Date().toLocaleDateString() };
+    const newEntry = { weight:+weightInput };
     setWeightLog([newEntry, ...weightLog]);
     setWeightInput("");
   };
@@ -82,8 +81,6 @@ function App() {
     return acc;
   },{calories:0,protein:0,carbs:0,fat:0});
 
-  const avg7 = weightLog.slice(0,7).reduce((s,w)=>s+w.weight,0)/(weightLog.slice(0,7).length||1);
-
   const weeklyChange = (() => {
     if (weightLog.length < 14) return 0;
     const recent = weightLog.slice(0,7).reduce((s,w)=>s+w.weight,0)/7;
@@ -91,14 +88,21 @@ function App() {
     return (recent - prev);
   })();
 
+  const calorieAdjustment = (() => {
+    if (weightLog.length < 14) return 0;
+    const diff = weeklyChange - targetRate;
+    return Math.round(diff * 500); // rough conversion
+  })();
+
+  const suggestedCalories = calorieTarget - calorieAdjustment;
+
   const feedback = (() => {
     if (weightLog.length < 14) return { text:"Log more data", class:"neutral" };
 
-    const diff = weeklyChange - targetRate;
+    if (Math.abs(calorieAdjustment) < 50) return { text:"On track", class:"good" };
 
-    if (Math.abs(diff) < 0.2) return { text:"On track", class:"good" };
-    if (diff > 0) return { text:"Not losing fast enough → reduce calories", class:"bad" };
-    return { text:"Losing too fast → increase calories", class:"bad" };
+    if (calorieAdjustment > 0) return { text:"Reduce calories", class:"bad" };
+    return { text:"Increase calories", class:"bad" };
   })();
 
   return (
@@ -116,6 +120,11 @@ function App() {
           React.createElement("div",{className:"macro fat"},"F "+totals.fat)
         ),
 
+        React.createElement("div",null,"Target: "+calorieTarget+" kcal"),
+        React.createElement("div",null,"Suggested: "+suggestedCalories+" kcal"),
+
+        React.createElement("div",{className:"feedback "+feedback.class},feedback.text),
+
         React.createElement("button",{className:"danger",onClick:()=>setEntries([])},"Clear Day")
       ),
 
@@ -125,16 +134,8 @@ function App() {
         React.createElement("input",{placeholder:"Enter weight",value:weightInput,onChange:e=>setWeightInput(e.target.value)}),
         React.createElement("button",{className:"primary",onClick:addWeight},"Log Weight"),
 
-        React.createElement("input",{
-          placeholder:"Target lbs/week (e.g. -0.5)",
-          value:targetRate,
-          onChange:e=>setTargetRate(parseFloat(e.target.value)||0)
-        }),
-
-        React.createElement("div",null,"7-day avg: "+avg7.toFixed(1)),
-        React.createElement("div",null,"Weekly change: "+weeklyChange.toFixed(2)+" lbs"),
-
-        React.createElement("div",{className:"feedback "+feedback.class},feedback.text)
+        React.createElement("input",{placeholder:"Target lbs/week",value:targetRate,onChange:e=>setTargetRate(parseFloat(e.target.value)||0)}),
+        React.createElement("input",{placeholder:"Base calories",value:calorieTarget,onChange:e=>setCalorieTarget(+e.target.value||0)})
       ),
 
       React.createElement("div",{className:"card"},
@@ -144,27 +145,7 @@ function App() {
           React.createElement("input",{key:f,placeholder:f,value:form[f],onChange:e=>setForm({...form,[f]:e.target.value})})
         ),
 
-        React.createElement("button",{className:"primary",onClick:addEntry},"Add Entry"),
-
-        React.createElement("button",{className:"secondary",
-          onClick:()=>{
-            if(!entries.length)return;
-            const name=prompt("Meal name:");
-            if(!name)return;
-            setSavedMeals([...savedMeals,{name,items:entries}]);
-          }
-        },"Save Meal")
-      ),
-
-      React.createElement("div",{className:"card"},
-        React.createElement("h3",null,"Saved Meals"),
-
-        savedMeals.map((m,i)=>
-          React.createElement("div",{key:i},
-            React.createElement("button",{className:"secondary",onClick:()=>setEntries([...entries,...m.items])},m.name),
-            React.createElement("button",{className:"danger",onClick:()=>setSavedMeals(savedMeals.filter((_,x)=>x!==i))},"Delete")
-          )
-        )
+        React.createElement("button",{className:"primary",onClick:addEntry},"Add Entry")
       ),
 
       React.createElement("div",{className:"card"},
