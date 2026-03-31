@@ -11,12 +11,100 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
 <style>
-body { margin: 0; font-family: Arial; background: #0a0a12; color: white; }
-.container { max-width: 430px; margin: auto; padding: 20px; }
-.card { background: #16162a; padding: 15px; margin-bottom: 15px; border-radius: 10px; }
-input { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 6px; border: none; }
-button { width: 100%; padding: 12px; background: #6366f1; color: white; border: none; border-radius: 8px; font-weight: bold; margin-bottom: 8px; }
-.small-btn { background: #f43f5e; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui;
+  background: #06070d;
+  color: #e5e7eb;
+}
+
+.container {
+  max-width: 430px;
+  margin: auto;
+  padding: 24px 18px;
+}
+
+h1 {
+  font-size: 26px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #ffffff;
+}
+
+.card {
+  background: linear-gradient(145deg, #0f111a, #141726);
+  padding: 18px;
+  margin-bottom: 16px;
+  border-radius: 14px;
+  border: 1px solid #1f2235;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+}
+
+.card h3 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: #9ca3af;
+  letter-spacing: 0.5px;
+}
+
+.stat {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+input {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 11px;
+  border-radius: 8px;
+  border: 1px solid #1f2235;
+  background: #0b0d15;
+  color: white;
+}
+
+input::placeholder {
+  color: #6b7280;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 500;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+}
+
+.primary:hover {
+  opacity: 0.9;
+}
+
+.secondary {
+  background: #1f2235;
+  color: #c7d2fe;
+}
+
+.danger {
+  background: #ef4444;
+  color: white;
+}
+
+.meal-btn {
+  background: #11131f;
+  border: 1px solid #262a45;
+}
+
+.meal-btn:hover {
+  background: #1a1d2e;
+}
 </style>
 </head>
 
@@ -83,23 +171,23 @@ function App() {
   return (
     React.createElement("div", { className: "container" },
 
-      React.createElement("h2", null, "MacroTrack"),
+      React.createElement("h1", null, "MacroTrack"),
 
       React.createElement("div", { className: "card" },
-        React.createElement("h3", null, "Totals"),
-        React.createElement("p", null, "Calories: " + totals.calories),
-        React.createElement("p", null, "Protein: " + totals.protein),
-        React.createElement("p", null, "Carbs: " + totals.carbs),
-        React.createElement("p", null, "Fat: " + totals.fat),
+        React.createElement("h3", null, "DAILY TOTALS"),
+        React.createElement("div", { className: "stat" }, "Calories: " + totals.calories),
+        React.createElement("div", { className: "stat" }, "Protein: " + totals.protein),
+        React.createElement("div", { className: "stat" }, "Carbs: " + totals.carbs),
+        React.createElement("div", { className: "stat" }, "Fat: " + totals.fat),
 
         React.createElement("button", {
-          className: "small-btn",
+          className: "danger",
           onClick: () => setEntries([])
         }, "Clear Day")
       ),
 
       React.createElement("div", { className: "card" },
-        React.createElement("h3", null, "Add Food"),
+        React.createElement("h3", null, "ADD FOOD"),
 
         ["name","calories","protein","carbs","fat"].map(field =>
           React.createElement("input", {
@@ -110,9 +198,10 @@ function App() {
           })
         ),
 
-        React.createElement("button", { onClick: addEntry }, "Add Entry"),
+        React.createElement("button", { className: "primary", onClick: addEntry }, "Add Entry"),
 
         React.createElement("button", {
+          className: "secondary",
           onClick: () => {
             if (entries.length === 0) return;
 
@@ -128,9 +217,10 @@ function App() {
       ),
 
       React.createElement("div", { className: "card" },
-        React.createElement("h3", null, "Data"),
+        React.createElement("h3", null, "DATA"),
 
         React.createElement("button", {
+          className: "secondary",
           onClick: () => {
             const data = { entries, savedMeals };
             const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
@@ -162,19 +252,20 @@ function App() {
       ),
 
       React.createElement("div", { className: "card" },
-        React.createElement("h3", null, "Saved Meals"),
+        React.createElement("h3", null, "SAVED MEALS"),
 
         savedMeals.map((meal, i) =>
           React.createElement("div", { key: i },
 
             React.createElement("button", {
+              className: "meal-btn",
               onClick: () => {
                 setEntries([...entries, ...meal.items]);
               }
             }, meal.name),
 
             React.createElement("button", {
-              className: "small-btn",
+              className: "danger",
               onClick: () => {
                 setSavedMeals(savedMeals.filter((_, index) => index !== i));
               }
@@ -184,11 +275,11 @@ function App() {
       ),
 
       React.createElement("div", { className: "card" },
-        React.createElement("h3", null, "Entries"),
+        React.createElement("h3", null, "ENTRIES"),
 
         entries.map((e, i) =>
-          React.createElement("p", { key: i },
-            e.name + " - " + e.calories + " cal"
+          React.createElement("div", { className: "stat", key: i },
+            e.name + " — " + e.calories + " cal"
           )
         )
       )
