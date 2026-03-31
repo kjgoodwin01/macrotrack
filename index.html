@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MacroTrack</title>
+
+<link rel="manifest" href="manifest.json" />
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+<style>
+body { margin: 0; font-family: Arial; background: #0a0a12; color: white; }
+.container { max-width: 430px; margin: auto; padding: 20px; }
+.card { background: #16162a; padding: 15px; margin-bottom: 15px; border-radius: 10px; }
+input { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 6px; border: none; }
+button { width: 100%; padding: 12px; background: #6366f1; color: white; border: none; border-radius: 8px; font-weight: bold; }
+</style>
+</head>
+
+<body>
+<div id="root"></div>
+
+<script>
+const { useState, useEffect } = React;
+
+function App() {
+  const [entries, setEntries] = useState(() => {
+    return JSON.parse(localStorage.getItem("entries")) || [];
+  });
+
+  const [form, setForm] = useState({ name: "", calories: "", protein: "", carbs: "", fat: "" });
+
+  useEffect(() => {
+    localStorage.setItem("entries", JSON.stringify(entries));
+  }, [entries]);
+
+  const addEntry = () => {
+    if (!form.name || !form.calories) return;
+
+    setEntries([...entries, {
+      ...form,
+      calories: Number(form.calories),
+      protein: Number(form.protein),
+      carbs: Number(form.carbs),
+      fat: Number(form.fat)
+    }]);
+
+    setForm({ name: "", calories: "", protein: "", carbs: "", fat: "" });
+  };
+
+  const totals = entries.reduce((acc, e) => {
+    acc.calories += e.calories;
+    acc.protein += e.protein;
+    acc.carbs += e.carbs;
+    acc.fat += e.fat;
+    return acc;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+  return (
+    React.createElement("div", { className: "container" },
+      React.createElement("h2", null, "MacroTrack"),
+
+      React.createElement("div", { className: "card" },
+        React.createElement("h3", null, "Totals"),
+        React.createElement("p", null, "Calories: " + totals.calories),
+        React.createElement("p", null, "Protein: " + totals.protein),
+        React.createElement("p", null, "Carbs: " + totals.carbs),
+        React.createElement("p", null, "Fat: " + totals.fat)
+      ),
+
+      React.createElement("div", { className: "card" },
+        React.createElement("h3", null, "Add Food"),
+        ["name","calories","protein","carbs","fat"].map(field =>
+          React.createElement("input", {
+            key: field,
+            placeholder: field,
+            value: form[field],
+            onChange: e => setForm({ ...form, [field]: e.target.value })
+          })
+        ),
+        React.createElement("button", { onClick: addEntry }, "Add Entry")
+      ),
+
+      React.createElement("div", { className: "card" },
+        React.createElement("h3", null, "Entries"),
+        entries.map((e, i) =>
+          React.createElement("p", { key: i }, e.name + " - " + e.calories + " cal")
+        )
+      )
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+</body>
+</html>
