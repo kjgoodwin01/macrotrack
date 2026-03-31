@@ -11,99 +11,30 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
 <style>
-body {
-  margin: 0;
-  font-family: -apple-system, system-ui;
-  background: #05060c;
-  color: #e5e7eb;
-}
+body { margin:0; font-family:-apple-system, system-ui; background:#05060c; color:#e5e7eb; }
+.container { max-width:430px; margin:auto; padding:20px; }
+h1 { font-size:24px; margin-bottom:10px; }
 
-.container {
-  max-width: 430px;
-  margin: auto;
-  padding: 20px;
-}
+.card { background:#0d101c; padding:16px; border-radius:14px; margin-bottom:14px; border:1px solid #1f2235; }
 
-h1 {
-  font-size: 26px;
-  margin-bottom: 10px;
-}
+.calories { font-size:48px; font-weight:700; margin:10px 0; }
 
-.calories {
-  font-size: 48px;
-  font-weight: 700;
-  margin: 10px 0;
-}
+.macros { display:flex; gap:8px; }
+.macro { flex:1; padding:10px; border-radius:10px; text-align:center; font-size:13px; }
+.protein { background:#1f2937; color:#f43f5e; }
+.carbs { background:#1f2937; color:#06b6d4; }
+.fat { background:#1f2937; color:#f59e0b; }
 
-.card {
-  background: #0d101c;
-  padding: 16px;
-  border-radius: 14px;
-  margin-bottom: 14px;
-  border: 1px solid #1f2235;
-}
+input { width:100%; padding:10px; margin-bottom:8px; border-radius:8px; border:1px solid #1f2235; background:#05060c; color:white; }
 
-.card h3 {
-  font-size: 13px;
-  color: #9ca3af;
-  margin-bottom: 10px;
-}
+button { width:100%; padding:11px; border-radius:10px; border:none; margin-bottom:8px; }
+.primary { background:linear-gradient(135deg,#6366f1,#8b5cf6); }
+.secondary { background:#1f2235; }
+.danger { background:#ef4444; }
 
-.macros {
-  display: flex;
-  gap: 8px;
-}
+.entry { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1f2235; font-size:14px; }
 
-.macro {
-  flex: 1;
-  padding: 10px;
-  border-radius: 10px;
-  text-align: center;
-  font-size: 13px;
-}
-
-.protein { background: #1f2937; color: #f43f5e; }
-.carbs { background: #1f2937; color: #06b6d4; }
-.fat { background: #1f2937; color: #f59e0b; }
-
-input {
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 8px;
-  border-radius: 8px;
-  border: 1px solid #1f2235;
-  background: #05060c;
-  color: white;
-}
-
-button {
-  width: 100%;
-  padding: 11px;
-  border-radius: 10px;
-  border: none;
-  margin-bottom: 8px;
-  font-weight: 500;
-}
-
-.primary {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-}
-
-.secondary {
-  background: #1f2235;
-}
-
-.danger {
-  background: #ef4444;
-}
-
-.entry {
-  display: flex;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid #1f2235;
-  font-size: 14px;
-}
+.weight { display:flex; justify-content:space-between; font-size:14px; padding:6px 0; }
 </style>
 </head>
 
@@ -117,118 +48,114 @@ function App() {
 
   const [entries, setEntries] = useState(() => JSON.parse(localStorage.getItem("entries")) || []);
   const [savedMeals, setSavedMeals] = useState(() => JSON.parse(localStorage.getItem("savedMeals")) || []);
+  const [weightLog, setWeightLog] = useState(() => JSON.parse(localStorage.getItem("weightLog")) || []);
+
   const [form, setForm] = useState({ name:"", calories:"", protein:"", carbs:"", fat:"" });
+  const [weightInput, setWeightInput] = useState("");
 
   useEffect(() => localStorage.setItem("entries", JSON.stringify(entries)), [entries]);
   useEffect(() => localStorage.setItem("savedMeals", JSON.stringify(savedMeals)), [savedMeals]);
+  useEffect(() => localStorage.setItem("weightLog", JSON.stringify(weightLog)), [weightLog]);
 
   const addEntry = () => {
     if (!form.name || !form.calories) return;
-
-    setEntries([...entries, {
-      ...form,
-      calories: +form.calories,
-      protein: +form.protein,
-      carbs: +form.carbs,
-      fat: +form.fat
-    }]);
-
+    setEntries([...entries, { ...form, calories:+form.calories, protein:+form.protein, carbs:+form.carbs, fat:+form.fat }]);
     setForm({ name:"", calories:"", protein:"", carbs:"", fat:"" });
   };
 
-  const totals = entries.reduce((acc, e) => {
-    acc.calories += e.calories;
-    acc.protein += e.protein;
-    acc.carbs += e.carbs;
-    acc.fat += e.fat;
+  const addWeight = () => {
+    if (!weightInput) return;
+    const newEntry = { weight: +weightInput, date: new Date().toLocaleDateString() };
+    setWeightLog([newEntry, ...weightLog]);
+    setWeightInput("");
+  };
+
+  const totals = entries.reduce((acc,e)=>{
+    acc.calories+=e.calories;
+    acc.protein+=e.protein;
+    acc.carbs+=e.carbs;
+    acc.fat+=e.fat;
     return acc;
-  }, { calories:0, protein:0, carbs:0, fat:0 });
+  },{calories:0,protein:0,carbs:0,fat:0});
+
+  const avg7 = weightLog.slice(0,7).reduce((sum,w)=>sum+w.weight,0) / (weightLog.slice(0,7).length || 1);
 
   return (
-    React.createElement("div", { className:"container" },
+    React.createElement("div",{className:"container"},
 
-      React.createElement("h1", null, "MacroTrack"),
+      React.createElement("h1",null,"MacroTrack"),
 
-      React.createElement("div", { className:"card" },
+      React.createElement("div",{className:"card"},
+        React.createElement("div",null,"Calories"),
+        React.createElement("div",{className:"calories"},totals.calories),
 
-        React.createElement("div", null, "Calories"),
-        React.createElement("div", { className:"calories" }, totals.calories),
-
-        React.createElement("div", { className:"macros" },
-
-          React.createElement("div", { className:"macro protein" },
-            "P " + totals.protein
-          ),
-
-          React.createElement("div", { className:"macro carbs" },
-            "C " + totals.carbs
-          ),
-
-          React.createElement("div", { className:"macro fat" },
-            "F " + totals.fat
-          )
+        React.createElement("div",{className:"macros"},
+          React.createElement("div",{className:"macro protein"},"P "+totals.protein),
+          React.createElement("div",{className:"macro carbs"},"C "+totals.carbs),
+          React.createElement("div",{className:"macro fat"},"F "+totals.fat)
         ),
 
-        React.createElement("button", {
-          className:"danger",
-          onClick: () => setEntries([])
-        }, "Clear Day")
+        React.createElement("button",{className:"danger",onClick:()=>setEntries([])},"Clear Day")
       ),
 
-      React.createElement("div", { className:"card" },
+      React.createElement("div",{className:"card"},
+        React.createElement("h3",null,"Weight"),
 
-        React.createElement("h3", null, "Add Food"),
+        React.createElement("input",{
+          placeholder:"Enter weight",
+          value:weightInput,
+          onChange:e=>setWeightInput(e.target.value)
+        }),
 
-        ["name","calories","protein","carbs","fat"].map(f =>
-          React.createElement("input", {
-            key:f,
-            placeholder:f,
-            value:form[f],
-            onChange:e=>setForm({...form,[f]:e.target.value})
-          })
-        ),
+        React.createElement("button",{className:"primary",onClick:addWeight},"Log Weight"),
 
-        React.createElement("button", { className:"primary", onClick:addEntry }, "Add Entry"),
+        React.createElement("div",null,"7-day avg: "+avg7.toFixed(1)),
 
-        React.createElement("button", {
-          className:"secondary",
-          onClick: () => {
-            if (!entries.length) return;
-            const name = prompt("Meal name:");
-            if (!name) return;
-            setSavedMeals([...savedMeals, { name, items: entries }]);
-          }
-        }, "Save Meal")
-      ),
-
-      React.createElement("div", { className:"card" },
-
-        React.createElement("h3", null, "Saved Meals"),
-
-        savedMeals.map((m,i)=>
-          React.createElement("div",{key:i},
-
-            React.createElement("button", {
-              className:"secondary",
-              onClick:()=>setEntries([...entries,...m.items])
-            }, m.name),
-
-            React.createElement("button", {
-              className:"danger",
-              onClick:()=>setSavedMeals(savedMeals.filter((_,x)=>x!==i))
-            }, "Delete")
+        weightLog.slice(0,7).map((w,i)=>
+          React.createElement("div",{className:"weight",key:i},
+            React.createElement("span",null,w.date),
+            React.createElement("span",null,w.weight)
           )
         )
       ),
 
-      React.createElement("div", { className:"card" },
+      React.createElement("div",{className:"card"},
+        React.createElement("h3",null,"Add Food"),
 
-        React.createElement("h3", null, "Entries"),
+        ["name","calories","protein","carbs","fat"].map(f=>
+          React.createElement("input",{key:f,placeholder:f,value:form[f],onChange:e=>setForm({...form,[f]:e.target.value})})
+        ),
+
+        React.createElement("button",{className:"primary",onClick:addEntry},"Add Entry"),
+
+        React.createElement("button",{className:"secondary",
+          onClick:()=>{
+            if(!entries.length)return;
+            const name=prompt("Meal name:");
+            if(!name)return;
+            setSavedMeals([...savedMeals,{name,items:entries}]);
+          }
+        },"Save Meal")
+      ),
+
+      React.createElement("div",{className:"card"},
+        React.createElement("h3",null,"Saved Meals"),
+
+        savedMeals.map((m,i)=>
+          React.createElement("div",{key:i},
+            React.createElement("button",{className:"secondary",onClick:()=>setEntries([...entries,...m.items])},m.name),
+            React.createElement("button",{className:"danger",onClick:()=>setSavedMeals(savedMeals.filter((_,x)=>x!==i))},"Delete")
+          )
+        )
+      ),
+
+      React.createElement("div",{className:"card"},
+        React.createElement("h3",null,"Entries"),
 
         entries.map((e,i)=>
           React.createElement("div",{className:"entry",key:i},
-            React.createElement("span", null, e.name),
-            React.createElement("span", null, e.calories + " cal")
+            React.createElement("span",null,e.name),
+            React.createElement("span",null,e.calories+" cal")
           )
         )
       )
