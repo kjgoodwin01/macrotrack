@@ -9,28 +9,83 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
 <style>
-body { margin:0; font-family:-apple-system, system-ui; background:#05060c; color:#e5e7eb; }
-.container { max-width:430px; margin:auto; padding:16px 16px 80px; }
+body {
+  margin:0;
+  font-family:-apple-system, system-ui;
+  background:#02030a;
+  color:#e5e7eb;
+}
 
-.card { background:#0d101c; padding:16px; border-radius:14px; margin-bottom:14px; border:1px solid #1f2235; }
+.container {
+  max-width:430px;
+  margin:auto;
+  padding:20px 16px 90px;
+}
 
-.calories { font-size:48px; font-weight:700; margin:10px 0; }
+/* CARDS */
+.card {
+  background:linear-gradient(180deg,#0b0e1a,#0f1324);
+  padding:18px;
+  border-radius:16px;
+  margin-bottom:16px;
+  border:1px solid #1c2033;
+}
 
+/* HEADINGS */
+h1 { font-size:24px; margin-bottom:8px; }
+h3 { font-size:13px; color:#8b93b3; margin-bottom:10px; }
+
+/* CALORIES */
+.calories {
+  font-size:56px;
+  font-weight:700;
+  margin:8px 0;
+}
+
+/* MACROS */
 .macros { display:flex; gap:8px; }
-.macro { flex:1; padding:10px; border-radius:10px; text-align:center; font-size:13px; }
-.protein { background:#1f2937; color:#f43f5e; }
-.carbs { background:#1f2937; color:#06b6d4; }
-.fat { background:#1f2937; color:#f59e0b; }
+.macro {
+  flex:1;
+  padding:10px;
+  border-radius:12px;
+  text-align:center;
+  font-size:12px;
+  background:#12162a;
+}
 
-input { width:100%; padding:10px; margin-bottom:8px; border-radius:8px; border:1px solid #1f2235; background:#05060c; color:white; }
+/* INPUT */
+input {
+  width:100%;
+  padding:12px;
+  margin-bottom:8px;
+  border-radius:10px;
+  border:1px solid #1c2033;
+  background:#070912;
+  color:white;
+}
 
-button { width:100%; padding:11px; border-radius:10px; border:none; margin-bottom:8px; }
-.primary { background:linear-gradient(135deg,#6366f1,#8b5cf6); }
-.secondary { background:#1f2235; }
-.danger { background:#ef4444; }
+/* BUTTONS */
+button {
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  border:none;
+  margin-bottom:8px;
+}
 
-.entry, .weight { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1f2235; font-size:14px; }
+.primary {
+  background:linear-gradient(135deg,#5b67ff,#7c3aed);
+}
 
+.secondary {
+  background:#14182c;
+}
+
+.danger {
+  background:#ef4444;
+}
+
+/* NAV */
 .nav {
   position:fixed;
   bottom:0;
@@ -38,21 +93,28 @@ button { width:100%; padding:11px; border-radius:10px; border:none; margin-botto
   max-width:430px;
   left:50%;
   transform:translateX(-50%);
-  background:#0d101c;
-  border-top:1px solid #1f2235;
+  background:#0b0e1a;
+  border-top:1px solid #1c2033;
   display:flex;
 }
 
 .nav button {
   flex:1;
-  padding:14px;
   background:none;
-  color:#9ca3af;
-  font-size:12px;
+  color:#6b7280;
+  font-size:11px;
 }
 
-.nav button.active {
-  color:#6366f1;
+.nav .active {
+  color:#7c3aed;
+}
+
+/* INSIGHT */
+.insight {
+  padding:12px;
+  border-radius:12px;
+  background:#12162a;
+  margin-top:10px;
 }
 </style>
 </head>
@@ -63,163 +125,142 @@ button { width:100%; padding:11px; border-radius:10px; border:none; margin-botto
 <script>
 const { useState, useEffect } = React;
 
-function App() {
+function App(){
 
-  const [tab, setTab] = useState("home");
+const [tab,setTab]=useState("home");
+const [entries,setEntries]=useState(()=>JSON.parse(localStorage.getItem("entries"))||[]);
+const [weightLog,setWeightLog]=useState(()=>JSON.parse(localStorage.getItem("weightLog"))||[]);
+const [savedMeals,setSavedMeals]=useState(()=>JSON.parse(localStorage.getItem("savedMeals"))||[]);
 
-  const [entries, setEntries] = useState(() => JSON.parse(localStorage.getItem("entries")) || []);
-  const [weightLog, setWeightLog] = useState(() => JSON.parse(localStorage.getItem("weightLog")) || []);
-  const [savedMeals, setSavedMeals] = useState(() => JSON.parse(localStorage.getItem("savedMeals")) || []);
+const [form,setForm]=useState({name:"",calories:"",protein:"",carbs:"",fat:""});
+const [weightInput,setWeightInput]=useState("");
 
-  const [form, setForm] = useState({ name:"", calories:"", protein:"", carbs:"", fat:"" });
-  const [weightInput, setWeightInput] = useState("");
+const [targetRate,setTargetRate]=useState(-0.5);
+const [calorieTarget,setCalorieTarget]=useState(2500);
 
-  const [targetRate, setTargetRate] = useState(-0.5);
-  const [calorieTarget, setCalorieTarget] = useState(2500);
+useEffect(()=>localStorage.setItem("entries",JSON.stringify(entries)),[entries]);
+useEffect(()=>localStorage.setItem("weightLog",JSON.stringify(weightLog)),[weightLog]);
+useEffect(()=>localStorage.setItem("savedMeals",JSON.stringify(savedMeals)),[savedMeals]);
 
-  useEffect(()=>localStorage.setItem("entries",JSON.stringify(entries)),[entries]);
-  useEffect(()=>localStorage.setItem("weightLog",JSON.stringify(weightLog)),[weightLog]);
-  useEffect(()=>localStorage.setItem("savedMeals",JSON.stringify(savedMeals)),[savedMeals]);
+const totals=entries.reduce((a,e)=>({
+calories:a.calories+e.calories,
+protein:a.protein+e.protein,
+carbs:a.carbs+e.carbs,
+fat:a.fat+e.fat
+}),{calories:0,protein:0,carbs:0,fat:0});
 
-  const totals = entries.reduce((a,e)=>({
-    calories:a.calories+e.calories,
-    protein:a.protein+e.protein,
-    carbs:a.carbs+e.carbs,
-    fat:a.fat+e.fat
-  }),{calories:0,protein:0,carbs:0,fat:0});
+const weeklyChange=(()=>{
+if(weightLog.length<14)return 0;
+const r=weightLog.slice(0,7).reduce((s,w)=>s+w.weight,0)/7;
+const p=weightLog.slice(7,14).reduce((s,w)=>s+w.weight,0)/7;
+return r-p;
+})();
 
-  const weeklyChange = (() => {
-    if (weightLog.length < 14) return 0;
-    const r = weightLog.slice(0,7).reduce((s,w)=>s+w.weight,0)/7;
-    const p = weightLog.slice(7,14).reduce((s,w)=>s+w.weight,0)/7;
-    return r-p;
-  })();
+const adjustment=Math.round((weeklyChange-targetRate)*500);
+const suggested=calorieTarget-adjustment;
 
-  const adjustment = Math.round((weeklyChange - targetRate) * 500);
-  const suggested = calorieTarget - adjustment;
+const insight=(()=>{
+if(weightLog.length<14)return "Log more data to generate insights";
 
-  const addEntry = () => {
-    if(!form.name||!form.calories) return;
-    setEntries([...entries,{...form,calories:+form.calories,protein:+form.protein,carbs:+form.carbs,fat:+form.fat}]);
-    setForm({ name:"", calories:"", protein:"", carbs:"", fat:"" });
-  };
+if(Math.abs(adjustment)<50) return "You are perfectly on track. Keep current intake.";
 
-  const addWeight = () => {
-    if(!weightInput) return;
-    setWeightLog([{weight:+weightInput},...weightLog]);
-    setWeightInput("");
-  };
+if(adjustment>0) return "Fat loss slower than target. Reduce intake slightly.";
 
-  const Home = () => (
-    React.createElement("div",{className:"container"},
-      React.createElement("div",{className:"card"},
-        React.createElement("div",null,"Calories"),
-        React.createElement("div",{className:"calories"},totals.calories),
+return "Losing faster than target. Increase intake slightly.";
+})();
 
-        React.createElement("div",{className:"macros"},
-          React.createElement("div",{className:"macro protein"},"P "+totals.protein),
-          React.createElement("div",{className:"macro carbs"},"C "+totals.carbs),
-          React.createElement("div",{className:"macro fat"},"F "+totals.fat)
-        ),
+const Home=()=>(
+<div className="container">
+<div className="card">
+<div>Calories</div>
+<div className="calories">{totals.calories}</div>
 
-        React.createElement("div",null,"Target: "+calorieTarget),
-        React.createElement("div",null,"Suggested: "+suggested),
+<div className="macros">
+<div className="macro">P {totals.protein}</div>
+<div className="macro">C {totals.carbs}</div>
+<div className="macro">F {totals.fat}</div>
+</div>
 
-        React.createElement("button",{className:"danger",onClick:()=>setEntries([])},"Clear Day")
-      )
-    )
-  );
+<div style={{marginTop:10}}>Target: {calorieTarget}</div>
+<div>Suggested: {suggested}</div>
 
-  const Weight = () => (
-    React.createElement("div",{className:"container"},
-      React.createElement("div",{className:"card"},
-        React.createElement("h3",null,"Weight"),
+<button className="danger" onClick={()=>setEntries([])}>Clear Day</button>
+</div>
+</div>
+);
 
-        React.createElement("input",{placeholder:"Enter weight",value:weightInput,onChange:e=>setWeightInput(e.target.value)}),
-        React.createElement("button",{className:"primary",onClick:addWeight},"Log Weight"),
+const Weight=()=>(
+<div className="container">
+<div className="card">
+<h3>Weight Trend</h3>
 
-        React.createElement("div",null,"Weekly change: "+weeklyChange.toFixed(2)),
+<input placeholder="Enter weight" value={weightInput} onChange={e=>setWeightInput(e.target.value)}/>
+<button className="primary" onClick={()=>{if(weightInput){setWeightLog([{weight:+weightInput},...weightLog]);setWeightInput("");}}}>Log Weight</button>
 
-        weightLog.slice(0,7).map((w,i)=>
-          React.createElement("div",{className:"weight",key:i},
-            React.createElement("span",null,"Day "+(i+1)),
-            React.createElement("span",null,w.weight)
-          )
-        )
-      )
-    )
-  );
+<div>Weekly Change: {weeklyChange.toFixed(2)} lbs</div>
+</div>
+</div>
+);
 
-  const Food = () => (
-    React.createElement("div",{className:"container"},
-      React.createElement("div",{className:"card"},
-        React.createElement("h3",null,"Add Food"),
+const Food=()=>(
+<div className="container">
+<div className="card">
+<h3>Add Food</h3>
 
-        ["name","calories","protein","carbs","fat"].map(f=>
-          React.createElement("input",{key:f,placeholder:f,value:form[f],onChange:e=>setForm({...form,[f]:e.target.value})})
-        ),
+{["name","calories","protein","carbs","fat"].map(f=>
+<input key={f} placeholder={f} value={form[f]} onChange={e=>setForm({...form,[f]:e.target.value})}/>
+)}
 
-        React.createElement("button",{className:"primary",onClick:addEntry},"Add Entry"),
+<button className="primary" onClick={()=>{if(form.name){setEntries([...entries,{...form,calories:+form.calories}]);}}}>Add Entry</button>
+<button className="secondary" onClick={()=>{const n=prompt("Meal name");if(n)setSavedMeals([...savedMeals,{name:n,items:entries}]);}}>Save Meal</button>
+</div>
 
-        React.createElement("button",{className:"secondary",
-          onClick:()=>{
-            if(!entries.length)return;
-            const name=prompt("Meal name:");
-            if(!name)return;
-            setSavedMeals([...savedMeals,{name,items:entries}]);
-          }
-        },"Save Meal")
-      ),
+<div className="card">
+<h3>Saved Meals</h3>
 
-      React.createElement("div",{className:"card"},
-        React.createElement("h3",null,"Saved Meals"),
+{savedMeals.map((m,i)=>
+<div key={i}>
+<button className="secondary" onClick={()=>setEntries([...entries,...m.items])}>{m.name}</button>
+<button className="danger" onClick={()=>setSavedMeals(savedMeals.filter((_,x)=>x!==i))}>Delete</button>
+</div>
+)}
+</div>
+</div>
+);
 
-        savedMeals.map((m,i)=>
-          React.createElement("div",{key:i},
-            React.createElement("button",{className:"secondary",onClick:()=>setEntries([...entries,...m.items])},m.name),
-            React.createElement("button",{className:"danger",onClick:()=>setSavedMeals(savedMeals.filter((_,x)=>x!==i))},"Delete")
-          )
-        )
-      )
-    )
-  );
+const Coach=()=>(
+<div className="container">
+<div className="card">
+<h3>Coaching</h3>
 
-  const Coach = () => (
-    React.createElement("div",{className:"container"},
-      React.createElement("div",{className:"card"},
-        React.createElement("h3",null,"Coach"),
+<input value={targetRate} onChange={e=>setTargetRate(+e.target.value||0)}/>
+<input value={calorieTarget} onChange={e=>setCalorieTarget(+e.target.value||0)}/>
 
-        React.createElement("input",{value:targetRate,onChange:e=>setTargetRate(+e.target.value||0)}),
-        React.createElement("input",{value:calorieTarget,onChange:e=>setCalorieTarget(+e.target.value||0)}),
+<div>Adjustment: {adjustment} kcal</div>
+<div>Suggested: {suggested}</div>
 
-        React.createElement("div",null,"Adjustment: "+adjustment+" kcal"),
-        React.createElement("div",null,"Suggested Calories: "+suggested)
-      )
-    )
-  );
+<div className="insight">{insight}</div>
+</div>
+</div>
+);
 
-  return (
-    React.createElement("div",null,
+return(
+<div>
+{tab==="home"&&<Home/>}
+{tab==="weight"&&<Weight/>}
+{tab==="food"&&<Food/>}
+{tab==="coach"&&<Coach/>}
 
-      tab==="home" && React.createElement(Home),
-      tab==="weight" && React.createElement(Weight),
-      tab==="food" && React.createElement(Food),
-      tab==="coach" && React.createElement(Coach),
-
-      React.createElement("div",{className:"nav"},
-        ["home","weight","food","coach"].map(t=>
-          React.createElement("button",{
-            key:t,
-            className:tab===t?"active":"",
-            onClick:()=>setTab(t)
-          },t.toUpperCase())
-        )
-      )
-    )
-  );
+<div className="nav">
+{["home","weight","food","coach"].map(t=>
+<button key={t} className={tab===t?"active":""} onClick={()=>setTab(t)}>{t.toUpperCase()}</button>
+)}
+</div>
+</div>
+);
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
