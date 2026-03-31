@@ -83,6 +83,43 @@ function App() {
       ),
 
       React.createElement("div", { className: "card" },
+  React.createElement("h3", null, "Data"),
+
+  React.createElement("button", {
+    onClick: () => {
+      const data = {
+        entries: entries
+      };
+      const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "macrotrack-backup.json";
+      a.click();
+    }
+  }, "Export Data"),
+
+  React.createElement("input", {
+    type: "file",
+    accept: "application/json",
+    onChange: (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const data = JSON.parse(event.target.result);
+        if (data.entries) {
+          setEntries(data.entries);
+        }
+      };
+      reader.readAsText(file);
+    }
+  })
+),                  
+                        
+      React.createElement("div", { className: "card" },
         React.createElement("h3", null, "Entries"),
         entries.map((e, i) =>
           React.createElement("p", { key: i }, e.name + " - " + e.calories + " cal")
