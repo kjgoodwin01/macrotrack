@@ -9,22 +9,79 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
 <style>
-body { margin:0; font-family:-apple-system, system-ui; background:#02030a; color:#e5e7eb; }
-.container { max-width:430px; margin:auto; padding:20px 16px 90px; }
-.card { background:#0f1324; padding:18px; border-radius:16px; margin-bottom:16px; border:1px solid #1c2033; }
+body {
+  margin:0;
+  font-family:-apple-system, system-ui;
+  background: radial-gradient(circle at top, #0b0f2a, #02030a);
+  color:#f3f4f6;
+}
 
-.calories { font-size:56px; font-weight:700; margin:8px 0; }
+.container {
+  max-width:430px;
+  margin:auto;
+  padding:20px 16px 90px;
+}
 
-.macros { display:flex; gap:8px; }
-.macro { flex:1; padding:10px; border-radius:12px; text-align:center; font-size:12px; background:#12162a; }
+/* CARD SYSTEM */
+.card {
+  background: rgba(20, 24, 50, 0.65);
+  backdrop-filter: blur(14px);
+  border-radius:20px;
+  padding:18px;
+  margin-bottom:18px;
+  border:1px solid rgba(255,255,255,0.05);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
 
-input { width:100%; padding:12px; margin-bottom:8px; border-radius:10px; border:1px solid #1c2033; background:#070912; color:white; }
+/* TYPOGRAPHY */
+.title { font-size:13px; color:#9ca3af; }
+.big-number { font-size:64px; font-weight:700; letter-spacing:-1px; }
 
-button { width:100%; padding:12px; border-radius:12px; border:none; margin-bottom:8px; }
-.primary { background:linear-gradient(135deg,#5b67ff,#7c3aed); }
-.secondary { background:#14182c; }
-.danger { background:#ef4444; }
+/* MACROS */
+.macros { display:flex; gap:10px; margin-top:12px; }
+.macro {
+  flex:1;
+  padding:12px;
+  border-radius:14px;
+  background: rgba(255,255,255,0.04);
+  text-align:center;
+  font-size:13px;
+}
 
+/* INPUT */
+input {
+  width:100%;
+  padding:14px;
+  border-radius:12px;
+  border:none;
+  background: rgba(255,255,255,0.05);
+  color:white;
+  margin-bottom:10px;
+}
+
+/* BUTTONS */
+button {
+  width:100%;
+  padding:14px;
+  border-radius:14px;
+  border:none;
+  font-weight:500;
+  margin-bottom:10px;
+}
+
+.primary {
+  background: linear-gradient(135deg,#6366f1,#a855f7);
+}
+
+.secondary {
+  background: rgba(255,255,255,0.06);
+}
+
+.danger {
+  background:#ef4444;
+}
+
+/* NAV */
 .nav {
   position:fixed;
   bottom:0;
@@ -32,14 +89,30 @@ button { width:100%; padding:12px; border-radius:12px; border:none; margin-botto
   max-width:430px;
   left:50%;
   transform:translateX(-50%);
-  background:#0b0e1a;
-  border-top:1px solid #1c2033;
+  background: rgba(10,12,30,0.9);
+  backdrop-filter: blur(20px);
+  border-top:1px solid rgba(255,255,255,0.05);
   display:flex;
 }
-.nav button { flex:1; background:none; color:#6b7280; font-size:11px; }
-.nav .active { color:#7c3aed; }
 
-.insight { padding:12px; border-radius:12px; background:#12162a; margin-top:10px; }
+.nav button {
+  flex:1;
+  background:none;
+  color:#6b7280;
+  font-size:11px;
+}
+
+.nav .active {
+  color:#a855f7;
+}
+
+/* COACH */
+.insight {
+  margin-top:12px;
+  padding:14px;
+  border-radius:14px;
+  background: rgba(99,102,241,0.12);
+}
 </style>
 </head>
 
@@ -54,7 +127,6 @@ function App(){
 const [tab,setTab]=useState("home");
 const [entries,setEntries]=useState(()=>JSON.parse(localStorage.getItem("entries"))||[]);
 const [weightLog,setWeightLog]=useState(()=>JSON.parse(localStorage.getItem("weightLog"))||[]);
-const [savedMeals,setSavedMeals]=useState(()=>JSON.parse(localStorage.getItem("savedMeals"))||[]);
 
 const [form,setForm]=useState({name:"",calories:"",protein:"",carbs:"",fat:""});
 const [weightInput,setWeightInput]=useState("");
@@ -64,7 +136,6 @@ const [calorieTarget,setCalorieTarget]=useState(2500);
 
 useEffect(()=>localStorage.setItem("entries",JSON.stringify(entries)),[entries]);
 useEffect(()=>localStorage.setItem("weightLog",JSON.stringify(weightLog)),[weightLog]);
-useEffect(()=>localStorage.setItem("savedMeals",JSON.stringify(savedMeals)),[savedMeals]);
 
 const totals=entries.reduce((a,e)=>({
 calories:a.calories+e.calories,
@@ -84,74 +155,61 @@ const adjustment=Math.round((weeklyChange-targetRate)*500);
 const suggested=calorieTarget-adjustment;
 
 const insight=(()=>{
-if(weightLog.length<14)return "Log more data to generate insights";
-if(Math.abs(adjustment)<50) return "On track. Keep current intake.";
-if(adjustment>0) return "Reduce calories slightly.";
-return "Increase calories slightly.";
+if(weightLog.length<14)return "Log more data to unlock coaching insights.";
+if(Math.abs(adjustment)<50) return "You're dialed in. Stay consistent.";
+if(adjustment>0) return "Fat loss slower than target. Slight calorie reduction recommended.";
+return "Losing faster than target. Increase calories slightly.";
 })();
 
-const Home = () =>
-React.createElement("div",{className:"container"},
+const Home=()=>React.createElement("div",{className:"container"},
 React.createElement("div",{className:"card"},
-React.createElement("div",null,"Calories"),
-React.createElement("div",{className:"calories"},totals.calories),
+React.createElement("div",{className:"title"},"Calories"),
+React.createElement("div",{className:"big-number"},totals.calories),
 
 React.createElement("div",{className:"macros"},
-React.createElement("div",{className:"macro"},"P "+totals.protein),
-React.createElement("div",{className:"macro"},"C "+totals.carbs),
-React.createElement("div",{className:"macro"},"F "+totals.fat)
+React.createElement("div",{className:"macro"},"Protein "+totals.protein),
+React.createElement("div",{className:"macro"},"Carbs "+totals.carbs),
+React.createElement("div",{className:"macro"},"Fat "+totals.fat)
 ),
 
-React.createElement("div",null,"Target: "+calorieTarget),
+React.createElement("div",{style:{marginTop:"12px"}},"Target: "+calorieTarget),
 React.createElement("div",null,"Suggested: "+suggested),
 
 React.createElement("button",{className:"danger",onClick:()=>setEntries([])},"Clear Day")
 )
 );
 
-const Weight = () =>
-React.createElement("div",{className:"container"},
+const Weight=()=>React.createElement("div",{className:"container"},
 React.createElement("div",{className:"card"},
-React.createElement("h3",null,"Weight"),
+React.createElement("div",{className:"title"},"Weight Trend"),
 
 React.createElement("input",{placeholder:"Enter weight",value:weightInput,onChange:e=>setWeightInput(e.target.value)}),
-React.createElement("button",{className:"primary",onClick:()=>{
-if(weightInput){
-setWeightLog([{weight:+weightInput},...weightLog]);
-setWeightInput("");
-}
-}},"Log Weight"),
+React.createElement("button",{className:"primary",onClick:()=>{if(weightInput){setWeightLog([{weight:+weightInput},...weightLog]);setWeightInput("");}}},"Log Weight"),
 
-React.createElement("div",null,"Weekly Change: "+weeklyChange.toFixed(2))
+React.createElement("div",null,"Weekly Change: "+weeklyChange.toFixed(2)+" lbs")
 )
 );
 
-const Food = () =>
-React.createElement("div",{className:"container"},
+const Food=()=>React.createElement("div",{className:"container"},
 React.createElement("div",{className:"card"},
-React.createElement("h3",null,"Add Food"),
+React.createElement("div",{className:"title"},"Add Food"),
 
 ["name","calories","protein","carbs","fat"].map(f=>
 React.createElement("input",{key:f,placeholder:f,value:form[f],onChange:e=>setForm({...form,[f]:e.target.value})})
 ),
 
-React.createElement("button",{className:"primary",onClick:()=>{
-if(form.name){
-setEntries([...entries,{...form,calories:+form.calories}]);
-}
-}},"Add Entry")
+React.createElement("button",{className:"primary",onClick:()=>{if(form.name){setEntries([...entries,{...form,calories:+form.calories}]);}}},"Add Entry")
 )
 );
 
-const Coach = () =>
-React.createElement("div",{className:"container"},
+const Coach=()=>React.createElement("div",{className:"container"},
 React.createElement("div",{className:"card"},
-React.createElement("h3",null,"Coach"),
+React.createElement("div",{className:"title"},"Coach"),
 
 React.createElement("input",{value:targetRate,onChange:e=>setTargetRate(+e.target.value||0)}),
 React.createElement("input",{value:calorieTarget,onChange:e=>setCalorieTarget(+e.target.value||0)}),
 
-React.createElement("div",null,"Adjustment: "+adjustment+" kcal"),
+React.createElement("div",{style:{marginTop:"10px"}},"Adjustment: "+adjustment+" kcal"),
 React.createElement("div",null,"Suggested: "+suggested),
 
 React.createElement("div",{className:"insight"},insight)
@@ -159,7 +217,6 @@ React.createElement("div",{className:"insight"},insight)
 );
 
 return React.createElement("div",null,
-
 tab==="home"&&React.createElement(Home),
 tab==="weight"&&React.createElement(Weight),
 tab==="food"&&React.createElement(Food),
