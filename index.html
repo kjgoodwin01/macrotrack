@@ -13,7 +13,6 @@
 <style>
 body { margin:0; font-family:-apple-system, system-ui; background:#05060c; color:#e5e7eb; }
 .container { max-width:430px; margin:auto; padding:20px; }
-h1 { font-size:24px; margin-bottom:10px; }
 
 .card { background:#0d101c; padding:16px; border-radius:14px; margin-bottom:14px; border:1px solid #1f2235; }
 
@@ -33,7 +32,6 @@ button { width:100%; padding:11px; border-radius:10px; border:none; margin-botto
 .danger { background:#ef4444; }
 
 .entry { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1f2235; font-size:14px; }
-
 .weight { display:flex; justify-content:space-between; font-size:14px; padding:6px 0; }
 </style>
 </head>
@@ -65,7 +63,7 @@ function App() {
 
   const addWeight = () => {
     if (!weightInput) return;
-    const newEntry = { weight: +weightInput, date: new Date().toLocaleDateString() };
+    const newEntry = { weight:+weightInput, date:new Date().toLocaleDateString() };
     setWeightLog([newEntry, ...weightLog]);
     setWeightInput("");
   };
@@ -78,7 +76,14 @@ function App() {
     return acc;
   },{calories:0,protein:0,carbs:0,fat:0});
 
-  const avg7 = weightLog.slice(0,7).reduce((sum,w)=>sum+w.weight,0) / (weightLog.slice(0,7).length || 1);
+  const avg7 = weightLog.slice(0,7).reduce((s,w)=>s+w.weight,0)/(weightLog.slice(0,7).length||1);
+
+  const weeklyChange = (() => {
+    if (weightLog.length < 14) return 0;
+    const recent = weightLog.slice(0,7).reduce((s,w)=>s+w.weight,0)/7;
+    const prev = weightLog.slice(7,14).reduce((s,w)=>s+w.weight,0)/7;
+    return (recent - prev);
+  })();
 
   return (
     React.createElement("div",{className:"container"},
@@ -101,15 +106,11 @@ function App() {
       React.createElement("div",{className:"card"},
         React.createElement("h3",null,"Weight"),
 
-        React.createElement("input",{
-          placeholder:"Enter weight",
-          value:weightInput,
-          onChange:e=>setWeightInput(e.target.value)
-        }),
-
+        React.createElement("input",{placeholder:"Enter weight",value:weightInput,onChange:e=>setWeightInput(e.target.value)}),
         React.createElement("button",{className:"primary",onClick:addWeight},"Log Weight"),
 
         React.createElement("div",null,"7-day avg: "+avg7.toFixed(1)),
+        React.createElement("div",null,"Weekly change: "+weeklyChange.toFixed(2)+" lbs"),
 
         weightLog.slice(0,7).map((w,i)=>
           React.createElement("div",{className:"weight",key:i},
