@@ -6,6 +6,7 @@
 <title>MacroTrack</title>
 
 <link rel="manifest" href="manifest.json" />
+
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
@@ -14,7 +15,7 @@ body { margin: 0; font-family: Arial; background: #0a0a12; color: white; }
 .container { max-width: 430px; margin: auto; padding: 20px; }
 .card { background: #16162a; padding: 15px; margin-bottom: 15px; border-radius: 10px; }
 input { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 6px; border: none; }
-button { width: 100%; padding: 12px; background: #6366f1; color: white; border: none; border-radius: 8px; font-weight: bold; }
+button { width: 100%; padding: 12px; background: #6366f1; color: white; border: none; border-radius: 8px; font-weight: bold; margin-bottom: 8px; }
 </style>
 </head>
 
@@ -25,15 +26,30 @@ button { width: 100%; padding: 12px; background: #6366f1; color: white; border: 
 const { useState, useEffect } = React;
 
 function App() {
+
   const [entries, setEntries] = useState(() => {
     return JSON.parse(localStorage.getItem("entries")) || [];
   });
 
-  const [form, setForm] = useState({ name: "", calories: "", protein: "", carbs: "", fat: "" });
+  const [savedMeals, setSavedMeals] = useState(() => {
+    return JSON.parse(localStorage.getItem("savedMeals")) || [];
+  });
+
+  const [form, setForm] = useState({
+    name: "",
+    calories: "",
+    protein: "",
+    carbs: "",
+    fat: ""
+  });
 
   useEffect(() => {
     localStorage.setItem("entries", JSON.stringify(entries));
   }, [entries]);
+
+  useEffect(() => {
+    localStorage.setItem("savedMeals", JSON.stringify(savedMeals));
+  }, [savedMeals]);
 
   const addEntry = () => {
     if (!form.name || !form.calories) return;
@@ -46,7 +62,13 @@ function App() {
       fat: Number(form.fat)
     }]);
 
-    setForm({ name: "", calories: "", protein: "", carbs: "", fat: "" });
+    setForm({
+      name: "",
+      calories: "",
+      protein: "",
+      carbs: "",
+      fat: ""
+    });
   };
 
   const totals = entries.reduce((acc, e) => {
@@ -59,6 +81,7 @@ function App() {
 
   return (
     React.createElement("div", { className: "container" },
+
       React.createElement("h2", null, "MacroTrack"),
 
       React.createElement("div", { className: "card" },
@@ -71,6 +94,7 @@ function App() {
 
       React.createElement("div", { className: "card" },
         React.createElement("h3", null, "Add Food"),
+
         ["name","calories","protein","carbs","fat"].map(field =>
           React.createElement("input", {
             key: field,
@@ -79,52 +103,81 @@ function App() {
             onChange: e => setForm({ ...form, [field]: e.target.value })
           })
         ),
-        React.createElement("button", { onClick: addEntry }, "Add Entry")
+
+        React.createElement("button", { onClick: addEntry }, "Add Entry"),
+
+        React.createElement("button", {
+          onClick: () => {
+            if (entries.length === 0) return;
+
+            const mealName = prompt("Name this meal:");
+            if (!mealName) return;
+
+            setSavedMeals([...savedMeals, {
+              name: mealName,
+              items: entries
+            }]);
+          }
+        }, "Save Current Meal")
       ),
 
       React.createElement("div", { className: "card" },
-  React.createElement("h3", null, "Data"),
+        React.createElement("h3", null, "Data"),
 
-  React.createElement("button", {
-    onClick: () => {
-      const data = {
-        entries: entries
-      };
-      const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
+        React.createElement("button", {
+          onClick: () => {
+            const data = { entries, savedMeals };
+            const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "macrotrack-backup.json";
-      a.click();
-    }
-  }, "Export Data"),
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "macrotrack-backup.json";
+            a.click();
+          }
+        }, "Export Data"),
 
-  React.createElement("input", {
-    type: "file",
-    accept: "application/json",
-    onChange: (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+        React.createElement("input", {
+          type: "file",
+          accept: "application/json",
+          onChange: (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const data = JSON.parse(event.target.result);
-        if (data.entries) {
-          setEntries(data.entries);
-        }
-      };
-      reader.readAsText(file);
-    }
-  })
-),                  
-                        
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const data = JSON.parse(event.target.result);
+              if (data.entries) setEntries(data.entries);
+              if (data.savedMeals) setSavedMeals(data.savedMeals);
+            };
+            reader.readAsText(file);
+          }
+        })
+      ),
+
+      React.createElement("div", { className: "card" },
+        React.createElement("h3", null, "Saved Meals"),
+
+        savedMeals.map((meal, i) =>
+          React.createElement("button", {
+            key: i,
+            onClick: () => {
+              setEntries([...entries, ...meal.items]);
+            }
+          }, meal.name)
+        )
+      ),
+
       React.createElement("div", { className: "card" },
         React.createElement("h3", null, "Entries"),
+
         entries.map((e, i) =>
-          React.createElement("p", { key: i }, e.name + " - " + e.calories + " cal")
+          React.createElement("p", { key: i },
+            e.name + " - " + e.calories + " cal"
+          )
         )
       )
+
     )
   );
 }
