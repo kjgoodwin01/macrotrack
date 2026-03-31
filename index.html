@@ -33,6 +33,11 @@ button { width:100%; padding:11px; border-radius:10px; border:none; margin-botto
 
 .entry { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1f2235; font-size:14px; }
 .weight { display:flex; justify-content:space-between; font-size:14px; padding:6px 0; }
+
+.feedback { font-size:14px; margin-top:6px; }
+.good { color:#10b981; }
+.bad { color:#ef4444; }
+.neutral { color:#9ca3af; }
 </style>
 </head>
 
@@ -50,6 +55,7 @@ function App() {
 
   const [form, setForm] = useState({ name:"", calories:"", protein:"", carbs:"", fat:"" });
   const [weightInput, setWeightInput] = useState("");
+  const [targetRate, setTargetRate] = useState(-0.5);
 
   useEffect(() => localStorage.setItem("entries", JSON.stringify(entries)), [entries]);
   useEffect(() => localStorage.setItem("savedMeals", JSON.stringify(savedMeals)), [savedMeals]);
@@ -85,6 +91,16 @@ function App() {
     return (recent - prev);
   })();
 
+  const feedback = (() => {
+    if (weightLog.length < 14) return { text:"Log more data", class:"neutral" };
+
+    const diff = weeklyChange - targetRate;
+
+    if (Math.abs(diff) < 0.2) return { text:"On track", class:"good" };
+    if (diff > 0) return { text:"Not losing fast enough → reduce calories", class:"bad" };
+    return { text:"Losing too fast → increase calories", class:"bad" };
+  })();
+
   return (
     React.createElement("div",{className:"container"},
 
@@ -109,15 +125,16 @@ function App() {
         React.createElement("input",{placeholder:"Enter weight",value:weightInput,onChange:e=>setWeightInput(e.target.value)}),
         React.createElement("button",{className:"primary",onClick:addWeight},"Log Weight"),
 
+        React.createElement("input",{
+          placeholder:"Target lbs/week (e.g. -0.5)",
+          value:targetRate,
+          onChange:e=>setTargetRate(parseFloat(e.target.value)||0)
+        }),
+
         React.createElement("div",null,"7-day avg: "+avg7.toFixed(1)),
         React.createElement("div",null,"Weekly change: "+weeklyChange.toFixed(2)+" lbs"),
 
-        weightLog.slice(0,7).map((w,i)=>
-          React.createElement("div",{className:"weight",key:i},
-            React.createElement("span",null,w.date),
-            React.createElement("span",null,w.weight)
-          )
-        )
+        React.createElement("div",{className:"feedback "+feedback.class},feedback.text)
       ),
 
       React.createElement("div",{className:"card"},
