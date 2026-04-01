@@ -1,260 +1,241 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="MacroTrack" />
-  <meta name="theme-color" content="#080810" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="MacroTrack"/>
+  <meta name="theme-color" content="#06060f"/>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="apple-touch-icon" href="icon-192.png"/>
   <title>MacroTrack</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    :root {
-      --bg: #080810; --surface: #0f0f1a; --surface2: #16162a; --surface3: #1e1e35;
-      --border: #252540; --accent: #6366f1; --accent-light: #818cf8; --accent-glow: rgba(99,102,241,0.2);
-      --protein: #f43f5e; --carbs: #06b6d4; --fat: #f59e0b; --green: #10b981; --red: #f43f5e;
-      --text: #f1f1f8; --text2: #a0a0c0; --muted: #52527a;
-      --safe-top: env(safe-area-inset-top, 0px); --safe-bot: env(safe-area-inset-bottom, 0px);
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    :root{
+      --bg:#06060f;--s1:#0f0f20;--s2:#161628;--s3:#1e1e35;
+      --b1:rgba(255,255,255,0.07);--b2:rgba(255,255,255,0.12);
+      --ind:#6366f1;--indl:#818cf8;--indll:#a5b4fc;--vio:#8b5cf6;--glow:rgba(99,102,241,0.25);
+      --rose:#f43f5e;--rosel:#fb7185;
+      --cyan:#06b6d4;--cyanl:#22d3ee;
+      --amb:#f59e0b;--ambl:#fbbf24;
+      --em:#10b981;--eml:#34d399;
+      --txt:#f4f4ff;--txt2:#a0a0c8;--mu:#52527a;
+      --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)
     }
-    html, body { height: 100%; overflow: hidden; background: var(--bg); }
-    body { font-family: 'DM Sans', sans-serif; color: var(--text); -webkit-font-smoothing: antialiased; }
-    #root { height: 100%; }
-    .app { max-width: 430px; margin: 0 auto; height: 100%; display: flex; flex-direction: column; background: var(--bg); position: relative; overflow: hidden; }
+    html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt)}
+    body{font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
+    #root{height:100%}
+    .app{max-width:430px;margin:0 auto;height:100%;display:flex;flex-direction:column;background:var(--bg);position:relative}
 
     /* Header */
-    .header { padding: calc(var(--safe-top) + 14px) 24px 12px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-    .logo { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 4px; }
-    .logo-m { color: var(--accent-light); } .logo-rest { color: var(--text); }
-    .header-date { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.5px; text-align: right; }
-    .header-streak { font-size: 11px; color: var(--green); margin-top: 2px; text-align: right; }
+    .hdr{flex-shrink:0;padding:calc(var(--st) + 14px) 20px 0;display:flex;align-items:center;justify-content:space-between}
+    .logo{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:3px}
+    .logo em{color:var(--indl);font-style:normal}
+    .hdr-r{text-align:right}
+    .hdr-date{font-size:11px;color:var(--mu);font-family:'JetBrains Mono',monospace}
+
+    /* Toast */
+    .toast{position:fixed;top:calc(var(--st) + 12px);left:50%;transform:translateX(-50%) translateY(-80px);z-index:999;background:var(--em);color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:30px;box-shadow:0 4px 20px rgba(16,185,129,0.4);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1),opacity 0.35s;opacity:0;white-space:nowrap;pointer-events:none}
+    .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
     /* Page */
-    .page { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 16px calc(var(--safe-bot) + 96px); -webkit-overflow-scrolling: touch; }
-    .page::-webkit-scrollbar { display: none; }
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(var(--sb) + 96px);-webkit-overflow-scrolling:touch}
+    .page::-webkit-scrollbar{display:none}
 
-    /* Bottom Nav */
-    .nav { position: absolute; bottom: 0; left: 0; right: 0; height: calc(var(--safe-bot) + 68px); padding-bottom: var(--safe-bot); display: flex; align-items: flex-start; justify-content: space-around; padding-top: 10px; background: rgba(8,8,16,0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border); z-index: 50; }
-    .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; padding: 2px 0; }
-    .nav-icon { font-size: 20px; transition: transform 0.2s; display: block; }
-    .nav-label { font-size: 10px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); font-family: 'DM Sans', sans-serif; transition: color 0.2s; }
-    .nav-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); opacity: 0; transition: opacity 0.2s; margin-top: 2px; }
-    .nav-btn.active .nav-label { color: var(--accent-light); }
-    .nav-btn.active .nav-dot { opacity: 1; }
-    .nav-btn.active .nav-icon { transform: translateY(-2px); }
+    /* Week selector */
+    .week-nav{display:flex;align-items:center;gap:6px;margin-bottom:14px}
+    .week-arrow{background:none;border:1px solid var(--b1);border-radius:10px;color:var(--mu);width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;flex-shrink:0;transition:border-color 0.15s,color 0.15s}
+    .week-arrow:active{border-color:var(--ind);color:var(--indl)}
+    .week-days{display:flex;gap:4px;flex:1;overflow:hidden}
+    .day-pill{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-radius:12px;cursor:pointer;border:1px solid transparent;transition:all 0.15s;background:none;font-family:'DM Sans',sans-serif}
+    .day-pill-letter{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:var(--mu)}
+    .day-pill-num{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--mu)}
+    .day-pill.today .day-pill-letter,.day-pill.today .day-pill-num{color:var(--txt2)}
+    .day-pill.today{border-color:var(--b1);background:var(--s1)}
+    .day-pill.selected{background:var(--ind);border-color:var(--ind)}
+    .day-pill.selected .day-pill-letter,.day-pill.selected .day-pill-num{color:#fff}
+    .day-pill.has-data .day-pill-num::after{content:'·';display:block;width:4px;height:4px;border-radius:50%;background:var(--indll);margin:1px auto 0;font-size:0;line-height:0}
+    .week-label{font-size:10px;color:var(--mu);text-align:center;margin-bottom:10px;font-family:'JetBrains Mono',monospace}
 
-    /* Hero calorie card */
-    .cal-hero { background: linear-gradient(135deg, #0d0d20 0%, #111128 50%, #0a0a18 100%); border: 1px solid var(--border); border-radius: 24px; padding: 24px; margin-bottom: 16px; position: relative; overflow: hidden; }
-    .cal-hero::before { content: ''; position: absolute; top: -60px; right: -60px; width: 220px; height: 220px; background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 65%); pointer-events: none; }
-    .cal-hero::after { content: ''; position: absolute; bottom: -40px; left: -40px; width: 160px; height: 160px; background: radial-gradient(circle, rgba(6,182,212,0.06) 0%, transparent 65%); pointer-events: none; }
-    .cal-top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-    .cal-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
-    .cal-goal-badge { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; background: var(--surface3); padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); }
-    .cal-number-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 16px; }
-    .cal-number { font-family: 'Bebas Neue', sans-serif; font-size: 76px; line-height: 1; color: var(--text); letter-spacing: 2px; }
-    .cal-unit { font-size: 13px; color: var(--muted); font-weight: 400; margin-bottom: 10px; margin-left: 4px; }
-    .cal-rem { text-align: right; padding-bottom: 6px; }
-    .cal-rem-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .cal-rem-val { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 600; line-height: 1; }
-    .cal-rem-val.under { color: var(--accent-light); }
-    .cal-rem-val.over { color: var(--red); }
-    .pbar-track { height: 7px; background: var(--surface3); border-radius: 4px; overflow: hidden; margin-bottom: 20px; }
-    .pbar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent-light)); transition: width 0.7s cubic-bezier(0.4,0,0.2,1); }
-    .pbar-fill.over { background: linear-gradient(90deg, var(--red), #fb7185); }
-    .macro-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-    .macro-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; padding: 12px 10px 10px; position: relative; overflow: hidden; }
-    .macro-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 14px 14px 0 0; }
-    .macro-card.protein::before { background: var(--protein); }
-    .macro-card.carbs::before { background: var(--carbs); }
-    .macro-card.fat::before { background: var(--fat); }
-    .macro-card-val { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; margin-bottom: 2px; }
-    .macro-card.protein .macro-card-val { color: var(--protein); }
-    .macro-card.carbs .macro-card-val { color: var(--carbs); }
-    .macro-card.fat .macro-card-val { color: var(--fat); }
-    .macro-card-name { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-    .macro-card-bar { height: 3px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
-    .macro-card-bar-fill { height: 100%; border-radius: 2px; transition: width 0.7s cubic-bezier(0.4,0,0.2,1); }
-    .macro-card.protein .macro-card-bar-fill { background: var(--protein); }
-    .macro-card.carbs .macro-card-bar-fill { background: var(--carbs); }
-    .macro-card.fat .macro-card-bar-fill { background: var(--fat); }
-    .macro-card-goal { font-size: 10px; color: var(--muted); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+    /* Cal hero */
+    .cal-hero{background:linear-gradient(145deg,#0f0f22 0%,#131328 60%,#0f1020 100%);border:1px solid var(--b2);border-radius:24px;padding:22px;margin-bottom:14px;position:relative;overflow:hidden}
+    .cal-hero::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(99,102,241,0.13) 0%,transparent 65%);pointer-events:none}
+    .cal-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+    .cal-lhs .cal-lbl{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px;font-weight:600}
+    .cal-num{font-family:'Bebas Neue',sans-serif;font-size:72px;line-height:0.9;color:var(--txt)}
+    .cal-unit{font-size:12px;color:var(--mu);margin-top:6px}
+    .cal-rhs{text-align:right;padding-top:4px}
+    .cal-rem-lbl{font-size:11px;color:var(--mu);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px}
+    .cal-rem-val{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600}
+    .cal-rem-val.good{color:var(--indl)} .cal-rem-val.over{color:var(--rose)}
+    .cal-rem-sub{font-size:11px;margin-top:3px} .cal-rem-sub.good{color:var(--em)} .cal-rem-sub.over{color:var(--rosel)}
+    .pbar-track{height:7px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;margin-bottom:18px}
+    .pbar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--ind),var(--vio),var(--indl));background-size:200%;animation:shim 3s linear infinite;transition:width 0.7s cubic-bezier(0.4,0,0.2,1)}
+    .pbar-fill.over{background:linear-gradient(90deg,var(--rose),var(--rosel));animation:none}
+    @keyframes shim{0%{background-position:100% 0}100%{background-position:-100% 0}}
+    .macro-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+    .mpill{background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:14px;padding:11px 8px 9px;text-align:center;position:relative;overflow:hidden}
+    .mpill::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
+    .mpill.p::before{background:var(--rose)} .mpill.c::before{background:var(--cyan)} .mpill.f::before{background:var(--amb)}
+    .mpill-val{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:600;margin-bottom:2px}
+    .mpill.p .mpill-val{color:var(--rosel)} .mpill.c .mpill-val{color:var(--cyanl)} .mpill.f .mpill-val{color:var(--ambl)}
+    .mpill-name{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px}
+    .mpill-bar{height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin:0 4px}
+    .mpill-bar-fill{height:100%;border-radius:2px;transition:width 0.7s cubic-bezier(0.4,0,0.2,1)}
+    .mpill.p .mpill-bar-fill{background:var(--rose)} .mpill.c .mpill-bar-fill{background:var(--cyan)} .mpill.f .mpill-bar-fill{background:var(--amb)}
+    .mpill-goal{font-size:9px;color:var(--mu);margin-top:4px;font-family:'JetBrains Mono',monospace}
 
-    /* Meal sections */
-    .section-header { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 10px; }
-    .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
-    .meal-block { margin-bottom: 8px; }
-    .meal-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; cursor: pointer; user-select: none; }
-    .meal-head.open { border-radius: 14px 14px 0 0; border-bottom-color: transparent; }
-    .meal-head-left { display: flex; align-items: center; gap: 10px; }
-    .meal-emoji { font-size: 18px; }
-    .meal-head-name { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2); }
-    .meal-head-right { display: flex; align-items: center; gap: 10px; }
-    .meal-kcal { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
-    .meal-add-btn { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); border: none; color: #fff; font-size: 20px; font-weight: 300; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .meal-items { background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 14px 14px; overflow: hidden; }
-    .food-row { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); animation: slideIn 0.25s ease; }
-    @keyframes slideIn { from { opacity:0; transform:translateX(10px); } to { opacity:1; transform:translateX(0); } }
-    .food-row:last-child { border-bottom: none; }
-    .food-row-info { flex: 1; min-width: 0; }
-    .food-row-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .food-row-srv { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .food-row-right { text-align: right; flex-shrink: 0; margin-left: 10px; }
-    .food-row-cal { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; }
-    .food-row-mpw { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
-    .food-del { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 0 0 0 10px; line-height: 1; flex-shrink: 0; }
-    .meal-empty { padding: 14px; }
-    .meal-empty-text { font-size: 12px; color: var(--muted); }
+    /* Meals */
+    .meal-block{margin-bottom:8px}
+    .meal-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;cursor:pointer;user-select:none;transition:background 0.15s}
+    .meal-hd:active{background:var(--s2)}
+    .meal-hd.open{border-radius:14px 14px 0 0;border-bottom-color:transparent}
+    .meal-hd-l{display:flex;align-items:center;gap:9px}
+    .meal-emoji{font-size:17px}
+    .meal-hd-name{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--txt2)}
+    .meal-hd-r{display:flex;align-items:center;gap:9px}
+    .meal-kcal{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--mu)}
+    .meal-add{width:28px;height:28px;border-radius:9px;background:var(--ind);border:none;color:#fff;font-size:20px;font-weight:300;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.15s,background 0.15s}
+    .meal-add:active{transform:scale(0.9);background:var(--vio)}
+    .meal-items{background:var(--s1);border:1px solid var(--b1);border-top:none;border-radius:0 0 14px 14px;overflow:hidden}
+    .meal-empty{padding:12px 14px;font-size:12px;color:var(--mu);font-style:italic}
+    .food-row{display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid var(--b1);animation:slin 0.22s ease}
+    @keyframes slin{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+    .food-row:last-child{border-bottom:none}
+    .food-info{flex:1;min-width:0}
+    .food-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .food-srv{font-size:11px;color:var(--mu);margin-top:1px}
+    .food-right{text-align:right;flex-shrink:0;margin-left:10px}
+    .food-cal{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600}
+    .food-mpw{font-size:10px;color:var(--mu);margin-top:2px;font-family:'JetBrains Mono',monospace}
+    .food-del{background:none;border:none;color:var(--mu);font-size:20px;cursor:pointer;padding:0 0 0 10px;line-height:1;flex-shrink:0;transition:color 0.15s}
+    .food-del:active{color:var(--rose)}
 
     /* FAB */
-    .fab { position: fixed; bottom: calc(var(--safe-bot) + 76px); left: 50%; transform: translateX(-50%); width: calc(min(430px,100vw) - 32px); max-width: 398px; background: var(--accent); color: #fff; border: none; border-radius: 16px; padding: 15px; font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 32px var(--accent-glow); z-index: 40; }
-    .fab:active { transform: translateX(-50%) scale(0.97); }
+    .fab{position:fixed;bottom:calc(var(--sb) + 76px);left:50%;transform:translateX(-50%);width:calc(min(430px,100vw) - 32px);max-width:398px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab:active{transform:translateX(-50%) scale(0.97)}
 
-    /* Install banner */
-    .install-banner { margin-bottom: 16px; background: linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08)); border: 1px solid rgba(99,102,241,0.25); border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
-    .install-icon { font-size: 26px; flex-shrink: 0; }
-    .install-text { flex: 1; font-size: 12px; color: var(--text2); line-height: 1.5; }
-    .install-text strong { color: var(--accent-light); display: block; margin-bottom: 2px; }
-    .install-dismiss { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; flex-shrink: 0; }
-
-    /* Weight page */
-    .w-hero { background: linear-gradient(135deg, #0d0d20, #111128); border: 1px solid var(--border); border-radius: 24px; padding: 24px; margin-bottom: 14px; position: relative; overflow: hidden; }
-    .w-hero::before { content:''; position:absolute; top:-50px; right:-50px; width:180px; height:180px; background:radial-gradient(circle,rgba(16,185,129,0.1) 0%,transparent 65%); pointer-events:none; }
-    .w-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; margin-bottom: 8px; }
-    .w-big { font-family: 'Bebas Neue', sans-serif; font-size: 64px; line-height: 1; color: var(--text); }
-    .w-unit { font-size: 18px; color: var(--muted); font-family: 'DM Sans', sans-serif; font-weight: 300; margin-left: 4px; }
-    .w-delta { font-size: 14px; font-family: 'JetBrains Mono', monospace; margin-top: 6px; }
-    .w-delta.down { color: var(--green); } .w-delta.up { color: var(--red); } .w-delta.neutral { color: var(--muted); }
-    .log-weight-section { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 18px; margin-bottom: 14px; }
-    .log-weight-row { display: flex; gap: 10px; align-items: center; }
-    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 20px; margin-bottom: 14px; }
-    .chart-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; font-weight: 600; }
-    .chart-empty { height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
-    .chart-empty-icon { font-size: 32px; opacity: 0.4; }
-    .chart-empty-text { font-size: 12px; color: var(--muted); }
-    .wlog-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 20px; margin-bottom: 14px; }
-    .wlog-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
-    .wlog-row:last-child { border-bottom: none; }
-    .wlog-date { font-size: 12px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
-    .wlog-val { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; }
-
-    /* Adapt card */
-    .adapt-card { background: linear-gradient(135deg, #0c0c22, #10102e); border: 1px solid rgba(99,102,241,0.3); border-radius: 20px; padding: 20px; margin-bottom: 14px; }
-    .adapt-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-    .adapt-head-icon { font-size: 24px; }
-    .adapt-head-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; color: var(--accent-light); letter-spacing: 1px; }
-    .adapt-body { font-size: 13px; color: var(--text2); line-height: 1.65; margin-bottom: 14px; }
-    .adapt-stats { display: flex; margin-bottom: 14px; }
-    .adapt-stat { flex: 1; text-align: center; padding: 12px 6px; background: var(--surface2); }
-    .adapt-stat:first-child { border-radius: 10px 0 0 10px; border: 1px solid var(--border); border-right: none; }
-    .adapt-stat:last-child { border-radius: 0 10px 10px 0; border: 1px solid var(--border); border-left: none; }
-    .adapt-stat:not(:first-child):not(:last-child) { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-    .adapt-stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .adapt-stat-val { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; color: var(--accent-light); }
-    .adapt-stat-val.neg { color: var(--red); } .adapt-stat-val.pos { color: var(--green); }
-    .adapt-unlock { text-align: center; padding: 8px 0; }
-    .adapt-unlock-text { font-size: 13px; color: var(--text2); line-height: 1.65; margin-bottom: 16px; }
-    .adapt-progress-dots { display: flex; justify-content: center; gap: 7px; margin-bottom: 6px; }
-    .adapt-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--surface3); border: 1px solid var(--border); transition: all 0.3s; }
-    .adapt-dot.filled { background: var(--accent); border-color: var(--accent); }
-    .adapt-days-label { font-size: 12px; color: var(--muted); margin-top: 8px; font-family: 'JetBrains Mono', monospace; }
-
-    /* Settings */
-    .settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 20px; margin-bottom: 12px; }
-    .settings-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 16px; }
-    .s-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); }
-    .s-row:last-child { border-bottom: none; }
-    .s-label { font-size: 14px; }
-    .s-val { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; }
-    .prog-row { margin-bottom: 14px; }
-    .prog-row:last-child { margin-bottom: 0; }
-    .prog-row-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; }
-    .prog-row-label { font-size: 13px; color: var(--text2); }
-    .prog-row-val { font-size: 12px; font-family: 'JetBrains Mono', monospace; }
-
-    /* Shared UI */
-    .field-group { margin-bottom: 12px; }
-    .field-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; font-weight: 600; }
-    .field { width: 100%; padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; -webkit-appearance: none; }
-    .field:focus { border-color: var(--accent); }
-    .pf:focus { border-color: var(--protein); } .cf:focus { border-color: var(--carbs); } .ff:focus { border-color: var(--fat); }
-    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-    .btn { width: 100%; padding: 15px; background: var(--accent); color: #fff; border: none; border-radius: 14px; font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 1.5px; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 20px var(--accent-glow); }
-    .btn:active { opacity: 0.9; }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-ghost { width: 100%; padding: 14px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 14px; font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer; margin-top: 8px; }
-    .btn-sm { padding: 0 18px; height: 48px; background: var(--accent); color: #fff; border: none; border-radius: 12px; font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 1px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
-    .btn-green { background: var(--green) !important; box-shadow: 0 4px 20px rgba(16,185,129,0.2) !important; }
-    .ok-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--green); margin-top: 8px; }
-    .err { color: var(--red); font-size: 12px; padding: 6px 0; }
+    /* Nav */
+    .nav{position:absolute;bottom:0;left:0;right:0;height:calc(var(--sb) + 68px);padding-bottom:var(--sb);display:flex;align-items:flex-start;justify-content:space-around;padding-top:10px;background:rgba(6,6,15,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--b1);z-index:50}
+    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:2px 0}
+    .nav-icon{font-size:20px;transition:transform 0.2s;display:block}
+    .nav-lbl{font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s}
+    .nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ind);opacity:0;transition:opacity 0.2s;margin-top:2px}
+    .nav-btn.active .nav-lbl{color:var(--indl)}
+    .nav-btn.active .nav-dot{opacity:1}
+    .nav-btn.active .nav-icon{transform:translateY(-2px)}
 
     /* Modal */
-    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.78); display: flex; align-items: flex-end; justify-content: center; z-index: 200; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-    .sheet { background: var(--surface); border: 1px solid var(--border); border-radius: 26px 26px 0 0; width: 100%; max-width: 430px; max-height: 94vh; overflow-y: auto; padding: 20px 20px calc(var(--safe-bot) + 28px); -webkit-overflow-scrolling: touch; animation: sheetUp 0.3s cubic-bezier(0.32,0.72,0,1); }
-    .sheet::-webkit-scrollbar { display: none; }
-    @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-    .sheet-handle { width: 38px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
-    .sheet-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1px; margin-bottom: 20px; }
-    .tabs { display: flex; gap: 6px; margin-bottom: 18px; }
-    .tab-btn { flex: 1; padding: 9px 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
-    .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .meal-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
-    .chip { padding: 7px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
-    .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .search-wrap { position: relative; margin-bottom: 14px; }
-    .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 16px; pointer-events: none; }
-    .search-field { width: 100%; padding: 13px 14px 13px 40px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 15px; outline: none; -webkit-appearance: none; }
-    .search-field:focus { border-color: var(--accent); }
-    .sresult { display: flex; align-items: center; justify-content: space-between; padding: 12px 13px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 7px; cursor: pointer; }
-    .sresult:active { border-color: var(--accent); }
-    .sr-left { min-width: 0; flex: 1; }
-    .sr-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
-    .sr-sub { font-size: 10px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
-    .sr-cal { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 600; color: var(--accent-light); flex-shrink: 0; margin-left: 10px; }
-    .detail-box { background: var(--surface2); border: 1px solid rgba(99,102,241,0.35); border-radius: 16px; padding: 18px; margin-top: 8px; }
-    .detail-name { font-size: 16px; font-weight: 600; margin-bottom: 3px; }
-    .detail-sub { font-size: 11px; color: var(--muted); margin-bottom: 16px; }
-    .macro-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
-    .m4 { text-align: center; background: var(--surface3); border-radius: 10px; padding: 10px 4px; }
-    .m4-val { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600; }
-    .m4-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
-    .ai-badge { display: inline-flex; align-items: center; gap: 5px; background: linear-gradient(135deg, var(--accent), #7c3aed); color: #fff; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.5px; margin-bottom: 10px; }
-    .scan-drop { border: 2px dashed var(--border); border-radius: 18px; padding: 40px 20px; text-align: center; cursor: pointer; }
-    .scan-drop:active { border-color: var(--accent); }
-    .scan-emoji { font-size: 48px; margin-bottom: 12px; }
-    .scan-preview { width: 100%; border-radius: 14px; margin-bottom: 12px; max-height: 220px; object-fit: cover; }
-    .scanner-wrap { position: relative; border-radius: 18px; overflow: hidden; background: #000; aspect-ratio: 1; margin-bottom: 14px; }
-    .scanner-video { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .scanner-frame { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-    .scanner-box { width: 60%; aspect-ratio: 1; border: 2px solid var(--accent-light); border-radius: 14px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.55); position: relative; }
-    .sc { position: absolute; width: 20px; height: 20px; border-color: var(--accent-light); border-style: solid; }
-    .sc.tl{top:-2px;left:-2px;border-width:3px 0 0 3px;border-radius:6px 0 0 0;}
-    .sc.tr{top:-2px;right:-2px;border-width:3px 3px 0 0;border-radius:0 6px 0 0;}
-    .sc.bl{bottom:-2px;left:-2px;border-width:0 0 3px 3px;border-radius:0 0 0 6px;}
-    .sc.br{bottom:-2px;right:-2px;border-width:0 3px 3px 0;border-radius:0 0 6px 0;}
-    .scan-line { position: absolute; left:8px;right:8px;height:2px;background:linear-gradient(90deg,transparent,var(--accent-light),transparent);animation:sline 2s ease-in-out infinite;top:50%; }
-    @keyframes sline{0%,100%{transform:translateY(-28px);opacity:0.4}50%{transform:translateY(28px);opacity:1}}
-    .scanner-hint { position: absolute; bottom: 12px; left: 0; right: 0; text-align: center; font-size: 12px; color: rgba(255,255,255,0.6); }
-    .loading-row { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; padding: 14px 0; }
-    .spin { width: 20px; height: 20px; flex-shrink: 0; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .empty-state { text-align: center; padding: 40px 20px; }
-    .empty-icon { font-size: 48px; margin-bottom: 14px; opacity: 0.5; }
-    .empty-title { font-size: 16px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
-    .empty-sub { font-size: 13px; color: var(--muted); line-height: 1.6; }
-    .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.82); display: flex; align-items: center; justify-content: center; z-index: 300; padding: 24px; backdrop-filter: blur(10px); }
-    .confirm-box { background: var(--surface); border: 1px solid var(--border); border-radius: 22px; padding: 28px 24px; width: 100%; max-width: 340px; text-align: center; }
-    .confirm-icon { font-size: 40px; margin-bottom: 14px; }
-    .confirm-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; margin-bottom: 10px; }
-    .confirm-body { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 24px; }
-    .confirm-actions { display: flex; gap: 10px; }
-    .confirm-cancel { flex: 1; padding: 13px; background: transparent; border: 1px solid var(--border); border-radius: 12px; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer; }
-    .confirm-ok { flex: 1; padding: 13px; background: var(--red); border: none; border-radius: 12px; color: #fff; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 1px; cursor: pointer; }
-    .tooltip { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text); white-space: nowrap; pointer-events: none; z-index: 10; transform: translate(-50%, -110%); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fdin 0.2s ease}
+    @keyframes fdin{from{opacity:0}to{opacity:1}}
+    .sheet{background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;width:100%;max-width:430px;max-height:94vh;overflow-y:auto;padding:20px 18px calc(var(--sb) + 30px);-webkit-overflow-scrolling:touch;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    @keyframes sup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .sheet-handle{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 20px}
+    .sheet-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;margin-bottom:18px}
+    .tabs{display:flex;gap:6px;margin-bottom:18px}
+    .tab-btn{flex:1;padding:9px 2px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:11px;color:var(--mu);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+    .tab-btn.active{background:var(--ind);color:#fff;border-color:var(--ind)}
+    .chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+    .chip{padding:7px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:22px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;display:flex;align-items:center;gap:5px}
+    .chip.active{background:var(--ind);color:#fff;border-color:var(--ind)}
+    .fg{margin-bottom:12px}
+    .fl{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px}
+    .field{width:100%;padding:12px 13px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:12px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;transition:border-color 0.2s,background 0.2s;-webkit-appearance:none}
+    .field:focus{border-color:var(--ind);background:rgba(99,102,241,0.06)}
+    .field.fp:focus{border-color:var(--rose)} .field.fc:focus{border-color:var(--cyan)} .field.ff:focus{border-color:var(--amb)}
+    .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .btn{width:100%;padding:15px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1.5px;cursor:pointer;margin-top:8px;box-shadow:0 4px 20px var(--glow);transition:transform 0.15s}
+    .btn:active{transform:scale(0.98)} .btn:disabled{opacity:0.35;cursor:not-allowed;transform:none}
+    .btn-ghost{width:100%;padding:14px;background:transparent;color:var(--mu);border:1px solid var(--b1);border-radius:14px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;margin-top:8px}
+    .btn-sm{padding:0 14px;height:46px;flex-shrink:0;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:12px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;cursor:pointer}
+    .btn-danger{width:100%;padding:14px;background:rgba(244,63,94,0.1);color:var(--rose);border:1px solid rgba(244,63,94,0.3);border-radius:14px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;margin-top:6px;transition:background 0.15s}
+    .btn-danger:active{background:rgba(244,63,94,0.2)}
+
+    /* Search */
+    .search-wrap{position:relative;margin-bottom:10px}
+    .search-ico{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none}
+    .search-field{width:100%;padding:12px 14px 12px 40px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:12px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;transition:border-color 0.2s;-webkit-appearance:none}
+    .search-field:focus{border-color:var(--ind)}
+    .sres{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--b1);border-radius:11px;margin-bottom:7px;cursor:pointer;transition:border-color 0.15s,background 0.15s}
+    .sres:active{border-color:var(--ind);background:rgba(99,102,241,0.06)}
+    .sr-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+    .sr-sub{font-size:10px;color:var(--mu);margin-top:2px;font-family:'JetBrains Mono',monospace}
+    .sr-cal{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--indll);flex-shrink:0;margin-left:8px}
+    .detail-box{background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:16px;margin-top:8px}
+    .det-name{font-size:15px;font-weight:600;margin-bottom:3px}
+    .det-sub{font-size:11px;color:var(--mu);margin-bottom:14px}
+    .m4{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px}
+    .m4c{text-align:center;background:rgba(255,255,255,0.04);border-radius:10px;padding:9px 3px;border:1px solid var(--b1)}
+    .m4v{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600}
+    .m4l{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px;margin-top:3px}
+    .ai-badge{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;letter-spacing:0.5px;margin-bottom:10px}
+    .scan-drop{border:2px dashed var(--b2);border-radius:18px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color 0.2s}
+    .scan-drop:active{border-color:var(--ind)}
+    .scan-prev{width:100%;border-radius:14px;margin-bottom:10px;max-height:220px;object-fit:cover}
+    .scanner-wrap{position:relative;border-radius:18px;overflow:hidden;background:#000;aspect-ratio:1;margin-bottom:12px}
+    .scanner-video{width:100%;height:100%;object-fit:cover;display:block}
+    .scanner-frame{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+    .scanner-box{width:60%;aspect-ratio:1;border:2px solid var(--indl);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);position:relative}
+    .sc{position:absolute;width:20px;height:20px;border-color:var(--indl);border-style:solid}
+    .sc.tl{top:-2px;left:-2px;border-width:3px 0 0 3px;border-radius:5px 0 0 0}
+    .sc.tr{top:-2px;right:-2px;border-width:3px 3px 0 0;border-radius:0 5px 0 0}
+    .sc.bl{bottom:-2px;left:-2px;border-width:0 0 3px 3px;border-radius:0 0 0 5px}
+    .sc.br{bottom:-2px;right:-2px;border-width:0 3px 3px 0;border-radius:0 0 5px 0}
+    .scan-line{position:absolute;left:8px;right:8px;height:2px;background:linear-gradient(90deg,transparent,var(--indl),transparent);animation:sl 2s ease-in-out infinite;top:50%}
+    @keyframes sl{0%,100%{transform:translateY(-30px);opacity:0.5}50%{transform:translateY(30px);opacity:1}}
+    .scanner-hint{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:11px;color:rgba(255,255,255,0.6)}
+    .loading-row{display:flex;align-items:center;gap:10px;color:var(--mu);font-size:13px;padding:12px 0}
+    .spin{width:18px;height:18px;flex-shrink:0;border:2px solid rgba(255,255,255,0.08);border-top-color:var(--ind);border-radius:50%;animation:spin 0.7s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .err{color:var(--rose);font-size:12px;padding:5px 0}
+    .ok-text{color:var(--em);font-size:12px;margin-top:8px;display:flex;align-items:center;gap:5px}
+
+    /* Weight */
+    .w-hero{background:linear-gradient(145deg,#0f0f22,#131328);border:1px solid var(--b2);border-radius:24px;padding:22px;margin-bottom:14px;position:relative;overflow:hidden}
+    .w-hero::before{content:'';position:absolute;top:-50px;right:-50px;width:180px;height:180px;background:radial-gradient(circle,rgba(16,185,129,0.1) 0%,transparent 65%);pointer-events:none}
+    .w-lbl{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px;font-weight:600}
+    .w-big{font-family:'Bebas Neue',sans-serif;font-size:60px;line-height:1}
+    .w-big span{font-size:18px;color:var(--mu);font-family:'DM Sans',sans-serif;font-weight:300}
+    .w-delta{font-size:13px;font-family:'JetBrains Mono',monospace;margin-top:5px}
+    .w-delta.dn{color:var(--em)} .w-delta.up{color:var(--rose)}
+    .chart-area{height:120px;margin:14px 0 4px}
+    .wlog-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--b1)}
+    .wlog-row:last-child{border-bottom:none}
+    .wlog-date{font-size:11px;color:var(--mu);font-family:'JetBrains Mono',monospace}
+    .wlog-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600}
+
+    /* Adapt */
+    .adapt{background:linear-gradient(145deg,#0d0d24,#111128);border:1px solid rgba(99,102,241,0.25);border-radius:20px;padding:20px;margin-bottom:14px;position:relative;overflow:hidden}
+    .adapt::before{content:'';position:absolute;top:-30px;right:-30px;width:140px;height:140px;background:radial-gradient(circle,rgba(139,92,246,0.1) 0%,transparent 65%);pointer-events:none}
+    .adapt.ontrack{border-color:rgba(16,185,129,0.3);background:linear-gradient(145deg,#0a1a14,#0d1e18)}
+    .adapt-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .adapt-title{font-family:'Bebas Neue',sans-serif;font-size:19px;color:var(--indll);letter-spacing:1px}
+    .adapt.ontrack .adapt-title{color:var(--eml)}
+    .adapt-body{font-size:13px;color:var(--txt2);line-height:1.65}
+    .adapt-stats{display:flex;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid rgba(99,102,241,0.15)}
+    .ast{text-align:center}
+    .ast-lbl{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px}
+    .ast-val{font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--indll);margin-top:4px}
+    .unlock-dots{display:flex;gap:6px;margin-top:12px}
+    .udot{height:5px;border-radius:3px;flex:1;background:rgba(255,255,255,0.07)}
+    .udot.on{background:var(--ind)}
+
+    /* Settings */
+    .scard{background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:20px;margin-bottom:12px}
+    .stitle{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px;font-weight:700}
+    .srow{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--b1)}
+    .srow:last-child{border-bottom:none}
+    .slbl{font-size:14px}
+    .sval{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--indll)}
+    .prog-row{margin-bottom:12px}
+    .prog-head{display:flex;justify-content:space-between;margin-bottom:5px}
+    .prog-lbl{font-size:13px}
+    .prog-val{font-size:11px;font-family:'JetBrains Mono',monospace}
+    .muted-t{color:var(--mu);font-size:13px;line-height:1.65}
   </style>
 </head>
 <body>
@@ -263,97 +244,190 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script type="text/babel">
-const { useState, useEffect, useRef, useCallback, useMemo } = React;
-const MEALS = [
-  {id:"Breakfast",emoji:"🌅"},{id:"Lunch",emoji:"☀️"},{id:"Dinner",emoji:"🌙"},{id:"Snacks",emoji:"🍎"}
-];
-const DEFAULT_GOALS = {calories:2100,protein:180,carbs:210,fat:60};
-const USDA = "https://api.nal.usda.gov/fdc/v1";
+const {useState,useEffect,useRef,useCallback}=React;
 
-function todayLabel(){return new Date().toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});}
-function todayKey(){return new Date().toISOString().split("T")[0];}
+/* ── Constants ── */
+const MEALS=[{id:"Breakfast",emoji:"🌅"},{id:"Lunch",emoji:"☀️"},{id:"Dinner",emoji:"🌙"},{id:"Snacks",emoji:"🍎"}];
+const DAY_LETTERS=["Su","M","Tu","W","Th","F","Sa"];
+const DEFAULT_GOALS={calories:2100,protein:180,carbs:210,fat:60};
+const USDA="https://api.nal.usda.gov/fdc/v1";
+
+/* ── Date helpers ── */
+function isoDate(d){return d.toISOString().split("T")[0];}
+function todayISO(){return isoDate(new Date());}
+function getMondayOfWeek(d){
+  const dt=new Date(d);const day=dt.getDay();const diff=day===0?-6:1-day;
+  dt.setDate(dt.getDate()+diff);dt.setHours(0,0,0,0);return dt;
+}
+function getWeekDates(monday){
+  return Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setDate(d.getDate()+i);return d;});
+}
+function fmtDate(d){return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});}
+function fmtShort(d){return d.toLocaleDateString("en-US",{month:"short",day:"numeric"});}
+
+/* ── localStorage persistence ── */
+// Robust save with verification and retry
+function lsSave(key,val){
+  const str=JSON.stringify(val);
+  for(let i=0;i<3;i++){
+    try{
+      localStorage.setItem(key,str);
+      const verify=localStorage.getItem(key);
+      if(verify===str)return true;
+    }catch(e){}
+  }
+  return false;
+}
+function lsLoad(key,init){
+  try{const s=localStorage.getItem(key);return s?JSON.parse(s):init;}catch{return init;}
+}
 function useLocal(k,init){
-  const [v,setV]=useState(()=>{try{const s=localStorage.getItem(k);return s?JSON.parse(s):init;}catch{return init;}});
-  const set=useCallback(val=>{const n=typeof val==="function"?val(v):val;setV(n);try{localStorage.setItem(k,JSON.stringify(n));}catch{}},[k]);
+  const [v,setV]=useState(()=>lsLoad(k,init));
+  const set=useCallback((val)=>{
+    const next=typeof val==="function"?val(v):val;
+    setV(next);
+    lsSave(k,next);
+  },[k,v]);
   return [v,set];
 }
+
+/* ── USDA helpers ── */
 function getNutrient(arr,id){const n=(arr||[]).find(x=>x.nutrientId===id||x.nutrientNumber===String(id));return Math.round((n&&n.value)?n.value:0);}
 function parseFood(item){
-  const n=item.foodNutrients||[];
-  const servings=[];
+  const n=item.foodNutrients||[];const servings=[];
   if(item.servingSize&&item.servingSizeUnit)servings.push({label:item.servingSize+item.servingSizeUnit,grams:item.servingSize});
   (item.foodPortions||[]).forEach(p=>{if(p.gramWeight)servings.push({label:(p.portionDescription||(p.measureUnit&&p.measureUnit.name)||"serving")+" ("+p.gramWeight+"g)",grams:p.gramWeight});});
   servings.push({label:"100g",grams:100});
-  return {fdcId:item.fdcId,name:item.description||"",brand:item.brandOwner||item.brandName||"",dataType:item.dataType||"",cal100:getNutrient(n,1008),p100:getNutrient(n,1003),c100:getNutrient(n,1005),f100:getNutrient(n,1004),servings};
+  return{fdcId:item.fdcId,name:item.description||"",brand:item.brandOwner||item.brandName||"",dataType:item.dataType||"",cal100:getNutrient(n,1008),p100:getNutrient(n,1003),c100:getNutrient(n,1005),f100:getNutrient(n,1004),servings};
 }
-function scaleM(food,grams,qty){const f=(grams*(parseFloat(qty)||1))/100;return{cal:Math.round(food.cal100*f),p:Math.round(food.p100*f),c:Math.round(food.c100*f),f:Math.round(food.f100*f)};}
-function computeAdapt(wlog,goals){
-  if(wlog.length<7)return null;
-  const r=wlog.slice(-7),ch=r[r.length-1].weight-r[0].weight,target=-0.5,diff=ch-target;
-  let adj=0,msg="";
-  if(Math.abs(diff)<0.15)msg="You're right on track — losing at the perfect pace. Keep doing exactly what you're doing.";
-  else if(diff>0.15){adj=-75;msg="You lost "+Math.abs(ch).toFixed(1)+" lbs this week vs. your 0.5 lb target. We're trimming your calories slightly to accelerate progress.";}
-  else{adj=75;msg="You lost "+Math.abs(ch).toFixed(1)+" lbs this week — faster than target. A small calorie bump will protect your muscle mass.";}
-  return{ch:ch.toFixed(1),adj,newCal:goals.calories+adj,msg,onTrack:adj===0};
+function scaleMacros(food,grams,qty){const f=(grams*(parseFloat(qty)||1))/100;return{cal:Math.round(food.cal100*f),p:Math.round(food.p100*f),c:Math.round(food.c100*f),f:Math.round(food.f100*f)};}
+
+/* ── Toast ── */
+function Toast({msg}){
+  const [show,setShow]=useState(false);
+  useEffect(()=>{if(!msg)return;setShow(true);const t=setTimeout(()=>setShow(false),2200);return()=>clearTimeout(t);},[msg]);
+  return <div className={"toast"+(show?" show":"")}>{msg}</div>;
 }
 
-function WeightChart({data}){
-  const [tip,setTip]=useState(null);
-  if(data.length<2)return(<div className="chart-empty"><div className="chart-empty-icon">📈</div><div className="chart-empty-text">Log 2+ weights to see your trend</div></div>);
-  const vals=data.map(d=>d.weight),lo=Math.min(...vals)-1.5,hi=Math.max(...vals)+1.5;
-  const W=360,H=120,xs=W/(data.length-1),ys=v=>H-((v-lo)/(hi-lo))*H;
-  const pts=data.map((d,i)=>(i*xs)+","+ys(d.weight)).join(" ");
-  const area="0,"+H+" "+pts+" "+((data.length-1)*xs)+","+H;
-  return(<div style={{position:"relative"}}>
-    <svg width="100%" height="120" viewBox={"0 0 "+W+" "+H} preserveAspectRatio="none">
-      <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6366f1" stopOpacity="0.35"/><stop offset="100%" stopColor="#6366f1" stopOpacity="0"/></linearGradient></defs>
-      <polygon points={area} fill="url(#cg)"/>
-      <polyline points={pts} fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-      {data.map((d,i)=>(<circle key={i} cx={i*xs} cy={ys(d.weight)} r="5" fill="#6366f1" stroke="#818cf8" strokeWidth="2" style={{cursor:"pointer"}} onClick={()=>setTip(tip&&tip.i===i?null:{i,x:i*xs,y:ys(d.weight),d})}/>))}
-    </svg>
-    {tip&&<div className="tooltip" style={{left:(tip.x/W*100)+"%",top:(tip.y/H*100)+"%"}}>{tip.d.weight} lbs · {tip.d.date}</div>}
-  </div>);
-}
-
-function FoodDetail({food,meal,onBack,onConfirm}){
-  const [si,setSi]=useState(0),[qty,setQty]=useState("1");
-  const serv=food.servings[si],m=scaleM(food,serv.grams,qty);
-  return(<div className="detail-box">
-    <div className="detail-name">{food.name}</div>
-    <div className="detail-sub">{food.brand||food.dataType}</div>
-    <div className="field-group"><div className="field-label">Serving</div>
-      <select className="field" value={si} onChange={e=>setSi(parseInt(e.target.value,10))} style={{appearance:"none"}}>
-        {food.servings.map((s,i)=><option key={i} value={i}>{s.label}</option>)}
-      </select></div>
-    <div className="field-group"><div className="field-label">Quantity</div>
-      <input className="field" type="number" step="0.5" min="0.5" value={qty} onChange={e=>setQty(e.target.value)}/></div>
-    <div className="macro-4">
-      <div className="m4"><div className="m4-val">{m.cal}</div><div className="m4-label">kcal</div></div>
-      <div className="m4"><div className="m4-val" style={{color:"var(--protein)"}}>{m.p}g</div><div className="m4-label">Protein</div></div>
-      <div className="m4"><div className="m4-val" style={{color:"var(--carbs)"}}>{m.c}g</div><div className="m4-label">Carbs</div></div>
-      <div className="m4"><div className="m4-val" style={{color:"var(--fat)"}}>{m.f}g</div><div className="m4-label">Fat</div></div>
+/* ── CalHero ── */
+function CalHero({logged,goals}){
+  const pct=Math.min((logged.calories/goals.calories)*100,100);
+  const rem=goals.calories-logged.calories;const over=rem<0;
+  const pp=Math.min((logged.protein/goals.protein)*100,100);
+  const pc=Math.min((logged.carbs/goals.carbs)*100,100);
+  const pf=Math.min((logged.fat/goals.fat)*100,100);
+  return(
+    <div className="cal-hero">
+      <div className="cal-top">
+        <div className="cal-lhs">
+          <div className="cal-lbl">Calories</div>
+          <div className="cal-num">{logged.calories.toLocaleString()}</div>
+          <div className="cal-unit">kcal consumed</div>
+        </div>
+        <div className="cal-rhs">
+          <div className="cal-rem-lbl">{over?"Over by":"Remaining"}</div>
+          <div className={"cal-rem-val "+(over?"over":"good")}>{Math.abs(rem).toLocaleString()}</div>
+          <div className={"cal-rem-sub "+(over?"over":"good")}>{over?"⬆ over budget":"⬇ to goal"}</div>
+        </div>
+      </div>
+      <div className="pbar-track"><div className={"pbar-fill"+(over?" over":"")} style={{width:pct+"%"}}/></div>
+      <div className="macro-row">
+        <div className="mpill p"><div className="mpill-val">{logged.protein}g</div><div className="mpill-name">Protein</div><div className="mpill-bar"><div className="mpill-bar-fill" style={{width:pp+"%"}}/></div><div className="mpill-goal">{goals.protein}g goal</div></div>
+        <div className="mpill c"><div className="mpill-val">{logged.carbs}g</div><div className="mpill-name">Carbs</div><div className="mpill-bar"><div className="mpill-bar-fill" style={{width:pc+"%"}}/></div><div className="mpill-goal">{goals.carbs}g goal</div></div>
+        <div className="mpill f"><div className="mpill-val">{logged.fat}g</div><div className="mpill-name">Fat</div><div className="mpill-bar"><div className="mpill-bar-fill" style={{width:pf+"%"}}/></div><div className="mpill-goal">{goals.fat}g goal</div></div>
+      </div>
     </div>
-    <button className="btn" style={{marginTop:0}} onClick={()=>onConfirm({name:food.name,serving:qty+"x "+serv.label,meal,cal:m.cal,p:m.p,c:m.c,f:m.f})}>Add to {meal}</button>
-    <button className="btn-ghost" onClick={onBack}>← Back to results</button>
-  </div>);
+  );
 }
 
+/* ── WeekSelector ── */
+function WeekSelector({selectedDate,onSelect,weekOffset,onOffsetChange,entries}){
+  const today=new Date();today.setHours(0,0,0,0);
+  const baseMonday=getMondayOfWeek(today);
+  const monday=new Date(baseMonday);monday.setDate(monday.getDate()+weekOffset*7);
+  const days=getWeekDates(monday);
+  const isThisWeek=weekOffset===0;
+  const weekLabel=fmtShort(days[0])+" – "+fmtShort(days[6]);
+
+  return(
+    <div>
+      <div className="week-nav">
+        <button className="week-arrow" onClick={()=>onOffsetChange(weekOffset-1)}>‹</button>
+        <div className="week-days">
+          {days.map((d,i)=>{
+            const iso=isoDate(d);
+            const isToday=isoDate(d)===isoDate(today);
+            const isSel=iso===selectedDate;
+            const hasData=(entries[iso]||[]).length>0;
+            const letter=DAY_LETTERS[(i+1)%7];// Mon=M, Sun=Su
+            return(
+              <button key={iso} className={"day-pill"+(isToday?" today":"")+(isSel?" selected":"")+(hasData&&!isSel?" has-data":"")} onClick={()=>onSelect(iso)}>
+                <span className="day-pill-letter">{letter}</span>
+                <span className="day-pill-num">{d.getDate()}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button className="week-arrow" onClick={()=>onOffsetChange(Math.min(0,weekOffset+1))} disabled={weekOffset===0} style={{opacity:weekOffset===0?0.3:1}}>›</button>
+      </div>
+      <div className="week-label">{isThisWeek?"This week":"Week of"} {weekLabel}</div>
+    </div>
+  );
+}
+
+/* ── WeightChart ── */
+function WeightChart({data}){
+  if(data.length<2)return <div style={{padding:"16px 0",textAlign:"center",color:"var(--mu)",fontSize:12}}>Log 2+ entries to see your trend</div>;
+  const vals=data.map(d=>d.weight);const lo=Math.min(...vals)-2,hi=Math.max(...vals)+2;
+  const W=370,H=110,xs=W/(data.length-1);
+  const ys=v=>H-((v-lo)/(hi-lo))*H;
+  const pts=data.map((d,i)=>`${i*xs},${ys(d.weight)}`).join(" ");
+  const area=`0,${H} ${pts} ${(data.length-1)*xs},${H}`;
+  return(
+    <div className="chart-area">
+      <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+        <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6366f1" stopOpacity="0.35"/><stop offset="100%" stopColor="#6366f1" stopOpacity="0"/></linearGradient></defs>
+        <polygon points={area} fill="url(#cg)"/>
+        <polyline points={pts} fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+        {data.map((d,i)=><circle key={i} cx={i*xs} cy={ys(d.weight)} r="4" fill="#6366f1" stroke="#a5b4fc" strokeWidth="1.5"/>)}
+      </svg>
+    </div>
+  );
+}
+
+/* ── FoodDetail ── */
+function FoodDetail({food,meal,onBack,onConfirm}){
+  const [si,setSi]=useState(0);const [qty,setQty]=useState("1");
+  const serv=food.servings[si];const m=scaleMacros(food,serv.grams,qty);
+  return(
+    <div className="detail-box">
+      <div className="det-name">{food.name}</div>
+      <div className="det-sub">{food.brand||food.dataType}</div>
+      <div className="fg"><div className="fl">Serving Size</div><select className="field" value={si} onChange={e=>setSi(parseInt(e.target.value,10))} style={{appearance:"none"}}>{food.servings.map((s,i)=><option key={i} value={i}>{s.label}</option>)}</select></div>
+      <div className="fg"><div className="fl">Quantity</div><input className="field" type="number" step="0.5" min="0.5" value={qty} onChange={e=>setQty(e.target.value)}/></div>
+      <div className="m4">
+        <div className="m4c"><div className="m4v">{m.cal}</div><div className="m4l">kcal</div></div>
+        <div className="m4c"><div className="m4v" style={{color:"var(--rosel)"}}>{m.p}g</div><div className="m4l">Protein</div></div>
+        <div className="m4c"><div className="m4v" style={{color:"var(--cyanl)"}}>{m.c}g</div><div className="m4l">Carbs</div></div>
+        <div className="m4c"><div className="m4v" style={{color:"var(--ambl)"}}>{m.f}g</div><div className="m4l">Fat</div></div>
+      </div>
+      <button className="btn" style={{marginTop:4}} onClick={()=>onConfirm({name:food.name,serving:qty+"x "+serv.label,meal,cal:m.cal,p:m.p,c:m.c,f:m.f})}>Add to {meal}</button>
+      <button className="btn-ghost" onClick={onBack}>← Back</button>
+    </div>
+  );
+}
+
+/* ── BarcodeScanner ── */
 function BarcodeScanner({onDetected}){
-  const vRef=useRef(null),streamRef=useRef(null),rafRef=useRef(null),detRef=useRef(null);
-  const [status,setStatus]=useState("starting"),[code,setCode]=useState("");
+  const vRef=useRef(null);const streamRef=useRef(null);const rafRef=useRef(null);const detRef=useRef(null);
+  const [status,setStatus]=useState("starting");const [code,setCode]=useState("");
   useEffect(()=>{
     let dead=false;
     async function go(){
       if(!("BarcodeDetector" in window)){setStatus("unsupported");return;}
-      try{detRef.current=new window.BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128","code_39","itf","qr_code"]});}
-      catch(e){setStatus("unsupported");return;}
-      try{
-        const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1280},height:{ideal:720}}});
-        if(dead){s.getTracks().forEach(t=>t.stop());return;}
-        streamRef.current=s;
-        if(vRef.current){vRef.current.srcObject=s;await vRef.current.play();}
-        setStatus("scanning");tick();
-      }catch(e){if(!dead)setStatus("error");}
+      try{detRef.current=new window.BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128","code_39","itf","qr_code"]});}catch(e){setStatus("unsupported");return;}
+      try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1280},height:{ideal:720}}});if(dead){s.getTracks().forEach(t=>t.stop());return;}streamRef.current=s;if(vRef.current){vRef.current.srcObject=s;await vRef.current.play();}setStatus("scanning");tick();}
+      catch(e){if(!dead)setStatus("error");}
     }
     async function tick(){
       if(dead||!vRef.current||!detRef.current)return;
@@ -363,27 +437,31 @@ function BarcodeScanner({onDetected}){
     go();
     return()=>{dead=true;cancelAnimationFrame(rafRef.current);if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());};
   },[]);
-  if(status==="unsupported")return(<div style={{textAlign:"center",padding:"16px 0"}}><div style={{fontSize:36,marginBottom:10}}>😕</div><div style={{fontSize:13,color:"var(--muted)",lineHeight:1.6}}>Camera scanning needs Chrome (Android) or Safari iOS 17+. Type the barcode below instead.</div></div>);
-  if(status==="error")return(<div style={{textAlign:"center",padding:"16px 0"}}><div style={{fontSize:36,marginBottom:10}}>📷</div><div style={{fontSize:13,color:"var(--muted)",lineHeight:1.6}}>Camera permission denied. Check browser settings or type the barcode below.</div></div>);
-  return(<div>
-    <div className="scanner-wrap">
-      <video ref={vRef} className="scanner-video" muted playsInline/>
-      {status==="scanning"&&(<div className="scanner-frame"><div className="scanner-box"><div className="sc tl"/><div className="sc tr"/><div className="sc bl"/><div className="sc br"/><div className="scan-line"/></div></div>)}
-      {status==="success"&&(<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(16,185,129,0.15)"}}><div style={{fontSize:64}}>✅</div></div>)}
-      {status==="starting"&&(<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><div className="spin"/></div>)}
-      <div className="scanner-hint">Point at any barcode</div>
+  if(status==="unsupported")return <div style={{textAlign:"center",padding:"14px 0"}}><div style={{fontSize:36,marginBottom:10}}>😕</div><div className="muted-t">Camera scanning needs Chrome (Android) or Safari iOS 17+. Type the barcode below instead.</div></div>;
+  if(status==="error")return <div style={{textAlign:"center",padding:"14px 0"}}><div style={{fontSize:36,marginBottom:10}}>📷</div><div className="muted-t">Camera permission denied. Check settings or type the barcode below.</div></div>;
+  return(
+    <div>
+      <div className="scanner-wrap">
+        <video ref={vRef} className="scanner-video" muted playsInline/>
+        {status==="scanning"&&<div className="scanner-frame"><div className="scanner-box"><div className="sc tl"/><div className="sc tr"/><div className="sc bl"/><div className="sc br"/><div className="scan-line"/></div></div>}
+        {status==="success"&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(16,185,129,0.18)"}}><div style={{fontSize:64}}>✅</div></div>}
+        {status==="starting"&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><div className="spin"/></div>}
+        <div className="scanner-hint">Point at any barcode — auto-detects</div>
+      </div>
+      {status==="success"&&<div style={{textAlign:"center",fontSize:12,color:"var(--em)",marginBottom:8}}>✓ Detected: {code}</div>}
     </div>
-    {status==="success"&&<div style={{textAlign:"center",fontSize:12,color:"var(--green)",marginBottom:8}}>Detected: {code}</div>}
-  </div>);
+  );
 }
 
+/* ── AddFoodModal ── */
 function AddFoodModal({onClose,onAdd,targetMeal,usdaKey}){
-  const [tab,setTab]=useState("search"),[meal,setMeal]=useState(targetMeal||"Breakfast");
-  const [query,setQuery]=useState(""),[results,setResults]=useState([]),[searching,setSearching]=useState(false),[sErr,setSErr]=useState(""),[selected,setSelected]=useState(null);
-  const [barcode,setBarcode]=useState(""),[bLoading,setBLoading]=useState(false),[bErr,setBErr]=useState(""),[bFood,setBFood]=useState(null);
-  const [img,setImg]=useState(null),[scanning,setScanning]=useState(false),[aiRes,setAiRes]=useState(null),[aiErr,setAiErr]=useState("");
-  const [mN,setMN]=useState(""),[mC,setMC]=useState(""),[mP,setMP]=useState(""),[mCa,setMCa]=useState(""),[mF,setMF]=useState("");
-  const fRef=useRef(null),tRef=useRef(null);
+  const [tab,setTab]=useState("search");const [meal,setMeal]=useState(targetMeal||"Breakfast");
+  const [query,setQuery]=useState("");const [results,setResults]=useState([]);const [searching,setSearching]=useState(false);const [sErr,setSErr]=useState("");const [selected,setSelected]=useState(null);
+  const [barcode,setBarcode]=useState("");const [bLoad,setBLoad]=useState(false);const [bErr,setBErr]=useState("");const [bFood,setBFood]=useState(null);
+  const [img,setImg]=useState(null);const [scanning,setScanning]=useState(false);const [aiRes,setAiRes]=useState(null);const [aiErr,setAiErr]=useState("");
+  const [mN,setMN]=useState("");const [mC,setMC]=useState("");const [mP,setMP]=useState("");const [mCa,setMCa]=useState("");const [mF,setMF]=useState("");
+  const fRef=useRef(null);const tRef=useRef(null);
+
   useEffect(()=>{
     if(!query.trim()||query.length<2){setResults([]);setSErr("");return;}
     clearTimeout(tRef.current);
@@ -395,420 +473,391 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey}){
     },500);
     return()=>clearTimeout(tRef.current);
   },[query,usdaKey]);
+
   async function lookupBarcode(code){
     const c=(code||barcode||"").trim();if(!c)return;
-    setBLoading(true);setBErr("");setBFood(null);
-    try{const r=await fetch(USDA+"/foods/search?query="+c+"&pageSize=5&api_key="+usdaKey);if(!r.ok)throw new Error();const d=await r.json();const foods=d.foods||[];const match=foods.find(f=>f.gtinUpc===c)||foods[0];if(!match)setBErr("No food found for that barcode.");else setBFood(parseFood(match));}
+    setBLoad(true);setBErr("");setBFood(null);
+    try{const r=await fetch(USDA+"/foods/search?query="+c+"&pageSize=5&api_key="+usdaKey);if(!r.ok)throw new Error();const d=await r.json();const foods=d.foods||[];const match=foods.find(f=>f.gtinUpc===c)||foods[0];if(!match)setBErr("No food found.");else setBFood(parseFood(match));}
     catch(e){setBErr("Lookup failed — check your USDA API key.");}
-    finally{setBLoading(false);}
+    finally{setBLoad(false);}
   }
+
   function handlePhoto(e){
     const file=e.target.files[0];if(!file)return;
     const reader=new FileReader();
     reader.onload=async ev=>{
       setImg(ev.target.result);setScanning(true);setAiRes(null);setAiErr("");
-      try{
-        const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:'You are a nutrition AI. Identify food in the image and estimate macros. Respond ONLY with valid JSON, no markdown: {"name":"...","cal":0,"p":0,"c":0,"f":0,"confidence":"high/medium/low","note":"..."}',messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:ev.target.result.split(",")[1]}},{type:"text",text:"Estimate nutrition for this food."}]}]})});
-        const d=await r.json();const txt=((d.content||[]).find(b=>b.type==="text")||{}).text||"";setAiRes(JSON.parse(txt.replace(/```json|```/g,"").trim()));
-      }catch(e){setAiErr("Couldn't analyze — try manual entry.");}
+      try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:'You are a nutrition AI. Identify food in the image and estimate macros. Respond ONLY with valid JSON, no markdown: {"name":"...","cal":0,"p":0,"c":0,"f":0,"confidence":"high/medium/low","note":"..."}',messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:ev.target.result.split(",")[1]}},{type:"text",text:"Estimate nutrition for this food."}]}]})});const d=await r.json();const txt=((d.content||[]).find(b=>b.type==="text")||{}).text||"";setAiRes(JSON.parse(txt.replace(/```json|```/g,"").trim()));}
+      catch(e){setAiErr("Couldn't analyze — try a clearer photo or manual entry.");}
       finally{setScanning(false);}
     };
     reader.readAsDataURL(file);
   }
+
   function confirm(entry){onAdd(entry);onClose();}
   function switchTab(t){setTab(t);setSelected(null);setBFood(null);}
-  return(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <div className="sheet">
-      <div className="sheet-handle"/>
-      <div className="sheet-title">Add Food</div>
-      <div style={{marginBottom:16}}>
-        <div className="field-label" style={{marginBottom:8}}>Meal</div>
-        <div className="meal-chips">{MEALS.map(m=><div key={m.id} className={"chip"+(meal===m.id?" active":"")} onClick={()=>setMeal(m.id)}>{m.emoji} {m.id}</div>)}</div>
-      </div>
-      <div className="tabs">
-        {[["search","🔍 Search"],["barcode","📦 Scan"],["photo","📷 AI"],["custom","✏️ Manual"]].map(t=>(
-          <button key={t[0]} className={"tab-btn"+(tab===t[0]?" active":"")} onClick={()=>switchTab(t[0])}>{t[1]}</button>
-        ))}
-      </div>
-      {tab==="search"&&(<div>
-        {!selected?(<div>
-          <div className="search-wrap"><span className="search-icon">🔍</span><input className="search-field" placeholder="Search 600k+ foods…" value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);}} autoFocus/></div>
-          {!usdaKey&&<div className="err">⚠ Add your USDA API key in Goals to enable search.</div>}
-          {searching&&<div className="loading-row"><div className="spin"/><span>Searching USDA database…</span></div>}
-          {sErr&&<div className="err">{sErr}</div>}
-          {!searching&&results.map(f=>(<div key={f.fdcId} className="sresult" onClick={()=>setSelected(f)}><div className="sr-left"><div className="sr-name">{f.name}</div><div className="sr-sub">{f.brand||f.dataType} · {f.p100}P/{f.c100}C/{f.f100}F per 100g</div></div><div className="sr-cal">{f.cal100}</div></div>))}
-          {!searching&&query.length>=2&&results.length===0&&!sErr&&<div style={{color:"var(--muted)",fontSize:13,padding:"12px 0",textAlign:"center"}}>No results found.</div>}
-          {!query&&<div style={{textAlign:"center",padding:"24px 0"}}><div style={{fontSize:32,marginBottom:8,opacity:0.4}}>🥦</div><div style={{fontSize:13,color:"var(--muted)"}}>Start typing to search 600,000+ foods</div></div>}
-        </div>):(<FoodDetail food={selected} meal={meal} onBack={()=>setSelected(null)} onConfirm={confirm}/>)}
-      </div>)}
-      {tab==="barcode"&&(<div>
-        {!bFood?(<div>
-          {!usdaKey&&<div className="err" style={{marginBottom:10}}>⚠ Add your USDA API key in Goals first.</div>}
-          <BarcodeScanner onDetected={c=>{setBarcode(c);lookupBarcode(c);}}/>
-          <div style={{marginTop:12}}><div className="field-label" style={{marginBottom:8}}>Or enter barcode manually</div>
-            <div style={{display:"flex",gap:8}}>
-              <input className="field" placeholder="e.g. 021130126026" value={barcode} onChange={e=>setBarcode(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")lookupBarcode(e.target.value);}} style={{flex:1}}/>
-              <button className="btn-sm" onClick={()=>lookupBarcode(barcode)} disabled={bLoading}>{bLoading?"…":"Go"}</button>
-            </div></div>
-          {bLoading&&<div className="loading-row"><div className="spin"/><span>Looking up barcode…</span></div>}
-          {bErr&&<div className="err">{bErr}</div>}
-        </div>):(<FoodDetail food={bFood} meal={meal} onBack={()=>setBFood(null)} onConfirm={confirm}/>)}
-      </div>)}
-      {tab==="photo"&&(<div>
-        <input ref={fRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handlePhoto}/>
-        {!img?(<div className="scan-drop" onClick={()=>fRef.current&&fRef.current.click()}><div className="scan-emoji">📷</div><div style={{fontSize:15,color:"var(--text2)",fontWeight:500,marginBottom:6}}>Tap to photograph your food</div><div style={{fontSize:12,color:"var(--muted)"}}>AI estimates calories and macros instantly</div></div>
-        ):(<div>
-          <img src={img} className="scan-preview" alt="food"/>
-          {scanning&&<div className="loading-row"><div className="spin"/><span>AI is analyzing your food…</span></div>}
-          {aiErr&&<div className="err">{aiErr}</div>}
-          {aiRes&&(<div className="detail-box">
-            <div className="ai-badge">✨ AI Estimate</div>
-            <div className="detail-name">{aiRes.name}</div>
-            {aiRes.note&&<div className="detail-sub">{aiRes.note}</div>}
-            <div className="macro-4">
-              <div className="m4"><div className="m4-val">{aiRes.cal}</div><div className="m4-label">kcal</div></div>
-              <div className="m4"><div className="m4-val" style={{color:"var(--protein)"}}>{aiRes.p}g</div><div className="m4-label">Protein</div></div>
-              <div className="m4"><div className="m4-val" style={{color:"var(--carbs)"}}>{aiRes.c}g</div><div className="m4-label">Carbs</div></div>
-              <div className="m4"><div className="m4-val" style={{color:"var(--fat)"}}>{aiRes.f}g</div><div className="m4-label">Fat</div></div>
-            </div>
-            <div style={{fontSize:11,color:"var(--muted)",marginBottom:10}}>Confidence: {aiRes.confidence}</div>
-            <button className="btn" style={{marginTop:0}} onClick={()=>confirm({name:aiRes.name,serving:"AI estimate",meal,cal:aiRes.cal,p:aiRes.p,c:aiRes.c,f:aiRes.f})}>Add to {meal}</button>
-          </div>)}
-          <button className="btn-ghost" onClick={()=>{setImg(null);setAiRes(null);setAiErr("");}}>Retake Photo</button>
-        </div>)}
-      </div>)}
-      {tab==="custom"&&(<div>
-        <div className="field-group"><div className="field-label">Food Name</div><input className="field" placeholder="e.g. Ground Turkey Bowl" value={mN} onChange={e=>setMN(e.target.value)}/></div>
-        <div className="field-group"><div className="field-label">Calories</div><input className="field" type="number" placeholder="0" value={mC} onChange={e=>setMC(e.target.value)}/></div>
-        <div className="grid3">
-          <div className="field-group"><div className="field-label" style={{color:"var(--protein)"}}>Protein</div><input className="field pf" type="number" placeholder="0g" value={mP} onChange={e=>setMP(e.target.value)}/></div>
-          <div className="field-group"><div className="field-label" style={{color:"var(--carbs)"}}>Carbs</div><input className="field cf" type="number" placeholder="0g" value={mCa} onChange={e=>setMCa(e.target.value)}/></div>
-          <div className="field-group"><div className="field-label" style={{color:"var(--fat)"}}>Fat</div><input className="field ff" type="number" placeholder="0g" value={mF} onChange={e=>setMF(e.target.value)}/></div>
+
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="sheet">
+        <div className="sheet-handle"/>
+        <div className="sheet-title">Add Food</div>
+        <div style={{marginBottom:14}}>
+          <div className="fl" style={{marginBottom:8}}>Meal</div>
+          <div className="chips">{MEALS.map(m=><div key={m.id} className={"chip"+(meal===m.id?" active":"")} onClick={()=>setMeal(m.id)}>{m.emoji} {m.id}</div>)}</div>
         </div>
-        <button className="btn" disabled={!mN||!mC} onClick={()=>confirm({name:mN,serving:"custom",meal,cal:parseInt(mC,10)||0,p:parseInt(mP,10)||0,c:parseInt(mCa,10)||0,f:parseInt(mF,10)||0})}>Add to {meal}</button>
-      </div>)}
-      <button className="btn-ghost" onClick={onClose}>Cancel</button>
+        <div className="tabs">
+          {[["search","🔍 Search"],["barcode","📦 Scan"],["photo","📷 AI"],["custom","✏️ Manual"]].map(t=><button key={t[0]} className={"tab-btn"+(tab===t[0]?" active":"")} onClick={()=>switchTab(t[0])}>{t[1]}</button>)}
+        </div>
+
+        {tab==="search"&&<div>
+          {!selected?<div>
+            <div className="search-wrap"><span className="search-ico">🔍</span><input className="search-field" placeholder="Search 600k+ foods…" value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);}} autoFocus/></div>
+            {!usdaKey&&<div className="err">⚠ Add your USDA API key in Goals to enable search.</div>}
+            {searching&&<div className="loading-row"><div className="spin"/><span>Searching USDA…</span></div>}
+            {sErr&&<div className="err">{sErr}</div>}
+            {!searching&&results.map(f=><div key={f.fdcId} className="sres" onClick={()=>setSelected(f)}><div style={{minWidth:0}}><div className="sr-name">{f.name}</div><div className="sr-sub">{f.brand||f.dataType} · {f.p100}P/{f.c100}C/{f.f100}F per 100g</div></div><div className="sr-cal">{f.cal100}</div></div>)}
+            {!searching&&query.length>=2&&results.length===0&&!sErr&&<div className="muted-t" style={{padding:"10px 0"}}>No results.</div>}
+          </div>:<FoodDetail food={selected} meal={meal} onBack={()=>setSelected(null)} onConfirm={confirm}/>}
+        </div>}
+
+        {tab==="barcode"&&<div>
+          {!bFood?<div>
+            {!usdaKey&&<div className="err" style={{marginBottom:10}}>⚠ Add your USDA API key in Goals first.</div>}
+            <BarcodeScanner onDetected={c=>{setBarcode(c);lookupBarcode(c);}}/>
+            <div style={{marginTop:10}}>
+              <div className="fl" style={{marginBottom:6}}>Or enter barcode manually</div>
+              <div style={{display:"flex",gap:8}}><input className="field" placeholder="e.g. 021130126026" value={barcode} onChange={e=>setBarcode(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")lookupBarcode(e.target.value);}} style={{flex:1}}/><button className="btn-sm" onClick={()=>lookupBarcode(barcode)} disabled={bLoad}>{bLoad?"…":"Go"}</button></div>
+            </div>
+            {bLoad&&<div className="loading-row"><div className="spin"/><span>Looking up…</span></div>}
+            {bErr&&<div className="err">{bErr}</div>}
+          </div>:<FoodDetail food={bFood} meal={meal} onBack={()=>setBFood(null)} onConfirm={confirm}/>}
+        </div>}
+
+        {tab==="photo"&&<div>
+          <input ref={fRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handlePhoto}/>
+          {!img?<div className="scan-drop" onClick={()=>fRef.current&&fRef.current.click()}>
+            <div style={{fontSize:50,marginBottom:12}}>📷</div>
+            <div style={{fontSize:15,color:"var(--txt2)",fontWeight:500}}>Tap to take a photo</div>
+            <div style={{fontSize:12,color:"var(--mu)",marginTop:6}}>AI estimates calories and macros</div>
+          </div>:<div>
+            <img src={img} className="scan-prev" alt="food"/>
+            {scanning&&<div className="loading-row"><div className="spin"/><span>Analyzing with AI…</span></div>}
+            {aiErr&&<div className="err">{aiErr}</div>}
+            {aiRes&&<div className="detail-box">
+              <div className="ai-badge">✨ AI Estimate</div>
+              <div className="det-name">{aiRes.name}</div>
+              {aiRes.note&&<div className="det-sub">{aiRes.note}</div>}
+              <div className="m4">
+                <div className="m4c"><div className="m4v">{aiRes.cal}</div><div className="m4l">kcal</div></div>
+                <div className="m4c"><div className="m4v" style={{color:"var(--rosel)"}}>{aiRes.p}g</div><div className="m4l">Protein</div></div>
+                <div className="m4c"><div className="m4v" style={{color:"var(--cyanl)"}}>{aiRes.c}g</div><div className="m4l">Carbs</div></div>
+                <div className="m4c"><div className="m4v" style={{color:"var(--ambl)"}}>{aiRes.f}g</div><div className="m4l">Fat</div></div>
+              </div>
+              <div style={{fontSize:11,color:"var(--mu)",marginBottom:4}}>Confidence: {aiRes.confidence}</div>
+              <button className="btn" style={{marginTop:4}} onClick={()=>confirm({name:aiRes.name,serving:"AI estimate",meal,cal:aiRes.cal,p:aiRes.p,c:aiRes.c,f:aiRes.f})}>Add to {meal}</button>
+            </div>}
+            <button className="btn-ghost" onClick={()=>{setImg(null);setAiRes(null);setAiErr("");}}>Retake</button>
+          </div>}
+        </div>}
+
+        {tab==="custom"&&<div>
+          <div className="fg"><div className="fl">Food Name</div><input className="field" placeholder="e.g. Ground Turkey Bowl" value={mN} onChange={e=>setMN(e.target.value)}/></div>
+          <div className="fg"><div className="fl">Calories</div><input className="field" type="number" placeholder="0" value={mC} onChange={e=>setMC(e.target.value)}/></div>
+          <div className="g3">
+            <div className="fg"><div className="fl" style={{color:"var(--rose)"}}>Protein (g)</div><input className="field fp" type="number" placeholder="0" value={mP} onChange={e=>setMP(e.target.value)}/></div>
+            <div className="fg"><div className="fl" style={{color:"var(--cyan)"}}>Carbs (g)</div><input className="field fc" type="number" placeholder="0" value={mCa} onChange={e=>setMCa(e.target.value)}/></div>
+            <div className="fg"><div className="fl" style={{color:"var(--amb)"}}>Fat (g)</div><input className="field ff" type="number" placeholder="0" value={mF} onChange={e=>setMF(e.target.value)}/></div>
+          </div>
+          <button className="btn" disabled={!mN||!mC} onClick={()=>confirm({name:mN,serving:"custom",meal,cal:parseInt(mC,10),p:parseInt(mP,10)||0,c:parseInt(mCa,10)||0,f:parseInt(mF,10)||0})}>Add to {meal}</button>
+        </div>}
+
+        <button className="btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
     </div>
-  </div>);
+  );
 }
 
+/* ── WeightModal ── */
 function WeightModal({onClose,onLog}){
   const [v,setV]=useState("");
-  return(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <div className="sheet"><div className="sheet-handle"/><div className="sheet-title">Log Weight</div>
-      <div className="field-group"><div className="field-label">Weight (lbs)</div>
-        <input className="field" type="number" step="0.1" placeholder="e.g. 215.4" value={v} onChange={e=>setV(e.target.value)} autoFocus style={{fontSize:24,textAlign:"center",padding:"18px"}}/></div>
-      <button className="btn btn-green" disabled={!v} onClick={()=>{onLog(parseFloat(v));onClose();}}>Save Weight</button>
-      <button className="btn-ghost" onClick={onClose}>Cancel</button>
-    </div>
-  </div>);
-}
-function GoalsModal({goals,onClose,onSave}){
-  const [c,setC]=useState(String(goals.calories)),[p,setP]=useState(String(goals.protein)),[ca,setCa]=useState(String(goals.carbs)),[f,setF]=useState(String(goals.fat));
-  return(<div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <div className="sheet"><div className="sheet-handle"/><div className="sheet-title">Edit Goals</div>
-      <div className="field-group"><div className="field-label">Daily Calories</div><input className="field" type="number" value={c} onChange={e=>setC(e.target.value)}/></div>
-      <div className="grid3">
-        <div className="field-group"><div className="field-label" style={{color:"var(--protein)"}}>Protein (g)</div><input className="field pf" type="number" value={p} onChange={e=>setP(e.target.value)}/></div>
-        <div className="field-group"><div className="field-label" style={{color:"var(--carbs)"}}>Carbs (g)</div><input className="field cf" type="number" value={ca} onChange={e=>setCa(e.target.value)}/></div>
-        <div className="field-group"><div className="field-label" style={{color:"var(--fat)"}}>Fat (g)</div><input className="field ff" type="number" value={f} onChange={e=>setF(e.target.value)}/></div>
-      </div>
-      <button className="btn" onClick={()=>{onSave({calories:parseInt(c,10),protein:parseInt(p,10),carbs:parseInt(ca,10),fat:parseInt(f,10)});onClose();}}>Save Goals</button>
-      <button className="btn-ghost" onClick={onClose}>Cancel</button>
-    </div>
-  </div>);
-}
-function ConfirmModal({icon,title,body,confirmLabel,onConfirm,onCancel}){
-  return(<div className="confirm-overlay">
-    <div className="confirm-box">
-      <div className="confirm-icon">{icon}</div>
-      <div className="confirm-title">{title}</div>
-      <div className="confirm-body">{body}</div>
-      <div className="confirm-actions">
-        <button className="confirm-cancel" onClick={onCancel}>Cancel</button>
-        <button className="confirm-ok" onClick={onConfirm}>{confirmLabel}</button>
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="sheet">
+        <div className="sheet-handle"/>
+        <div className="sheet-title">Log Weight</div>
+        <div className="fg"><div className="fl">Weight (lbs)</div><input className="field" type="number" step="0.1" placeholder="e.g. 215.4" value={v} onChange={e=>setV(e.target.value)} autoFocus/></div>
+        <button className="btn" disabled={!v} onClick={()=>{onLog(parseFloat(v));onClose();}}>Save Weight</button>
+        <button className="btn-ghost" onClick={onClose}>Cancel</button>
       </div>
     </div>
-  </div>);
+  );
 }
 
+/* ── GoalsModal ── */
+function GoalsModal({goals,onClose,onSave}){
+  const [c,setC]=useState(String(goals.calories));const [p,setP]=useState(String(goals.protein));const [ca,setCa]=useState(String(goals.carbs));const [f,setF]=useState(String(goals.fat));
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="sheet">
+        <div className="sheet-handle"/>
+        <div className="sheet-title">Edit Goals</div>
+        <div className="fg"><div className="fl">Daily Calories</div><input className="field" type="number" value={c} onChange={e=>setC(e.target.value)}/></div>
+        <div className="g3">
+          <div className="fg"><div className="fl" style={{color:"var(--rose)"}}>Protein (g)</div><input className="field fp" type="number" value={p} onChange={e=>setP(e.target.value)}/></div>
+          <div className="fg"><div className="fl" style={{color:"var(--cyan)"}}>Carbs (g)</div><input className="field fc" type="number" value={ca} onChange={e=>setCa(e.target.value)}/></div>
+          <div className="fg"><div className="fl" style={{color:"var(--amb)"}}>Fat (g)</div><input className="field ff" type="number" value={f} onChange={e=>setF(e.target.value)}/></div>
+        </div>
+        <button className="btn" onClick={()=>{onSave({calories:parseInt(c,10),protein:parseInt(p,10),carbs:parseInt(ca,10),fat:parseInt(f,10)});onClose();}}>Save Goals</button>
+        <button className="btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Adapt Engine ── */
+function computeAdapt(wlog,goals){
+  if(wlog.length<7)return null;
+  const r=wlog.slice(-7);const ch=r[r.length-1].weight-r[0].weight;
+  const tgt=-0.5,diff=ch-tgt;
+  let adj=0,msg="",state="normal";
+  if(Math.abs(diff)<0.15){msg="You're right on track — losing at your target pace. Keep doing exactly this.";state="ontrack";}
+  else if(diff>0.15){adj=-75;msg="Lost "+Math.abs(ch).toFixed(1)+" lbs this week vs your 0.5 lb target. Dropping calories slightly.";}
+  else{adj=75;msg="Lost "+Math.abs(ch).toFixed(1)+" lbs — faster than target. A small calorie bump protects muscle mass.";}
+  return{ch:ch.toFixed(1),adj,newCal:goals.calories+adj,msg,state};
+}
+
+/* ── App ── */
 function App(){
   const [tab,setTab]=useLocal("mt_tab","log");
-  const [goals,setGoals]=useLocal("mt_goals",DEFAULT_GOALS);
-  const [entries,setEntries]=useLocal("mt_entries",{});
-  const [wlog,setWlog]=useLocal("mt_wlog",[]);
-  const [usdaKey,setUsdaKey]=useLocal("mt_usda","");
+  const [goals,setGoalsRaw]=useLocal("mt_goals",DEFAULT_GOALS);
+  const [entries,setEntriesRaw]=useLocal("mt_entries",{});
+  const [wlog,setWlogRaw]=useLocal("mt_wlog",[]);
+  const [usdaKey,setUsdaKeyRaw]=useLocal("mt_usda","");
   const [keyIn,setKeyIn]=useState("");
   const [modal,setModal]=useState(null);
-  const [openMeals,setOpenMeals]=useState({Breakfast:true,Lunch:false,Dinner:false,Snacks:false});
+  const [openMeals,setOpenMeals]=useState({Breakfast:true,Lunch:true,Dinner:true,Snacks:true});
   const [targetMeal,setTargetMeal]=useState("Breakfast");
-  const [showInstall,setShowInstall]=useState(!window.matchMedia("(display-mode: standalone)").matches);
-  const [confirmDlg,setConfirmDlg]=useState(null);
+  const [toastMsg,setToastMsg]=useState("");
+  const toastKey=useRef(0);
 
-  const key=todayKey();
-  const todayE=entries[key]||[];
-  const logged=useMemo(()=>todayE.reduce((a,e)=>({calories:a.calories+e.cal,protein:a.protein+e.p,carbs:a.carbs+e.c,fat:a.fat+e.f}),{calories:0,protein:0,carbs:0,fat:0}),[todayE]);
+  // Week navigation state
+  const [weekOffset,setWeekOffset]=useState(0);
+  const [selectedDate,setSelectedDate]=useState(todayISO());
 
-  function addEntry(e){setEntries(prev=>{const n={...prev};n[key]=(prev[key]||[]).concat([{...e,id:Date.now()}]);return n;});}
-  function delEntry(id){setEntries(prev=>{const n={...prev};n[key]=(prev[key]||[]).filter(e=>e.id!==id);return n;});}
-  function logWeight(w){setWlog(prev=>{const e={date:key,weight:w},idx=prev.findIndex(x=>x.date===key);if(idx>=0){const n=[...prev];n[idx]=e;return n;}return[...prev,e].slice(-90);});}
-  function clearDay(){setEntries(prev=>{const n={...prev};n[key]=[];return n;});setConfirmDlg(null);}
+  // When week changes, select the first day of that week (or today if current week)
+  function handleOffsetChange(newOffset){
+    setWeekOffset(newOffset);
+    if(newOffset===0){setSelectedDate(todayISO());}
+    else{const mon=getMondayOfWeek(new Date());mon.setDate(mon.getDate()+newOffset*7);setSelectedDate(isoDate(mon));}
+  }
 
-  const sorted=useMemo(()=>[...wlog].sort((a,b)=>a.date.localeCompare(b.date)),[wlog]);
-  const latW=sorted[sorted.length-1],prevW=sorted[sorted.length-2];
-  const wDelta=latW&&prevW?(latW.weight-prevW.weight).toFixed(1):null;
-  const adaptation=useMemo(()=>computeAdapt(sorted,goals),[sorted,goals]);
+  function showToast(msg){
+    toastKey.current++;setToastMsg(msg+"  ");
+    setTimeout(()=>setToastMsg(msg),10);
+  }
 
-  const mEntries=m=>todayE.filter(e=>e.meal===m);
+  // Wrapped setters that show a toast on save
+  function setGoals(v){setGoalsRaw(v);showToast("✓ Goals saved");}
+  function setUsdaKey(v){setUsdaKeyRaw(v);if(v)showToast("✓ API key saved");}
+
+  function addEntry(e){
+    setEntriesRaw(prev=>{
+      const n={...prev};
+      n[selectedDate]=(prev[selectedDate]||[]).concat([{...e,id:Date.now()}]);
+      return n;
+    });
+    showToast("✓ Food logged");
+  }
+  function delEntry(id){
+    setEntriesRaw(prev=>{const n={...prev};n[selectedDate]=(prev[selectedDate]||[]).filter(e=>e.id!==id);return n;});
+  }
+  function logWeight(w){
+    setWlogRaw(prev=>{const e={date:todayISO(),weight:w};const idx=prev.findIndex(x=>x.date===todayISO());if(idx>=0){const n=[...prev];n[idx]=e;return n;}return prev.concat([e]).slice(-90);});
+    showToast("✓ Weight saved");
+  }
+  function clearDay(){
+    setEntriesRaw(prev=>{const n={...prev};n[selectedDate]=[];return n;});
+    showToast("✓ Day cleared");
+  }
+
+  const dayEntries=entries[selectedDate]||[];
+  const logged=dayEntries.reduce((a,e)=>({calories:a.calories+e.cal,protein:a.protein+e.p,carbs:a.carbs+e.c,fat:a.fat+e.f}),{calories:0,protein:0,carbs:0,fat:0});
+  const mEntries=m=>dayEntries.filter(e=>e.meal===m);
   const mCals=m=>mEntries(m).reduce((s,e)=>s+e.cal,0);
-  const calPct=Math.min((logged.calories/goals.calories)*100,100);
-  const calOver=logged.calories>goals.calories;
-  const calRem=goals.calories-logged.calories;
 
-  const navItems=[
-    {id:"log",icon:"📋",label:"Log"},
-    {id:"weight",icon:"⚖️",label:"Weight"},
-    {id:"food",icon:"🍽️",label:"Food"},
-    {id:"coach",icon:"🧠",label:"Coach"},
-    {id:"goals",icon:"⚙️",label:"Goals"},
-  ];
+  const sorted=wlog.slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const latW=sorted[sorted.length-1];const prevW=sorted[sorted.length-2];
+  const wDelta=latW&&prevW?(latW.weight-prevW.weight).toFixed(1):null;
+  const adapt=computeAdapt(sorted,goals);
+  const isToday=selectedDate===todayISO();
 
-  return(<div className="app">
-    <div className="header">
-      <div className="logo"><span className="logo-m">MACRO</span><span className="logo-rest">TRACK</span></div>
-      <div>
-        <div className="header-date">{todayLabel()}</div>
-        {adaptation&&adaptation.onTrack&&<div className="header-streak">✓ On Track</div>}
-      </div>
-    </div>
+  return(
+    <div className="app">
+      <Toast msg={toastMsg}/>
 
-    {/* LOG */}
-    {tab==="log"&&(<div className="page">
-      {showInstall&&(<div className="install-banner">
-        <div className="install-icon">📲</div>
-        <div className="install-text"><strong>Add to Home Screen</strong>Safari → Share → Add to Home Screen</div>
-        <button className="install-dismiss" onClick={()=>setShowInstall(false)}>×</button>
-      </div>)}
-      <div className="cal-hero">
-        <div className="cal-top-row">
-          <div className="cal-label">Calories Today</div>
-          <div className="cal-goal-badge">Goal: {goals.calories.toLocaleString()}</div>
-        </div>
-        <div className="cal-number-row">
-          <div style={{display:"flex",alignItems:"baseline",gap:4}}>
-            <span className="cal-number">{logged.calories.toLocaleString()}</span>
-            <span className="cal-unit">kcal</span>
-          </div>
-          <div className="cal-rem">
-            <div className="cal-rem-label">{calOver?"Over by":"Remaining"}</div>
-            <div className={"cal-rem-val "+(calOver?"over":"under")}>{Math.abs(calRem).toLocaleString()}</div>
-          </div>
-        </div>
-        <div className="pbar-track"><div className={"pbar-fill"+(calOver?" over":"")} style={{width:calPct+"%"}}/></div>
-        <div className="macro-row">
-          {[{cls:"protein",label:"Protein",val:logged.protein,goal:goals.protein},{cls:"carbs",label:"Carbs",val:logged.carbs,goal:goals.carbs},{cls:"fat",label:"Fat",val:logged.fat,goal:goals.fat}].map(m=>(
-            <div key={m.cls} className={"macro-card "+m.cls}>
-              <div className="macro-card-val">{m.val}g</div>
-              <div className="macro-card-name">{m.label}</div>
-              <div className="macro-card-bar"><div className="macro-card-bar-fill" style={{width:Math.min((m.val/m.goal)*100,100)+"%"}}/></div>
-              <div className="macro-card-goal">{m.goal}g goal</div>
-            </div>
-          ))}
+      {/* Header */}
+      <div className="hdr">
+        <div className="logo"><em>MACRO</em>TRACK</div>
+        <div className="hdr-r">
+          <div className="hdr-date">{fmtDate(new Date(selectedDate+"T12:00:00"))}</div>
         </div>
       </div>
-      <div className="section-header">
-        <div className="section-title">Today's Meals</div>
-        {todayE.length>0&&<button style={{background:"none",border:"none",color:"var(--muted)",fontSize:12,cursor:"pointer"}} onClick={()=>setConfirmDlg({icon:"🗑️",title:"Clear Day",body:"Remove all food entries for today? This can't be undone.",confirmLabel:"Clear",action:clearDay})}>Clear Day</button>}
-      </div>
-      {MEALS.map(meal=>{
-        const items=mEntries(meal.id),open=openMeals[meal.id];
-        return(<div className="meal-block" key={meal.id}>
-          <div className={"meal-head"+(open?" open":"")} onClick={()=>setOpenMeals(p=>({...p,[meal.id]:!p[meal.id]}))}>
-            <div className="meal-head-left">
-              <span className="meal-emoji">{meal.emoji}</span>
-              <span className="meal-head-name">{meal.id}</span>
-              {items.length>0&&<span style={{fontSize:11,color:"var(--muted)",marginLeft:2}}>({items.length})</span>}
-            </div>
-            <div className="meal-head-right">
-              <span className="meal-kcal">{mCals(meal.id)>0?mCals(meal.id)+" kcal":""}</span>
-              <button className="meal-add-btn" onClick={e=>{e.stopPropagation();setTargetMeal(meal.id);setModal("add");}}>+</button>
-            </div>
-          </div>
-          {open&&(<div className="meal-items">
-            {items.length===0?(<div className="meal-empty"><div className="meal-empty-text">Nothing logged yet — tap + to add</div></div>)
-            :items.map(item=>(<div className="food-row" key={item.id}>
-              <div className="food-row-info"><div className="food-row-name">{item.name}</div><div className="food-row-srv">{item.serving}</div></div>
-              <div className="food-row-right"><div className="food-row-cal">{item.cal} kcal</div><div className="food-row-mpw">{item.p}P · {item.c}C · {item.f}F</div></div>
-              <button className="food-del" onClick={()=>delEntry(item.id)}>×</button>
-            </div>))}
-          </div>)}
-        </div>);
-      })}
-      <div style={{height:16}}/>
-      <button className="fab" onClick={()=>{setTargetMeal("Breakfast");setModal("add");}}>+ LOG FOOD</button>
-    </div>)}
 
-    {/* WEIGHT */}
-    {tab==="weight"&&(<div className="page">
-      <div className="w-hero">
-        <div className="w-label">Current Weight</div>
-        {latW?(<><span className="w-big">{latW.weight}</span><span className="w-unit">lbs</span></>)
-        :(<div style={{fontSize:20,color:"var(--muted)",paddingTop:8}}>Not logged yet</div>)}
-        {wDelta&&<div className={"w-delta "+(parseFloat(wDelta)<0?"down":parseFloat(wDelta)>0?"up":"neutral")}>{parseFloat(wDelta)<0?"↓":parseFloat(wDelta)>0?"↑":"→"} {Math.abs(parseFloat(wDelta)).toFixed(1)} lbs from last entry</div>}
-      </div>
-      <div className="log-weight-section">
-        <div className="w-label" style={{marginBottom:10}}>Log Today's Weight</div>
-        <div className="log-weight-row">
-          <input className="field" type="number" step="0.1" placeholder="lbs" id="wInput" style={{flex:1,fontSize:20,textAlign:"center"}}/>
-          <button className="btn-sm btn-green" onClick={()=>{const el=document.getElementById("wInput");if(el&&el.value){logWeight(parseFloat(el.value));el.value="";}}}>Log</button>
+      {/* LOG TAB */}
+      {tab==="log"&&<div className="page">
+        <div style={{height:12}}/>
+        <WeekSelector selectedDate={selectedDate} onSelect={setSelectedDate} weekOffset={weekOffset} onOffsetChange={handleOffsetChange} entries={entries}/>
+        <CalHero logged={logged} goals={goals}/>
+
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"16px 0 8px"}}>
+          <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700}}>Meals</div>
+          {dayEntries.length>0&&<button style={{background:"none",border:"none",fontSize:11,color:"var(--mu)",cursor:"pointer"}} onClick={()=>{if(window.confirm("Clear all food entries for this day?"))clearDay();}}>Clear day</button>}
         </div>
-      </div>
-      <div className="chart-card">
-        <div className="chart-title">Weight Trend</div>
-        <WeightChart data={sorted}/>
-      </div>
-      <div className="wlog-card">
-        <div style={{fontSize:11,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700,marginBottom:14}}>History</div>
-        {sorted.length===0?(<div style={{color:"var(--muted)",fontSize:13,textAlign:"center",padding:"16px 0"}}>No entries yet.</div>)
-        :sorted.slice().reverse().slice(0,14).map((e,i,arr)=>{
-          const prev=arr[i+1],delta=prev?(e.weight-prev.weight).toFixed(1):null;
-          return(<div className="wlog-row" key={i}>
-            <span className="wlog-date">{e.date}</span>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              {delta&&<span style={{fontSize:11,fontFamily:"'JetBrains Mono',monospace",color:parseFloat(delta)<0?"var(--green)":parseFloat(delta)>0?"var(--red)":"var(--muted)"}}>{parseFloat(delta)>0?"+":""}{delta}</span>}
-              <span className="wlog-val">{e.weight} lbs</span>
+
+        {MEALS.map(meal=>{
+          const items=mEntries(meal.id);const isOpen=openMeals[meal.id];
+          return(
+            <div className="meal-block" key={meal.id}>
+              <div className={"meal-hd"+(isOpen?" open":"")} onClick={()=>setOpenMeals(p=>({...p,[meal.id]:!p[meal.id]}))}>
+                <div className="meal-hd-l"><span className="meal-emoji">{meal.emoji}</span><span className="meal-hd-name">{meal.id}</span></div>
+                <div className="meal-hd-r">
+                  <span className="meal-kcal">{mCals(meal.id)} kcal</span>
+                  {isToday&&<button className="meal-add" onClick={e=>{e.stopPropagation();setTargetMeal(meal.id);setModal("add");}}>+</button>}
+                </div>
+              </div>
+              {isOpen&&<div className="meal-items">
+                {items.length===0
+                  ?<div className="meal-empty">{isToday?"Nothing logged yet — tap + to add":"Nothing logged"}</div>
+                  :items.map(item=><div className="food-row" key={item.id}>
+                    <div className="food-info"><div className="food-name">{item.name}</div><div className="food-srv">{item.serving}</div></div>
+                    <div className="food-right"><div className="food-cal">{item.cal}</div><div className="food-mpw">{item.p}P·{item.c}C·{item.f}F</div></div>
+                    {isToday&&<button className="food-del" onClick={()=>delEntry(item.id)}>×</button>}
+                  </div>)}
+              </div>}
             </div>
-          </div>);
+          );
         })}
-      </div>
-    </div>)}
 
-    {/* FOOD */}
-    {tab==="food"&&(<div className="page">
-      <div style={{marginBottom:16}}>
-        <div style={{fontSize:22,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1,marginBottom:4}}>Add Food</div>
-        <div style={{fontSize:13,color:"var(--muted)"}}>Search 600,000+ foods, scan a barcode, or snap a photo.</div>
-      </div>
-      <button className="btn" style={{marginTop:0,marginBottom:14}} onClick={()=>setModal("add")}>+ Log Food</button>
-      <div className="section-header" style={{marginTop:0}}><div className="section-title">Today's Log</div></div>
-      {todayE.length===0?(<div className="empty-state"><div className="empty-icon">🥗</div><div className="empty-title">Nothing logged yet</div><div className="empty-sub">Tap the button above to add your first meal of the day.</div></div>)
-      :MEALS.map(meal=>{
-        const items=mEntries(meal.id);if(!items.length)return null;
-        return(<div key={meal.id} style={{marginBottom:12}}>
-          <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"1px",color:"var(--muted)",marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
-            <span>{meal.emoji}</span><span>{meal.id}</span><span style={{marginLeft:"auto",fontFamily:"'JetBrains Mono',monospace"}}>{mCals(meal.id)} kcal</span>
-          </div>
-          <div className="meal-items" style={{borderRadius:14}}>
-            {items.map(item=>(<div className="food-row" key={item.id}>
-              <div className="food-row-info"><div className="food-row-name">{item.name}</div><div className="food-row-srv">{item.serving}</div></div>
-              <div className="food-row-right"><div className="food-row-cal">{item.cal} kcal</div><div className="food-row-mpw">{item.p}P · {item.c}C · {item.f}F</div></div>
-              <button className="food-del" onClick={()=>delEntry(item.id)}>×</button>
-            </div>))}
-          </div>
-        </div>);
-      })}
-    </div>)}
+        {isToday&&<button className="fab" onClick={()=>{setTargetMeal("Breakfast");setModal("add");}}>+ LOG FOOD</button>}
+        {!isToday&&<div style={{textAlign:"center",fontSize:13,color:"var(--mu)",marginTop:20,paddingBottom:8}}>Viewing {fmtShort(new Date(selectedDate+"T12:00:00"))} — tap today to log food</div>}
+      </div>}
 
-    {/* COACH */}
-    {tab==="coach"&&(<div className="page">
-      <div style={{marginBottom:20}}>
-        <div style={{fontSize:22,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:1,marginBottom:4}}>Weekly Debrief</div>
-        <div style={{fontSize:13,color:"var(--muted)"}}>Your personalized coaching report — powered by your actual data.</div>
-      </div>
-      {adaptation?(<div>
-        <div className="adapt-card">
-          <div className="adapt-head">
-            <span className="adapt-head-icon">{adaptation.onTrack?"✅":"🧠"}</span>
-            <span className="adapt-head-title">{adaptation.onTrack?"On Track":"Adjustment Ready"}</span>
-          </div>
-          <div className="adapt-body">{adaptation.msg}</div>
-          {adaptation.adj!==0&&(<>
+      {/* WEIGHT TAB */}
+      {tab==="weight"&&<div className="page">
+        <div style={{height:12}}/>
+        <div className="w-hero">
+          <div className="w-lbl">Current Weight</div>
+          <div className="w-big">{latW?<span>{latW.weight}<span> lbs</span></span>:<span style={{color:"var(--mu)",fontSize:22,fontFamily:"DM Sans"}}>Not logged yet</span>}</div>
+          {wDelta&&<div className={"w-delta "+(parseFloat(wDelta)<=0?"dn":"up")}>{parseFloat(wDelta)<=0?"↓":"↑"} {Math.abs(wDelta)} lbs from last entry</div>}
+          <WeightChart data={sorted}/>
+          {sorted.length>1&&<div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--mu)",fontFamily:"'JetBrains Mono',monospace",marginTop:2}}><span>{sorted[0].date}</span><span>{sorted[sorted.length-1].date}</span></div>}
+        </div>
+
+        <div style={{background:"var(--s1)",border:"1px solid var(--b1)",borderRadius:20,padding:18,marginBottom:14}}>
+          <div className="w-lbl" style={{marginBottom:12}}>Log Today's Weight</div>
+          <LogWeightInline onLog={logWeight}/>
+        </div>
+
+        {adapt?<div className={"adapt"+(adapt.state==="ontrack"?" ontrack":"")}>
+          <div className="adapt-head"><span style={{fontSize:22}}>{adapt.state==="ontrack"?"✅":"🧠"}</span><span className="adapt-title">{adapt.state==="ontrack"?"On Track!":"Weekly Adjustment"}</span></div>
+          <div className="adapt-body">{adapt.msg}</div>
+          {adapt.adj!==0&&<div>
             <div className="adapt-stats">
-              <div className="adapt-stat"><div className="adapt-stat-label">Current</div><div className="adapt-stat-val">{goals.calories}</div></div>
-              <div className="adapt-stat"><div className="adapt-stat-label">Suggested</div><div className="adapt-stat-val">{adaptation.newCal}</div></div>
-              <div className="adapt-stat"><div className="adapt-stat-label">Change</div><div className={"adapt-stat-val "+(adaptation.adj<0?"neg":"pos")}>{adaptation.adj>0?"+":""}{adaptation.adj}</div></div>
+              <div className="ast"><div className="ast-lbl">Current</div><div className="ast-val">{goals.calories}</div></div>
+              <div className="ast"><div className="ast-lbl">Suggested</div><div className="ast-val">{adapt.newCal}</div></div>
+              <div className="ast"><div className="ast-lbl">Change</div><div className="ast-val" style={{color:adapt.adj<0?"var(--rosel)":"var(--eml)"}}>{adapt.adj>0?"+":""}{adapt.adj}</div></div>
             </div>
-            <button className="btn" style={{marginTop:0}} onClick={()=>setGoals(g=>({...g,calories:adaptation.newCal}))}>Apply Adjustment</button>
-          </>)}
-        </div>
-        <div className="settings-card">
-          <div className="settings-title">This Week's Numbers</div>
-          <div className="s-row"><span className="s-label">Weight Change</span><span className="s-val" style={{color:parseFloat(adaptation.ch)<0?"var(--green)":"var(--red)"}}>{parseFloat(adaptation.ch)>0?"+":""}{adaptation.ch} lbs</span></div>
-          <div className="s-row"><span className="s-label">Target</span><span className="s-val" style={{color:"var(--muted)"}}>−0.5 lbs/week</span></div>
-          <div className="s-row"><span className="s-label">Daily Calories</span><span className="s-val">{goals.calories} kcal</span></div>
-        </div>
-      </div>):(<div className="adapt-card">
-        <div className="adapt-head"><span className="adapt-head-icon">📊</span><span className="adapt-head-title">Unlock Your Coaching</span></div>
-        <div className="adapt-unlock">
-          <div className="adapt-unlock-text">Log your weight for 7 consecutive days to unlock personalized weekly coaching with automatic calorie adjustments.</div>
-          <div className="adapt-progress-dots">{Array.from({length:7}).map((_,i)=><div key={i} className={"adapt-dot"+(i<sorted.length?" filled":"")}/>)}</div>
-          <div className="adapt-days-label">{sorted.length} / 7 days logged</div>
-        </div>
-        <button className="btn" style={{marginTop:16}} onClick={()=>setModal("weight")}>Log Today's Weight</button>
-      </div>)}
-      <div className="settings-card" style={{marginTop:4}}>
-        <div className="settings-title">How It Works</div>
-        <div style={{fontSize:13,color:"var(--text2)",lineHeight:1.75}}>After 7 days of weight data, MacroTrack compares your actual weekly loss to your 0.5 lb/week target. Losing too fast = calories go up to protect muscle. Too slow = they drop. One tap to apply.</div>
-      </div>
-    </div>)}
+            <button className="btn" style={{marginTop:14}} onClick={()=>{setGoals({...goals,calories:adapt.newCal});}}>Apply Adjustment</button>
+          </div>}
+        </div>:<div className="adapt">
+          <div className="adapt-head"><span style={{fontSize:22}}>📊</span><span className="adapt-title">Adaptive Engine</span></div>
+          <div className="adapt-body" style={{marginBottom:12}}>Log your weight for <strong style={{color:"var(--indll)"}}>{Math.max(0,7-sorted.length)} more day{7-sorted.length!==1?"s":""}</strong> to unlock personalized weekly calorie adjustments.</div>
+          <div className="unlock-dots">{Array.from({length:7},(_,i)=><div key={i} className={"udot"+(i<sorted.length?" on":"")}/>)}</div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--mu)",marginTop:6}}><span>{sorted.length}/7 days</span><span>Need 7</span></div>
+        </div>}
 
-    {/* GOALS */}
-    {tab==="goals"&&(<div className="page">
-      <div className="settings-card">
-        <div className="settings-title">Daily Targets</div>
-        <div className="s-row"><span className="s-label">Calories</span><span className="s-val">{goals.calories.toLocaleString()} kcal</span></div>
-        <div className="s-row"><span className="s-label">Protein</span><span className="s-val" style={{color:"var(--protein)"}}>{goals.protein}g</span></div>
-        <div className="s-row"><span className="s-label">Carbs</span><span className="s-val" style={{color:"var(--carbs)"}}>{goals.carbs}g</span></div>
-        <div className="s-row"><span className="s-label">Fat</span><span className="s-val" style={{color:"var(--fat)"}}>{goals.fat}g</span></div>
-        <button className="btn" style={{marginTop:16}} onClick={()=>setModal("goals")}>Edit Goals</button>
-      </div>
-      <div className="settings-card">
-        <div className="settings-title">Today's Progress</div>
-        {[{label:"Calories",val:logged.calories,goal:goals.calories,unit:"kcal",color:null},{label:"Protein",val:logged.protein,goal:goals.protein,unit:"g",color:"var(--protein)"},{label:"Carbs",val:logged.carbs,goal:goals.carbs,unit:"g",color:"var(--carbs)"},{label:"Fat",val:logged.fat,goal:goals.fat,unit:"g",color:"var(--fat)"}].map(it=>{
-          const pct=Math.min((it.val/it.goal)*100,100),over=it.val>it.goal;
-          return(<div className="prog-row" key={it.label}>
-            <div className="prog-row-head">
-              <span className="prog-row-label">{it.label}</span>
-              <span className="prog-row-val" style={{color:over?"var(--red)":it.color||"var(--accent-light)"}}>{it.val} / {it.goal}{it.unit}</span>
-            </div>
-            <div className="pbar-track" style={{marginBottom:0}}><div className={"pbar-fill"+(over?" over":"")} style={{width:pct+"%",background:over?"var(--red)":it.color?("linear-gradient(90deg,"+it.color+"99,"+it.color+")"):"linear-gradient(90deg,var(--accent),var(--accent-light))"}}/></div>
-          </div>);
-        })}
-      </div>
-      <div className="settings-card">
-        <div className="settings-title">USDA Food Database</div>
-        {usdaKey?(<div>
-          <div className="s-row"><span className="s-label">API Key</span><span className="s-val" style={{fontSize:11}}>{"••••"+usdaKey.slice(-4)}</span></div>
-          <div className="ok-badge">✓ Connected — 600k+ foods available</div>
-          <button className="btn-ghost" style={{marginTop:12}} onClick={()=>setUsdaKey("")}>Remove Key</button>
-        </div>):(<div>
-          <div style={{fontSize:13,color:"var(--text2)",lineHeight:1.7,marginBottom:14}}>Connect the free USDA API to search 600,000+ foods and scan barcodes.<br/>Get your free key at <strong style={{color:"var(--accent-light)"}}>fdc.nal.usda.gov/api-key-signup</strong></div>
-          <div className="field-group"><div className="field-label">Your API Key</div><input className="field" placeholder="Paste key here…" value={keyIn} onChange={e=>setKeyIn(e.target.value)}/></div>
-          {keyIn.length>10&&<button className="btn" style={{marginTop:0}} onClick={()=>{setUsdaKey(keyIn.trim());setKeyIn("");}}>Save Key</button>}
-        </div>)}
-      </div>
-      <div className="settings-card">
-        <div className="settings-title">About</div>
-        <div style={{fontSize:13,color:"var(--text2)",lineHeight:1.75}}>All your data is stored locally on this device. Nothing is ever uploaded or shared. MacroTrack uses the Claude API for AI photo scanning and the USDA API for food search — called directly from your device.</div>
-      </div>
-    </div>)}
+        <div style={{background:"var(--s1)",border:"1px solid var(--b1)",borderRadius:20,padding:20,marginBottom:14}}>
+          <div className="w-lbl" style={{marginBottom:10}}>History</div>
+          {sorted.length===0?<div className="muted-t">No entries yet.</div>
+          :sorted.slice().reverse().slice(0,14).map((e,i)=><div className="wlog-row" key={i}><span className="wlog-date">{e.date}</span><span className="wlog-val">{e.weight} lbs</span></div>)}
+        </div>
+      </div>}
 
-    {/* Nav */}
-    <div className="nav">
-      {navItems.map(n=>(
-        <button key={n.id} className={"nav-btn"+(tab===n.id?" active":"")} onClick={()=>{setTab(n.id);try{navigator.vibrate&&navigator.vibrate(8);}catch(e){}}}>
-          <span className="nav-icon">{n.icon}</span>
-          <span className="nav-label">{n.label}</span>
-          <div className="nav-dot"/>
-        </button>
-      ))}
+      {/* GOALS TAB */}
+      {tab==="goals"&&<div className="page">
+        <div style={{height:12}}/>
+        <div className="scard">
+          <div className="stitle">Daily Targets</div>
+          <div className="srow"><span className="slbl">Calories</span><span className="sval">{goals.calories.toLocaleString()} kcal</span></div>
+          <div className="srow"><span className="slbl">Protein</span><span className="sval" style={{color:"var(--rosel)"}}>{goals.protein}g</span></div>
+          <div className="srow"><span className="slbl">Carbs</span><span className="sval" style={{color:"var(--cyanl)"}}>{goals.carbs}g</span></div>
+          <div className="srow"><span className="slbl">Fat</span><span className="sval" style={{color:"var(--ambl)"}}>{goals.fat}g</span></div>
+          <button className="btn" style={{marginTop:16}} onClick={()=>setModal("goals")}>Edit Goals</button>
+        </div>
+
+        <div className="scard">
+          <div className="stitle">Today's Progress</div>
+          {[{label:"Calories",val:logged.calories,goal:goals.calories,unit:"kcal",color:null},{label:"Protein",val:logged.protein,goal:goals.protein,unit:"g",color:"var(--rose)"},{label:"Carbs",val:logged.carbs,goal:goals.carbs,unit:"g",color:"var(--cyan)"},{label:"Fat",val:logged.fat,goal:goals.fat,unit:"g",color:"var(--amb)"}].map(it=>{
+            const pct=Math.min((it.val/it.goal)*100,100),over=it.val>it.goal;
+            return(<div className="prog-row" key={it.label}>
+              <div className="prog-head"><span className="prog-lbl">{it.label}</span><span className="prog-val" style={{color:over?"var(--rose)":it.color||"var(--indll)"}}>{it.val}/{it.goal}{it.unit}</span></div>
+              <div className="pbar-track" style={{marginBottom:0}}><div className={"pbar-fill"+(over?" over":"")} style={{width:pct+"%",background:over?"var(--rose)":it.color?"linear-gradient(90deg,"+it.color+"99,"+it.color+")":"linear-gradient(90deg,var(--ind),var(--vio))"}}/></div>
+            </div>);
+          })}
+        </div>
+
+        <div className="scard">
+          <div className="stitle">USDA Food Database</div>
+          {usdaKey?<div>
+            <div className="srow"><span className="slbl">API Key</span><span className="sval" style={{fontSize:11}}>{"••••"+usdaKey.slice(-4)}</span></div>
+            <div className="ok-text">✓ Connected — 600k+ foods available</div>
+            <button className="btn-ghost" style={{marginTop:12}} onClick={()=>setUsdaKey("")}>Remove Key</button>
+          </div>:<div>
+            <div className="muted-t" style={{marginBottom:12}}>Connect the free USDA API to search 600,000+ foods.<br/>Get your key at <strong style={{color:"var(--indll)"}}>fdc.nal.usda.gov/api-key-signup</strong></div>
+            <div className="fg"><div className="fl">Your API Key</div><input className="field" placeholder="Paste key here…" value={keyIn} onChange={e=>setKeyIn(e.target.value)}/></div>
+            {keyIn.length>10&&<button className="btn" style={{marginTop:0}} onClick={()=>{setUsdaKey(keyIn.trim());setKeyIn("");}}>Save Key</button>}
+          </div>}
+        </div>
+
+        <div className="scard">
+          <div className="stitle">Data Storage</div>
+          <div className="muted-t">All your data — food logs, weight entries, goals, and API key — is saved to this device's local storage. It persists between sessions as long as you use the app from your home screen (not the Claude.ai preview). Nothing is ever sent to a server.</div>
+        </div>
+
+        <div className="scard">
+          <div className="stitle">About</div>
+          <div className="muted-t">MacroTrack uses the Claude API for AI photo scanning and the USDA FoodData Central API for food search — both called directly from your device. Built as a free alternative to MacroFactor.</div>
+        </div>
+      </div>}
+
+      {/* Nav */}
+      <div className="nav">
+        {[{id:"log",icon:"📋",label:"Log"},{id:"weight",icon:"⚖️",label:"Weight"},{id:"goals",icon:"⚙️",label:"Goals"}].map(n=>(
+          <button key={n.id} className={"nav-btn"+(tab===n.id?" active":"")} onClick={()=>{setTab(n.id);try{navigator.vibrate&&navigator.vibrate(8);}catch(e){}}}>
+            <span className="nav-icon">{n.icon}</span>
+            <span className="nav-lbl">{n.label}</span>
+            <div className="nav-dot"/>
+          </button>
+        ))}
+      </div>
+
+      {modal==="add"&&<AddFoodModal onClose={()=>setModal(null)} onAdd={addEntry} targetMeal={targetMeal} usdaKey={usdaKey}/>}
+      {modal==="weight"&&<WeightModal onClose={()=>setModal(null)} onLog={logWeight}/>}
+      {modal==="goals"&&<GoalsModal goals={goals} onClose={()=>setModal(null)} onSave={setGoals}/>}
     </div>
+  );
+}
 
-    {modal==="add"&&<AddFoodModal onClose={()=>setModal(null)} onAdd={addEntry} targetMeal={targetMeal} usdaKey={usdaKey}/>}
-    {modal==="weight"&&<WeightModal onClose={()=>setModal(null)} onLog={logWeight}/>}
-    {modal==="goals"&&<GoalsModal goals={goals} onClose={()=>setModal(null)} onSave={setGoals}/>}
-    {confirmDlg&&<ConfirmModal icon={confirmDlg.icon} title={confirmDlg.title} body={confirmDlg.body} confirmLabel={confirmDlg.confirmLabel} onConfirm={confirmDlg.action} onCancel={()=>setConfirmDlg(null)}/>}
-  </div>);
+/* ── Inline weight logger ── */
+function LogWeightInline({onLog}){
+  const [v,setV]=useState("");
+  return(
+    <div style={{display:"flex",gap:8}}>
+      <input className="field" type="number" step="0.1" placeholder="e.g. 215.4" value={v} onChange={e=>setV(e.target.value)} style={{flex:1}}/>
+      <button className="btn-sm" disabled={!v} onClick={()=>{onLog(parseFloat(v));setV("");}}>Log</button>
+    </div>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
