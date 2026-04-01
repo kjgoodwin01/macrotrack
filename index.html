@@ -1,147 +1,957 @@
-/**
- * MacroTrack AI Proxy — Cloudflare Worker
- *
- * Proxies image analysis requests to the Anthropic API.
- * Your ANTHROPIC_API_KEY is stored as an encrypted environment variable
- * in Cloudflare — it never appears in your app's HTML.
- *
- * Deploy steps are in WORKER_SETUP.md
- */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="MacroTrack"/>
+  <meta name="theme-color" content="#06060f"/>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="apple-touch-icon" href="icon-192.png"/>
+  <title>MacroTrack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    :root{
+      --bg:#06060f;--s1:#0f0f20;--s2:#161628;--s3:#1e1e35;
+      --b1:rgba(255,255,255,0.07);--b2:rgba(255,255,255,0.12);
+      --ind:#6366f1;--indl:#818cf8;--indll:#a5b4fc;--vio:#8b5cf6;--glow:rgba(99,102,241,0.25);
+      --rose:#f43f5e;--rosel:#fb7185;
+      --cyan:#06b6d4;--cyanl:#22d3ee;
+      --amb:#f59e0b;--ambl:#fbbf24;
+      --em:#10b981;--eml:#34d399;
+      --txt:#f4f4ff;--txt2:#a0a0c8;--mu:#52527a;
+      --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)
+    }
+    html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt)}
+    body{font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
+    #root{height:100%}
+    .app{max-width:430px;margin:0 auto;height:100%;display:flex;flex-direction:column;background:var(--bg);position:relative}
 
-const ALLOWED_ORIGINS = [
-  // Replace these with your actual GitHub Pages URL
-  "https://YOUR-USERNAME.github.io",
-  // Add localhost for local testing if needed
-  "http://localhost",
-  "http://127.0.0.1",
-];
+    /* Header */
+    .hdr{flex-shrink:0;padding:calc(var(--st) + 14px) 20px 0;display:flex;align-items:center;justify-content:space-between}
+    .logo{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:3px}
+    .logo em{color:var(--indl);font-style:normal}
+    .hdr-r{text-align:right}
+    .hdr-date{font-size:11px;color:var(--mu);font-family:'JetBrains Mono',monospace}
 
-export default {
-  async fetch(request, env) {
+    /* Toast */
+    .toast{position:fixed;top:calc(var(--st) + 12px);left:50%;transform:translateX(-50%) translateY(-80px);z-index:999;background:var(--em);color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:30px;box-shadow:0 4px 20px rgba(16,185,129,0.4);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1),opacity 0.35s;opacity:0;white-space:nowrap;pointer-events:none}
+    .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
-    // ── CORS preflight ──────────────────────────────────────────────────
-    const origin = request.headers.get("Origin") || "";
-    const allowed = ALLOWED_ORIGINS.some(o => origin.startsWith(o));
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": allowed ? origin : ALLOWED_ORIGINS[0],
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+    /* Page */
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(var(--sb) + 96px);-webkit-overflow-scrolling:touch}
+    .page::-webkit-scrollbar{display:none}
+
+    /* Week selector */
+    .week-nav{display:flex;align-items:center;gap:6px;margin-bottom:14px}
+    .week-arrow{background:none;border:1px solid var(--b1);border-radius:10px;color:var(--mu);width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;flex-shrink:0;transition:border-color 0.15s,color 0.15s}
+    .week-arrow:active{border-color:var(--ind);color:var(--indl)}
+    .week-days{display:flex;gap:4px;flex:1;overflow:hidden}
+    .day-pill{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-radius:12px;cursor:pointer;border:1px solid transparent;transition:all 0.15s;background:none;font-family:'DM Sans',sans-serif}
+    .day-pill-letter{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:var(--mu)}
+    .day-pill-num{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--mu)}
+    .day-pill.today .day-pill-letter,.day-pill.today .day-pill-num{color:var(--txt2)}
+    .day-pill.today{border-color:var(--b1);background:var(--s1)}
+    .day-pill.selected{background:var(--ind);border-color:var(--ind)}
+    .day-pill.selected .day-pill-letter,.day-pill.selected .day-pill-num{color:#fff}
+    .day-pill.has-data .day-pill-num::after{content:'·';display:block;width:4px;height:4px;border-radius:50%;background:var(--indll);margin:1px auto 0;font-size:0;line-height:0}
+    .week-label{font-size:10px;color:var(--mu);text-align:center;margin-bottom:10px;font-family:'JetBrains Mono',monospace}
+
+    /* Cal hero */
+    .cal-hero{background:linear-gradient(145deg,#0f0f22 0%,#131328 60%,#0f1020 100%);border:1px solid var(--b2);border-radius:24px;padding:22px;margin-bottom:14px;position:relative;overflow:hidden}
+    .cal-hero::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(99,102,241,0.13) 0%,transparent 65%);pointer-events:none}
+    .cal-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+    .cal-lhs .cal-lbl{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px;font-weight:600}
+    .cal-num{font-family:'Bebas Neue',sans-serif;font-size:72px;line-height:0.9;color:var(--txt)}
+    .cal-unit{font-size:12px;color:var(--mu);margin-top:6px}
+    .cal-rhs{text-align:right;padding-top:4px}
+    .cal-rem-lbl{font-size:11px;color:var(--mu);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px}
+    .cal-rem-val{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600}
+    .cal-rem-val.good{color:var(--indl)} .cal-rem-val.over{color:var(--rose)}
+    .cal-rem-sub{font-size:11px;margin-top:3px} .cal-rem-sub.good{color:var(--em)} .cal-rem-sub.over{color:var(--rosel)}
+    .pbar-track{height:7px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;margin-bottom:18px}
+    .pbar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--ind),var(--vio),var(--indl));background-size:200%;animation:shim 3s linear infinite;transition:width 0.7s cubic-bezier(0.4,0,0.2,1)}
+    .pbar-fill.over{background:linear-gradient(90deg,var(--rose),var(--rosel));animation:none}
+    @keyframes shim{0%{background-position:100% 0}100%{background-position:-100% 0}}
+    .macro-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+    .mpill{background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:14px;padding:11px 8px 9px;text-align:center;position:relative;overflow:hidden}
+    .mpill::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
+    .mpill.p::before{background:var(--rose)} .mpill.c::before{background:var(--cyan)} .mpill.f::before{background:var(--amb)}
+    .mpill-val{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:600;margin-bottom:2px}
+    .mpill.p .mpill-val{color:var(--rosel)} .mpill.c .mpill-val{color:var(--cyanl)} .mpill.f .mpill-val{color:var(--ambl)}
+    .mpill-name{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px}
+    .mpill-bar{height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin:0 4px}
+    .mpill-bar-fill{height:100%;border-radius:2px;transition:width 0.7s cubic-bezier(0.4,0,0.2,1)}
+    .mpill.p .mpill-bar-fill{background:var(--rose)} .mpill.c .mpill-bar-fill{background:var(--cyan)} .mpill.f .mpill-bar-fill{background:var(--amb)}
+    .mpill-goal{font-size:9px;color:var(--mu);margin-top:4px;font-family:'JetBrains Mono',monospace}
+
+    /* Meals */
+    .meal-block{margin-bottom:8px}
+    .meal-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;cursor:pointer;user-select:none;transition:background 0.15s}
+    .meal-hd:active{background:var(--s2)}
+    .meal-hd.open{border-radius:14px 14px 0 0;border-bottom-color:transparent}
+    .meal-hd-l{display:flex;align-items:center;gap:9px}
+    .meal-emoji{font-size:17px}
+    .meal-hd-name{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--txt2)}
+    .meal-hd-r{display:flex;align-items:center;gap:9px}
+    .meal-kcal{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--mu)}
+    .meal-add{width:28px;height:28px;border-radius:9px;background:var(--ind);border:none;color:#fff;font-size:20px;font-weight:300;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.15s,background 0.15s}
+    .meal-add:active{transform:scale(0.9);background:var(--vio)}
+    .meal-items{background:var(--s1);border:1px solid var(--b1);border-top:none;border-radius:0 0 14px 14px;overflow:hidden}
+    .meal-empty{padding:12px 14px;font-size:12px;color:var(--mu);font-style:italic}
+    .food-row{display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid var(--b1);animation:slin 0.22s ease}
+    @keyframes slin{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+    .food-row:last-child{border-bottom:none}
+    .food-info{flex:1;min-width:0}
+    .food-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .food-srv{font-size:11px;color:var(--mu);margin-top:1px}
+    .food-right{text-align:right;flex-shrink:0;margin-left:10px}
+    .food-cal{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600}
+    .food-mpw{font-size:10px;color:var(--mu);margin-top:2px;font-family:'JetBrains Mono',monospace}
+    .food-del{background:none;border:none;color:var(--mu);font-size:20px;cursor:pointer;padding:0 0 0 10px;line-height:1;flex-shrink:0;transition:color 0.15s}
+    .food-del:active{color:var(--rose)}
+
+    /* FAB */
+    .fab{position:fixed;bottom:calc(var(--sb) + 76px);left:50%;transform:translateX(-50%);width:calc(min(430px,100vw) - 32px);max-width:398px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab:active{transform:translateX(-50%) scale(0.97)}
+
+    /* Nav */
+    .nav{position:absolute;bottom:0;left:0;right:0;height:calc(var(--sb) + 68px);padding-bottom:var(--sb);display:flex;align-items:flex-start;justify-content:space-around;padding-top:10px;background:rgba(6,6,15,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--b1);z-index:50}
+    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:2px 0}
+    .nav-icon{font-size:20px;transition:transform 0.2s;display:block}
+    .nav-lbl{font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s}
+    .nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ind);opacity:0;transition:opacity 0.2s;margin-top:2px}
+    .nav-btn.active .nav-lbl{color:var(--indl)}
+    .nav-btn.active .nav-dot{opacity:1}
+    .nav-btn.active .nav-icon{transform:translateY(-2px)}
+
+    /* Modal */
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fdin 0.2s ease}
+    @keyframes fdin{from{opacity:0}to{opacity:1}}
+    .sheet{background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;width:100%;max-width:430px;max-height:94vh;overflow-y:auto;padding:20px 18px calc(var(--sb) + 30px);-webkit-overflow-scrolling:touch;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    @keyframes sup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .sheet-handle{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 20px}
+    .sheet-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;margin-bottom:18px}
+    .tabs{display:flex;gap:6px;margin-bottom:18px}
+    .tab-btn{flex:1;padding:9px 2px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:11px;color:var(--mu);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+    .tab-btn.active{background:var(--ind);color:#fff;border-color:var(--ind)}
+    .chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+    .chip{padding:7px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:22px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;display:flex;align-items:center;gap:5px}
+    .chip.active{background:var(--ind);color:#fff;border-color:var(--ind)}
+    .fg{margin-bottom:12px}
+    .fl{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px}
+    .field{width:100%;padding:12px 13px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:12px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;transition:border-color 0.2s,background 0.2s;-webkit-appearance:none}
+    .field:focus{border-color:var(--ind);background:rgba(99,102,241,0.06)}
+    .field.fp:focus{border-color:var(--rose)} .field.fc:focus{border-color:var(--cyan)} .field.ff:focus{border-color:var(--amb)}
+    .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .btn{width:100%;padding:15px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1.5px;cursor:pointer;margin-top:8px;box-shadow:0 4px 20px var(--glow);transition:transform 0.15s}
+    .btn:active{transform:scale(0.98)} .btn:disabled{opacity:0.35;cursor:not-allowed;transform:none}
+    .btn-ghost{width:100%;padding:14px;background:transparent;color:var(--mu);border:1px solid var(--b1);border-radius:14px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;margin-top:8px}
+    .btn-sm{padding:0 14px;height:46px;flex-shrink:0;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:12px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;cursor:pointer}
+    .btn-danger{width:100%;padding:14px;background:rgba(244,63,94,0.1);color:var(--rose);border:1px solid rgba(244,63,94,0.3);border-radius:14px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;margin-top:6px;transition:background 0.15s}
+    .btn-danger:active{background:rgba(244,63,94,0.2)}
+
+    /* Search */
+    .search-wrap{position:relative;margin-bottom:10px}
+    .search-ico{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none}
+    .search-field{width:100%;padding:12px 14px 12px 40px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:12px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;transition:border-color 0.2s;-webkit-appearance:none}
+    .search-field:focus{border-color:var(--ind)}
+    .sres{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--b1);border-radius:11px;margin-bottom:7px;cursor:pointer;transition:border-color 0.15s,background 0.15s}
+    .sres:active{border-color:var(--ind);background:rgba(99,102,241,0.06)}
+    .sr-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+    .sr-sub{font-size:10px;color:var(--mu);margin-top:2px;font-family:'JetBrains Mono',monospace}
+    .sr-cal{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--indll);flex-shrink:0;margin-left:8px}
+    .detail-box{background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:16px;margin-top:8px}
+    .det-name{font-size:15px;font-weight:600;margin-bottom:3px}
+    .det-sub{font-size:11px;color:var(--mu);margin-bottom:14px}
+    .m4{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px}
+    .m4c{text-align:center;background:rgba(255,255,255,0.04);border-radius:10px;padding:9px 3px;border:1px solid var(--b1)}
+    .m4v{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600}
+    .m4l{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px;margin-top:3px}
+    .ai-badge{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;letter-spacing:0.5px;margin-bottom:10px}
+    .scan-drop{border:2px dashed var(--b2);border-radius:18px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color 0.2s}
+    .scan-drop:active{border-color:var(--ind)}
+    .scan-prev{width:100%;border-radius:14px;margin-bottom:10px;max-height:220px;object-fit:cover}
+    .scanner-wrap{position:relative;border-radius:18px;overflow:hidden;background:#000;aspect-ratio:1;margin-bottom:12px}
+    .scanner-video{width:100%;height:100%;object-fit:cover;display:block}
+    .scanner-frame{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+    .scanner-box{width:60%;aspect-ratio:1;border:2px solid var(--indl);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);position:relative}
+    .sc{position:absolute;width:20px;height:20px;border-color:var(--indl);border-style:solid}
+    .sc.tl{top:-2px;left:-2px;border-width:3px 0 0 3px;border-radius:5px 0 0 0}
+    .sc.tr{top:-2px;right:-2px;border-width:3px 3px 0 0;border-radius:0 5px 0 0}
+    .sc.bl{bottom:-2px;left:-2px;border-width:0 0 3px 3px;border-radius:0 0 0 5px}
+    .sc.br{bottom:-2px;right:-2px;border-width:0 3px 3px 0;border-radius:0 0 5px 0}
+    .scan-line{position:absolute;left:8px;right:8px;height:2px;background:linear-gradient(90deg,transparent,var(--indl),transparent);animation:sl 2s ease-in-out infinite;top:50%}
+    @keyframes sl{0%,100%{transform:translateY(-30px);opacity:0.5}50%{transform:translateY(30px);opacity:1}}
+    .scanner-hint{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:11px;color:rgba(255,255,255,0.6)}
+    .loading-row{display:flex;align-items:center;gap:10px;color:var(--mu);font-size:13px;padding:12px 0}
+    .spin{width:18px;height:18px;flex-shrink:0;border:2px solid rgba(255,255,255,0.08);border-top-color:var(--ind);border-radius:50%;animation:spin 0.7s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .err{color:var(--rose);font-size:12px;padding:5px 0}
+    .ok-text{color:var(--em);font-size:12px;margin-top:8px;display:flex;align-items:center;gap:5px}
+
+    /* Weight */
+    .w-hero{background:linear-gradient(145deg,#0f0f22,#131328);border:1px solid var(--b2);border-radius:24px;padding:22px;margin-bottom:14px;position:relative;overflow:hidden}
+    .w-hero::before{content:'';position:absolute;top:-50px;right:-50px;width:180px;height:180px;background:radial-gradient(circle,rgba(16,185,129,0.1) 0%,transparent 65%);pointer-events:none}
+    .w-lbl{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px;font-weight:600}
+    .w-big{font-family:'Bebas Neue',sans-serif;font-size:60px;line-height:1}
+    .w-big span{font-size:18px;color:var(--mu);font-family:'DM Sans',sans-serif;font-weight:300}
+    .w-delta{font-size:13px;font-family:'JetBrains Mono',monospace;margin-top:5px}
+    .w-delta.dn{color:var(--em)} .w-delta.up{color:var(--rose)}
+    .chart-area{height:120px;margin:14px 0 4px}
+    .wlog-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--b1)}
+    .wlog-row:last-child{border-bottom:none}
+    .wlog-date{font-size:11px;color:var(--mu);font-family:'JetBrains Mono',monospace}
+    .wlog-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600}
+
+    /* Adapt */
+    .adapt{background:linear-gradient(145deg,#0d0d24,#111128);border:1px solid rgba(99,102,241,0.25);border-radius:20px;padding:20px;margin-bottom:14px;position:relative;overflow:hidden}
+    .adapt::before{content:'';position:absolute;top:-30px;right:-30px;width:140px;height:140px;background:radial-gradient(circle,rgba(139,92,246,0.1) 0%,transparent 65%);pointer-events:none}
+    .adapt.ontrack{border-color:rgba(16,185,129,0.3);background:linear-gradient(145deg,#0a1a14,#0d1e18)}
+    .adapt-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .adapt-title{font-family:'Bebas Neue',sans-serif;font-size:19px;color:var(--indll);letter-spacing:1px}
+    .adapt.ontrack .adapt-title{color:var(--eml)}
+    .adapt-body{font-size:13px;color:var(--txt2);line-height:1.65}
+    .adapt-stats{display:flex;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid rgba(99,102,241,0.15)}
+    .ast{text-align:center}
+    .ast-lbl{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px}
+    .ast-val{font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--indll);margin-top:4px}
+    .unlock-dots{display:flex;gap:6px;margin-top:12px}
+    .udot{height:5px;border-radius:3px;flex:1;background:rgba(255,255,255,0.07)}
+    .udot.on{background:var(--ind)}
+
+    /* Settings */
+    .scard{background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:20px;margin-bottom:12px}
+    .stitle{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px;font-weight:700}
+    .srow{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--b1)}
+    .srow:last-child{border-bottom:none}
+    .slbl{font-size:14px}
+    .sval{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--indll)}
+    .prog-row{margin-bottom:12px}
+    .prog-head{display:flex;justify-content:space-between;margin-bottom:5px}
+    .prog-lbl{font-size:13px}
+    .prog-val{font-size:11px;font-family:'JetBrains Mono',monospace}
+    .muted-t{color:var(--mu);font-size:13px;line-height:1.65}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+
+/* ── Constants ── */
+const MEALS=[{id:"Breakfast",emoji:"🌅"},{id:"Lunch",emoji:"☀️"},{id:"Dinner",emoji:"🌙"},{id:"Snacks",emoji:"🍎"}];
+const DAY_LETTERS=["Su","M","Tu","W","Th","F","Sa"];
+const DEFAULT_GOALS={calories:2100,protein:180,carbs:210,fat:60};
+const USDA="https://api.nal.usda.gov/fdc/v1";
+
+/* ── Date helpers ── */
+function isoDate(d){return d.toISOString().split("T")[0];}
+function todayISO(){return isoDate(new Date());}
+function getMondayOfWeek(d){
+  const dt=new Date(d);const day=dt.getDay();const diff=day===0?-6:1-day;
+  dt.setDate(dt.getDate()+diff);dt.setHours(0,0,0,0);return dt;
+}
+function getWeekDates(monday){
+  return Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setDate(d.getDate()+i);return d;});
+}
+function fmtDate(d){return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});}
+function fmtShort(d){return d.toLocaleDateString("en-US",{month:"short",day:"numeric"});}
+
+/* ── localStorage persistence ── */
+// Robust save with verification and retry
+function lsSave(key,val){
+  const str=JSON.stringify(val);
+  for(let i=0;i<3;i++){
+    try{
+      localStorage.setItem(key,str);
+      const verify=localStorage.getItem(key);
+      if(verify===str)return true;
+    }catch(e){}
+  }
+  return false;
+}
+function lsLoad(key,init){
+  try{const s=localStorage.getItem(key);return s?JSON.parse(s):init;}catch{return init;}
+}
+function useLocal(k,init){
+  const [v,setV]=useState(()=>lsLoad(k,init));
+  const set=useCallback((val)=>{
+    const next=typeof val==="function"?val(v):val;
+    setV(next);
+    lsSave(k,next);
+  },[k,v]);
+  return [v,set];
+}
+
+/* ── USDA helpers ── */
+function getNutrient(arr,id){const n=(arr||[]).find(x=>x.nutrientId===id||x.nutrientNumber===String(id));return Math.round((n&&n.value)?n.value:0);}
+function parseFood(item){
+  const n=item.foodNutrients||[];const servings=[];
+  if(item.servingSize&&item.servingSizeUnit)servings.push({label:item.servingSize+item.servingSizeUnit,grams:item.servingSize});
+  (item.foodPortions||[]).forEach(p=>{if(p.gramWeight)servings.push({label:(p.portionDescription||(p.measureUnit&&p.measureUnit.name)||"serving")+" ("+p.gramWeight+"g)",grams:p.gramWeight});});
+  servings.push({label:"100g",grams:100});
+  return{fdcId:item.fdcId,name:item.description||"",brand:item.brandOwner||item.brandName||"",dataType:item.dataType||"",cal100:getNutrient(n,1008),p100:getNutrient(n,1003),c100:getNutrient(n,1005),f100:getNutrient(n,1004),servings};
+}
+function scaleMacros(food,grams,qty){const f=(grams*(parseFloat(qty)||1))/100;return{cal:Math.round(food.cal100*f),p:Math.round(food.p100*f),c:Math.round(food.c100*f),f:Math.round(food.f100*f)};}
+
+/* ── Toast ── */
+function Toast({msg}){
+  const [show,setShow]=useState(false);
+  useEffect(()=>{if(!msg)return;setShow(true);const t=setTimeout(()=>setShow(false),2200);return()=>clearTimeout(t);},[msg]);
+  return <div className={"toast"+(show?" show":"")}>{msg}</div>;
+}
+
+/* ── CalHero ── */
+function CalHero({logged,goals}){
+  const pct=Math.min((logged.calories/goals.calories)*100,100);
+  const rem=goals.calories-logged.calories;const over=rem<0;
+  const pp=Math.min((logged.protein/goals.protein)*100,100);
+  const pc=Math.min((logged.carbs/goals.carbs)*100,100);
+  const pf=Math.min((logged.fat/goals.fat)*100,100);
+  return(
+    <div className="cal-hero">
+      <div className="cal-top">
+        <div className="cal-lhs">
+          <div className="cal-lbl">Calories</div>
+          <div className="cal-num">{logged.calories.toLocaleString()}</div>
+          <div className="cal-unit">kcal consumed</div>
+        </div>
+        <div className="cal-rhs">
+          <div className="cal-rem-lbl">{over?"Over by":"Remaining"}</div>
+          <div className={"cal-rem-val "+(over?"over":"good")}>{Math.abs(rem).toLocaleString()}</div>
+          <div className={"cal-rem-sub "+(over?"over":"good")}>{over?"⬆ over budget":"⬇ to goal"}</div>
+        </div>
+      </div>
+      <div className="pbar-track"><div className={"pbar-fill"+(over?" over":"")} style={{width:pct+"%"}}/></div>
+      <div className="macro-row">
+        <div className="mpill p"><div className="mpill-val">{logged.protein}g</div><div className="mpill-name">Protein</div><div className="mpill-bar"><div className="mpill-bar-fill" style={{width:pp+"%"}}/></div><div className="mpill-goal">{goals.protein}g goal</div></div>
+        <div className="mpill c"><div className="mpill-val">{logged.carbs}g</div><div className="mpill-name">Carbs</div><div className="mpill-bar"><div className="mpill-bar-fill" style={{width:pc+"%"}}/></div><div className="mpill-goal">{goals.carbs}g goal</div></div>
+        <div className="mpill f"><div className="mpill-val">{logged.fat}g</div><div className="mpill-name">Fat</div><div className="mpill-bar"><div className="mpill-bar-fill" style={{width:pf+"%"}}/></div><div className="mpill-goal">{goals.fat}g goal</div></div>
+      </div>
+    </div>
+  );
+}
+
+/* ── WeekSelector ── */
+function WeekSelector({selectedDate,onSelect,weekOffset,onOffsetChange,entries}){
+  const today=new Date();today.setHours(0,0,0,0);
+  const baseMonday=getMondayOfWeek(today);
+  const monday=new Date(baseMonday);monday.setDate(monday.getDate()+weekOffset*7);
+  const days=getWeekDates(monday);
+  const isThisWeek=weekOffset===0;
+  const weekLabel=fmtShort(days[0])+" – "+fmtShort(days[6]);
+
+  return(
+    <div>
+      <div className="week-nav">
+        <button className="week-arrow" onClick={()=>onOffsetChange(weekOffset-1)}>‹</button>
+        <div className="week-days">
+          {days.map((d,i)=>{
+            const iso=isoDate(d);
+            const isToday=isoDate(d)===isoDate(today);
+            const isSel=iso===selectedDate;
+            const hasData=(entries[iso]||[]).length>0;
+            const letter=DAY_LETTERS[(i+1)%7];// Mon=M, Sun=Su
+            return(
+              <button key={iso} className={"day-pill"+(isToday?" today":"")+(isSel?" selected":"")+(hasData&&!isSel?" has-data":"")} onClick={()=>onSelect(iso)}>
+                <span className="day-pill-letter">{letter}</span>
+                <span className="day-pill-num">{d.getDate()}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button className="week-arrow" onClick={()=>onOffsetChange(Math.min(0,weekOffset+1))} disabled={weekOffset===0} style={{opacity:weekOffset===0?0.3:1}}>›</button>
+      </div>
+      <div className="week-label">{isThisWeek?"This week":"Week of"} {weekLabel}</div>
+    </div>
+  );
+}
+
+/* ── WeightChart ── */
+function WeightChart({data}){
+  if(data.length<2)return <div style={{padding:"16px 0",textAlign:"center",color:"var(--mu)",fontSize:12}}>Log 2+ entries to see your trend</div>;
+  const vals=data.map(d=>d.weight);const lo=Math.min(...vals)-2,hi=Math.max(...vals)+2;
+  const W=370,H=110,xs=W/(data.length-1);
+  const ys=v=>H-((v-lo)/(hi-lo))*H;
+  const pts=data.map((d,i)=>`${i*xs},${ys(d.weight)}`).join(" ");
+  const area=`0,${H} ${pts} ${(data.length-1)*xs},${H}`;
+  return(
+    <div className="chart-area">
+      <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+        <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6366f1" stopOpacity="0.35"/><stop offset="100%" stopColor="#6366f1" stopOpacity="0"/></linearGradient></defs>
+        <polygon points={area} fill="url(#cg)"/>
+        <polyline points={pts} fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+        {data.map((d,i)=><circle key={i} cx={i*xs} cy={ys(d.weight)} r="4" fill="#6366f1" stroke="#a5b4fc" strokeWidth="1.5"/>)}
+      </svg>
+    </div>
+  );
+}
+
+/* ── FoodDetail ── */
+function FoodDetail({food,meal,onBack,onConfirm}){
+  const [si,setSi]=useState(0);const [qty,setQty]=useState("1");
+  const serv=food.servings[si];const m=scaleMacros(food,serv.grams,qty);
+  return(
+    <div className="detail-box">
+      <div className="det-name">{food.name}</div>
+      <div className="det-sub">{food.brand||food.dataType}</div>
+      <div className="fg"><div className="fl">Serving Size</div><select className="field" value={si} onChange={e=>setSi(parseInt(e.target.value,10))} style={{appearance:"none"}}>{food.servings.map((s,i)=><option key={i} value={i}>{s.label}</option>)}</select></div>
+      <div className="fg"><div className="fl">Quantity</div><input className="field" type="number" step="0.5" min="0.5" value={qty} onChange={e=>setQty(e.target.value)}/></div>
+      <div className="m4">
+        <div className="m4c"><div className="m4v">{m.cal}</div><div className="m4l">kcal</div></div>
+        <div className="m4c"><div className="m4v" style={{color:"var(--rosel)"}}>{m.p}g</div><div className="m4l">Protein</div></div>
+        <div className="m4c"><div className="m4v" style={{color:"var(--cyanl)"}}>{m.c}g</div><div className="m4l">Carbs</div></div>
+        <div className="m4c"><div className="m4v" style={{color:"var(--ambl)"}}>{m.f}g</div><div className="m4l">Fat</div></div>
+      </div>
+      <button className="btn" style={{marginTop:4}} onClick={()=>onConfirm({name:food.name,serving:qty+"x "+serv.label,meal,cal:m.cal,p:m.p,c:m.c,f:m.f})}>Add to {meal}</button>
+      <button className="btn-ghost" onClick={onBack}>← Back</button>
+    </div>
+  );
+}
+
+/* ── BarcodeScanner ── */
+function BarcodeScanner({onDetected}){
+  const vRef=useRef(null);const streamRef=useRef(null);const rafRef=useRef(null);const detRef=useRef(null);
+  const [status,setStatus]=useState("starting");const [code,setCode]=useState("");
+  useEffect(()=>{
+    let dead=false;
+    async function go(){
+      if(!("BarcodeDetector" in window)){setStatus("unsupported");return;}
+      try{detRef.current=new window.BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128","code_39","itf","qr_code"]});}catch(e){setStatus("unsupported");return;}
+      try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1280},height:{ideal:720}}});if(dead){s.getTracks().forEach(t=>t.stop());return;}streamRef.current=s;if(vRef.current){vRef.current.srcObject=s;await vRef.current.play();}setStatus("scanning");tick();}
+      catch(e){if(!dead)setStatus("error");}
+    }
+    async function tick(){
+      if(dead||!vRef.current||!detRef.current)return;
+      try{const codes=await detRef.current.detect(vRef.current);if(codes.length>0&&!dead){const v=codes[0].rawValue;setCode(v);setStatus("success");setTimeout(()=>{if(!dead)onDetected(v);},700);return;}}catch(e){}
+      if(!dead)rafRef.current=requestAnimationFrame(tick);
+    }
+    go();
+    return()=>{dead=true;cancelAnimationFrame(rafRef.current);if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());};
+  },[]);
+  if(status==="unsupported")return <div style={{textAlign:"center",padding:"14px 0"}}><div style={{fontSize:36,marginBottom:10}}>😕</div><div className="muted-t">Camera scanning needs Chrome (Android) or Safari iOS 17+. Type the barcode below instead.</div></div>;
+  if(status==="error")return <div style={{textAlign:"center",padding:"14px 0"}}><div style={{fontSize:36,marginBottom:10}}>📷</div><div className="muted-t">Camera permission denied. Check settings or type the barcode below.</div></div>;
+  return(
+    <div>
+      <div className="scanner-wrap">
+        <video ref={vRef} className="scanner-video" muted playsInline/>
+        {status==="scanning"&&<div className="scanner-frame"><div className="scanner-box"><div className="sc tl"/><div className="sc tr"/><div className="sc bl"/><div className="sc br"/><div className="scan-line"/></div></div>}
+        {status==="success"&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(16,185,129,0.18)"}}><div style={{fontSize:64}}>✅</div></div>}
+        {status==="starting"&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><div className="spin"/></div>}
+        <div className="scanner-hint">Point at any barcode — auto-detects</div>
+      </div>
+      {status==="success"&&<div style={{textAlign:"center",fontSize:12,color:"var(--em)",marginBottom:8}}>✓ Detected: {code}</div>}
+    </div>
+  );
+}
+
+/* ── AddFoodModal ── */
+function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
+  const [tab,setTab]=useState("search");const [meal,setMeal]=useState(targetMeal||"Breakfast");
+  const [query,setQuery]=useState("");const [results,setResults]=useState([]);const [searching,setSearching]=useState(false);const [sErr,setSErr]=useState("");const [selected,setSelected]=useState(null);
+  const [barcode,setBarcode]=useState("");const [bLoad,setBLoad]=useState(false);const [bErr,setBErr]=useState("");const [bFood,setBFood]=useState(null);
+  const [img,setImg]=useState(null);const [scanning,setScanning]=useState(false);const [aiRes,setAiRes]=useState(null);const [aiErr,setAiErr]=useState("");
+  const [mN,setMN]=useState("");const [mC,setMC]=useState("");const [mP,setMP]=useState("");const [mCa,setMCa]=useState("");const [mF,setMF]=useState("");
+  const fRef=useRef(null);const tRef=useRef(null);
+
+  useEffect(()=>{
+    if(!query.trim()||query.length<2){setResults([]);setSErr("");return;}
+    clearTimeout(tRef.current);
+    tRef.current=setTimeout(async()=>{
+      setSearching(true);setSErr("");
+      try{const r=await fetch(USDA+"/foods/search?query="+encodeURIComponent(query)+"&pageSize=10&api_key="+usdaKey);if(!r.ok)throw new Error();const d=await r.json();setResults((d.foods||[]).map(parseFood));}
+      catch(e){setSErr("Search failed — check your USDA API key in Goals.");}
+      finally{setSearching(false);}
+    },500);
+    return()=>clearTimeout(tRef.current);
+  },[query,usdaKey]);
+
+  async function lookupBarcode(code){
+    const c=(code||barcode||"").trim();if(!c)return;
+    setBLoad(true);setBErr("");setBFood(null);
+    try{
+      // Layer 1: USDA direct GTIN/UPC lookup
+      if(usdaKey){
+        const r1=await fetch(USDA+"/foods/search?query="+encodeURIComponent(c)+"&pageSize=5&api_key="+usdaKey);
+        if(r1.ok){
+          const d1=await r1.json();
+          const foods=d1.foods||[];
+          // Prefer exact UPC match, then any branded result, then any result
+          const exact=foods.find(f=>f.gtinUpc===c);
+          const branded=foods.find(f=>f.dataType==="Branded");
+          const match=exact||branded||foods[0];
+          if(match){setBFood(parseFood(match));return;}
+        }
+      }
+      // Layer 2: Open Food Facts — great branded product coverage, no key needed
+      const r2=await fetch("https://world.openfoodfacts.org/api/v0/product/"+c+".json");
+      if(r2.ok){
+        const d2=await r2.json();
+        if(d2.status===1&&d2.product){
+          const p=d2.product;
+          const n=p.nutriments||{};
+          const servings=[];
+          if(p.serving_size)servings.push({label:p.serving_size,grams:parseFloat(p.serving_quantity)||100});
+          servings.push({label:"100g",grams:100});
+          setBFood({
+            fdcId:"off-"+c,
+            name:p.product_name||p.product_name_en||"Unknown Product",
+            brand:p.brands||"",
+            dataType:"Open Food Facts",
+            cal100:Math.round(n["energy-kcal_100g"]||n["energy_100g"]/4.184||0),
+            p100:Math.round(n.proteins_100g||0),
+            c100:Math.round(n.carbohydrates_100g||0),
+            f100:Math.round(n.fat_100g||0),
+            servings:servings.length>1?servings:[{label:"100g",grams:100}],
+          });
+          return;
+        }
+      }
+      // Layer 3: USDA name search fallback — search the barcode as a number, user can pick
+      if(usdaKey){
+        const r3=await fetch(USDA+"/foods/search?query="+encodeURIComponent(c)+"&pageSize=8&dataType=Branded&api_key="+usdaKey);
+        if(r3.ok){
+          const d3=await r3.json();
+          const foods=d3.foods||[];
+          if(foods.length>0){setBFood(parseFood(foods[0]));return;}
+        }
+      }
+      setBErr("No food found for that barcode. Try searching by name instead.");
+    }catch(e){setBErr("Lookup failed. Check your connection and try again.");}
+    finally{setBLoad(false);}
+  }
+
+  function handlePhoto(e){
+    const file=e.target.files[0];if(!file)return;
+    if(!workerUrl){setAiErr("Add your AI Worker URL in Goals → AI Photo Scanning first.");return;}
+    const reader=new FileReader();
+    reader.onload=async ev=>{
+      setImg(ev.target.result);setScanning(true);setAiRes(null);setAiErr("");
+      try{
+        const base64=ev.target.result.split(",")[1];
+        const r=await fetch(workerUrl.replace(/\/$/,""),{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({imageBase64:base64,mediaType:file.type||"image/jpeg"}),
+        });
+        if(!r.ok){const err=await r.json().catch(()=>({}));throw new Error(err.error||"Worker returned "+r.status);}
+        const nutrition=await r.json();
+        if(!nutrition.name||nutrition.cal===undefined)throw new Error("Invalid response");
+        setAiRes(nutrition);
+      }
+      catch(e){setAiErr("Scan failed: "+e.message+". Check your Worker URL in Goals.");}
+      finally{setScanning(false);}
     };
+    reader.readAsDataURL(file);
+  }
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders });
-    }
+  function confirm(entry){onAdd(entry);onClose();}
+  function switchTab(t){setTab(t);setSelected(null);setBFood(null);}
 
-    // ── Only accept POST ────────────────────────────────────────────────
-    if (request.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), {
-        status: 405,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="sheet">
+        <div className="sheet-handle"/>
+        <div className="sheet-title">Add Food</div>
+        <div style={{marginBottom:14}}>
+          <div className="fl" style={{marginBottom:8}}>Meal</div>
+          <div className="chips">{MEALS.map(m=><div key={m.id} className={"chip"+(meal===m.id?" active":"")} onClick={()=>setMeal(m.id)}>{m.emoji} {m.id}</div>)}</div>
+        </div>
+        <div className="tabs">
+          {[["search","🔍 Search"],["barcode","📦 Scan"],["photo","📷 AI"],["custom","✏️ Manual"]].map(t=><button key={t[0]} className={"tab-btn"+(tab===t[0]?" active":"")} onClick={()=>switchTab(t[0])}>{t[1]}</button>)}
+        </div>
 
-    // ── Parse incoming body ─────────────────────────────────────────────
-    let body;
-    try {
-      body = await request.json();
-    } catch (e) {
-      return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+        {tab==="search"&&<div>
+          {!selected?<div>
+            <div className="search-wrap"><span className="search-ico">🔍</span><input className="search-field" placeholder="Search 600k+ foods…" value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);}} autoFocus/></div>
+            {!usdaKey&&<div className="err">⚠ Add your USDA API key in Goals to enable search.</div>}
+            {searching&&<div className="loading-row"><div className="spin"/><span>Searching USDA…</span></div>}
+            {sErr&&<div className="err">{sErr}</div>}
+            {!searching&&results.map(f=><div key={f.fdcId} className="sres" onClick={()=>setSelected(f)}><div style={{minWidth:0}}><div className="sr-name">{f.name}</div><div className="sr-sub">{f.brand||f.dataType} · {f.p100}P/{f.c100}C/{f.f100}F per 100g</div></div><div className="sr-cal">{f.cal100}</div></div>)}
+            {!searching&&query.length>=2&&results.length===0&&!sErr&&<div className="muted-t" style={{padding:"10px 0"}}>No results.</div>}
+          </div>:<FoodDetail food={selected} meal={meal} onBack={()=>setSelected(null)} onConfirm={confirm}/>}
+        </div>}
 
-    // ── Validate: must have image data ──────────────────────────────────
-    const { imageBase64, mediaType } = body;
-    if (!imageBase64 || !mediaType) {
-      return new Response(JSON.stringify({ error: "Missing imageBase64 or mediaType" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+        {tab==="barcode"&&<div>
+          {!bFood?<div>
+            {!usdaKey&&<div className="err" style={{marginBottom:10}}>⚠ Add your USDA API key in Goals first.</div>}
+            <BarcodeScanner onDetected={c=>{setBarcode(c);lookupBarcode(c);}}/>
+            <div style={{marginTop:10}}>
+              <div className="fl" style={{marginBottom:6}}>Or enter barcode manually</div>
+              <div style={{display:"flex",gap:8}}><input className="field" placeholder="e.g. 021130126026" value={barcode} onChange={e=>setBarcode(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")lookupBarcode(e.target.value);}} style={{flex:1}}/><button className="btn-sm" onClick={()=>lookupBarcode(barcode)} disabled={bLoad}>{bLoad?"…":"Go"}</button></div>
+            </div>
+            {bLoad&&<div className="loading-row"><div className="spin"/><span>Looking up…</span></div>}
+            {bErr&&<div className="err">{bErr}</div>}
+          </div>:<FoodDetail food={bFood} meal={meal} onBack={()=>setBFood(null)} onConfirm={confirm}/>}
+        </div>}
 
-    // ── Call Anthropic API ──────────────────────────────────────────────
-    let anthropicRes;
-    try {
-      anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": env.ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: `You are a nutrition analysis AI. Identify the food in the image and estimate its calories and macronutrients.
-Respond ONLY with a valid JSON object — no markdown, no explanation, no extra text. Format:
-{"name":"Food Name","cal":000,"p":00,"c":00,"f":00,"confidence":"high/medium/low","note":"brief optional note about the estimate"}
-All numeric values must be integers. Estimate for the total portion visible in the image.`,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "image",
-                  source: {
-                    type: "base64",
-                    media_type: mediaType,
-                    data: imageBase64,
-                  },
-                },
-                {
-                  type: "text",
-                  text: "Analyze this food and return the nutrition JSON.",
-                },
-              ],
-            },
-          ],
-        }),
-      });
-    } catch (e) {
-      return new Response(JSON.stringify({ error: "Failed to reach Anthropic API" }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+        {tab==="photo"&&<div>
+          <input ref={fRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handlePhoto}/>
+          {!workerUrl&&<div className="err" style={{marginBottom:12}}>⚠ Add your Cloudflare Worker URL in Goals → AI Photo Scanning to enable this feature.</div>}
+          {!img?<div className="scan-drop" onClick={()=>{if(!workerUrl)return;fRef.current&&fRef.current.click();}} style={{opacity:workerUrl?1:0.5}}>
+            <div style={{fontSize:50,marginBottom:12}}>📷</div>
+            <div style={{fontSize:15,color:"var(--txt2)",fontWeight:500}}>Tap to take a photo</div>
+            <div style={{fontSize:12,color:"var(--mu)",marginTop:6}}>AI estimates calories and macros</div>
+          </div>:<div>
+            <img src={img} className="scan-prev" alt="food"/>
+            {scanning&&<div className="loading-row"><div className="spin"/><span>Analyzing with AI…</span></div>}
+            {aiErr&&<div className="err">{aiErr}</div>}
+            {aiRes&&<div className="detail-box">
+              <div className="ai-badge">✨ AI Estimate</div>
+              <div className="det-name">{aiRes.name}</div>
+              {aiRes.note&&<div className="det-sub">{aiRes.note}</div>}
+              <div className="m4">
+                <div className="m4c"><div className="m4v">{aiRes.cal}</div><div className="m4l">kcal</div></div>
+                <div className="m4c"><div className="m4v" style={{color:"var(--rosel)"}}>{aiRes.p}g</div><div className="m4l">Protein</div></div>
+                <div className="m4c"><div className="m4v" style={{color:"var(--cyanl)"}}>{aiRes.c}g</div><div className="m4l">Carbs</div></div>
+                <div className="m4c"><div className="m4v" style={{color:"var(--ambl)"}}>{aiRes.f}g</div><div className="m4l">Fat</div></div>
+              </div>
+              <div style={{fontSize:11,color:"var(--mu)",marginBottom:4}}>Confidence: {aiRes.confidence}</div>
+              <button className="btn" style={{marginTop:4}} onClick={()=>confirm({name:aiRes.name,serving:"AI estimate",meal,cal:aiRes.cal,p:aiRes.p,c:aiRes.c,f:aiRes.f})}>Add to {meal}</button>
+            </div>}
+            <button className="btn-ghost" onClick={()=>{setImg(null);setAiRes(null);setAiErr("");}}>Retake</button>
+          </div>}
+        </div>}
 
-    // ── Parse Anthropic response ────────────────────────────────────────
-    let data;
-    try {
-      data = await anthropicRes.json();
-    } catch (e) {
-      return new Response(JSON.stringify({ error: "Invalid response from Anthropic" }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+        {tab==="custom"&&<div>
+          <div className="fg"><div className="fl">Food Name</div><input className="field" placeholder="e.g. Ground Turkey Bowl" value={mN} onChange={e=>setMN(e.target.value)}/></div>
+          <div className="fg"><div className="fl">Calories</div><input className="field" type="number" placeholder="0" value={mC} onChange={e=>setMC(e.target.value)}/></div>
+          <div className="g3">
+            <div className="fg"><div className="fl" style={{color:"var(--rose)"}}>Protein (g)</div><input className="field fp" type="number" placeholder="0" value={mP} onChange={e=>setMP(e.target.value)}/></div>
+            <div className="fg"><div className="fl" style={{color:"var(--cyan)"}}>Carbs (g)</div><input className="field fc" type="number" placeholder="0" value={mCa} onChange={e=>setMCa(e.target.value)}/></div>
+            <div className="fg"><div className="fl" style={{color:"var(--amb)"}}>Fat (g)</div><input className="field ff" type="number" placeholder="0" value={mF} onChange={e=>setMF(e.target.value)}/></div>
+          </div>
+          <button className="btn" disabled={!mN||!mC} onClick={()=>confirm({name:mN,serving:"custom",meal,cal:parseInt(mC,10),p:parseInt(mP,10)||0,c:parseInt(mCa,10)||0,f:parseInt(mF,10)||0})}>Add to {meal}</button>
+        </div>}
 
-    if (!anthropicRes.ok) {
-      return new Response(JSON.stringify({ error: data.error?.message || "Anthropic API error" }), {
-        status: anthropicRes.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+        <button className="btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
 
-    // ── Extract and parse the nutrition JSON from Claude's response ─────
-    const textBlock = (data.content || []).find(b => b.type === "text");
-    const rawText = textBlock?.text || "";
+/* ── WeightModal ── */
+function WeightModal({onClose,onLog}){
+  const [v,setV]=useState("");
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="sheet">
+        <div className="sheet-handle"/>
+        <div className="sheet-title">Log Weight</div>
+        <div className="fg"><div className="fl">Weight (lbs)</div><input className="field" type="number" step="0.1" placeholder="e.g. 215.4" value={v} onChange={e=>setV(e.target.value)} autoFocus/></div>
+        <button className="btn" disabled={!v} onClick={()=>{onLog(parseFloat(v));onClose();}}>Save Weight</button>
+        <button className="btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
 
-    let nutrition;
-    try {
-      const clean = rawText.replace(/```json|```/g, "").trim();
-      nutrition = JSON.parse(clean);
-    } catch (e) {
-      return new Response(JSON.stringify({ error: "Could not parse nutrition data", raw: rawText }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+/* ── GoalsModal ── */
+function GoalsModal({goals,onClose,onSave}){
+  const [c,setC]=useState(String(goals.calories));const [p,setP]=useState(String(goals.protein));const [ca,setCa]=useState(String(goals.carbs));const [f,setF]=useState(String(goals.fat));
+  return(
+    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="sheet">
+        <div className="sheet-handle"/>
+        <div className="sheet-title">Edit Goals</div>
+        <div className="fg"><div className="fl">Daily Calories</div><input className="field" type="number" value={c} onChange={e=>setC(e.target.value)}/></div>
+        <div className="g3">
+          <div className="fg"><div className="fl" style={{color:"var(--rose)"}}>Protein (g)</div><input className="field fp" type="number" value={p} onChange={e=>setP(e.target.value)}/></div>
+          <div className="fg"><div className="fl" style={{color:"var(--cyan)"}}>Carbs (g)</div><input className="field fc" type="number" value={ca} onChange={e=>setCa(e.target.value)}/></div>
+          <div className="fg"><div className="fl" style={{color:"var(--amb)"}}>Fat (g)</div><input className="field ff" type="number" value={f} onChange={e=>setF(e.target.value)}/></div>
+        </div>
+        <button className="btn" onClick={()=>{onSave({calories:parseInt(c,10),protein:parseInt(p,10),carbs:parseInt(ca,10),fat:parseInt(f,10)});onClose();}}>Save Goals</button>
+        <button className="btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
 
-    // ── Return nutrition result ─────────────────────────────────────────
-    return new Response(JSON.stringify(nutrition), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+/* ── WorkerUrlInput ── */
+function WorkerUrlInput({onSave}){
+  const [v,setV]=useState("");
+  const valid=v.trim().startsWith("https://")&&v.includes("workers.dev");
+  return(
+    <div>
+      <div className="fg">
+        <div className="fl">Cloudflare Worker URL</div>
+        <input className="field" placeholder="https://macrotrack-ai.YOUR-NAME.workers.dev" value={v} onChange={e=>setV(e.target.value)} style={{fontSize:13}}/>
+      </div>
+      {v.length>10&&!valid&&<div className="err">URL should start with https:// and contain workers.dev</div>}
+      <button className="btn" disabled={!valid} style={{marginTop:4}} onClick={()=>onSave(v.trim())}>Save Worker URL</button>
+    </div>
+  );
+}
+
+/* ── Adapt Engine ── */
+function computeAdapt(wlog,goals){
+  if(wlog.length<7)return null;
+  const r=wlog.slice(-7);const ch=r[r.length-1].weight-r[0].weight;
+  const tgt=-0.5,diff=ch-tgt;
+  let adj=0,msg="",state="normal";
+  if(Math.abs(diff)<0.15){msg="You're right on track — losing at your target pace. Keep doing exactly this.";state="ontrack";}
+  else if(diff>0.15){adj=-75;msg="Lost "+Math.abs(ch).toFixed(1)+" lbs this week vs your 0.5 lb target. Dropping calories slightly.";}
+  else{adj=75;msg="Lost "+Math.abs(ch).toFixed(1)+" lbs — faster than target. A small calorie bump protects muscle mass.";}
+  return{ch:ch.toFixed(1),adj,newCal:goals.calories+adj,msg,state};
+}
+
+/* ── App ── */
+function App(){
+  const [tab,setTab]=useLocal("mt_tab","log");
+  const [goals,setGoalsRaw]=useLocal("mt_goals",DEFAULT_GOALS);
+  const [entries,setEntriesRaw]=useLocal("mt_entries",{});
+  const [wlog,setWlogRaw]=useLocal("mt_wlog",[]);
+  const [usdaKey,setUsdaKeyRaw]=useLocal("mt_usda","");
+  const [workerUrl,setWorkerUrlRaw]=useLocal("mt_worker","");
+  const [keyIn,setKeyIn]=useState("");
+  const [modal,setModal]=useState(null);
+  const [openMeals,setOpenMeals]=useState({Breakfast:true,Lunch:true,Dinner:true,Snacks:true});
+  const [targetMeal,setTargetMeal]=useState("Breakfast");
+  const [toastMsg,setToastMsg]=useState("");
+  const toastKey=useRef(0);
+
+  // Week navigation state
+  const [weekOffset,setWeekOffset]=useState(0);
+  const [selectedDate,setSelectedDate]=useState(todayISO());
+
+  // When week changes, select the first day of that week (or today if current week)
+  function handleOffsetChange(newOffset){
+    setWeekOffset(newOffset);
+    if(newOffset===0){setSelectedDate(todayISO());}
+    else{const mon=getMondayOfWeek(new Date());mon.setDate(mon.getDate()+newOffset*7);setSelectedDate(isoDate(mon));}
+  }
+
+  function showToast(msg){
+    toastKey.current++;setToastMsg(msg+"  ");
+    setTimeout(()=>setToastMsg(msg),10);
+  }
+
+  // Wrapped setters that show a toast on save
+  function setGoals(v){setGoalsRaw(v);showToast("✓ Goals saved");}
+  function setUsdaKey(v){setUsdaKeyRaw(v);if(v)showToast("✓ API key saved");}
+  function setWorkerUrl(v){setWorkerUrlRaw(v);if(v)showToast("✓ Worker URL saved");}
+
+  function addEntry(e){
+    setEntriesRaw(prev=>{
+      const n={...prev};
+      n[selectedDate]=(prev[selectedDate]||[]).concat([{...e,id:Date.now()}]);
+      return n;
     });
-  },
-};
+    showToast("✓ Food logged");
+  }
+  function delEntry(id){
+    setEntriesRaw(prev=>{const n={...prev};n[selectedDate]=(prev[selectedDate]||[]).filter(e=>e.id!==id);return n;});
+  }
+  function logWeight(w){
+    setWlogRaw(prev=>{const e={date:todayISO(),weight:w};const idx=prev.findIndex(x=>x.date===todayISO());if(idx>=0){const n=[...prev];n[idx]=e;return n;}return prev.concat([e]).slice(-90);});
+    showToast("✓ Weight saved");
+  }
+  function clearDay(){
+    setEntriesRaw(prev=>{const n={...prev};n[selectedDate]=[];return n;});
+    showToast("✓ Day cleared");
+  }
+
+  const dayEntries=entries[selectedDate]||[];
+  const logged=dayEntries.reduce((a,e)=>({calories:a.calories+e.cal,protein:a.protein+e.p,carbs:a.carbs+e.c,fat:a.fat+e.f}),{calories:0,protein:0,carbs:0,fat:0});
+  const mEntries=m=>dayEntries.filter(e=>e.meal===m);
+  const mCals=m=>mEntries(m).reduce((s,e)=>s+e.cal,0);
+
+  const sorted=wlog.slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const latW=sorted[sorted.length-1];const prevW=sorted[sorted.length-2];
+  const wDelta=latW&&prevW?(latW.weight-prevW.weight).toFixed(1):null;
+  const adapt=computeAdapt(sorted,goals);
+  const isToday=selectedDate===todayISO();
+
+  return(
+    <div className="app">
+      <Toast msg={toastMsg}/>
+
+      {/* Header */}
+      <div className="hdr">
+        <div className="logo"><em>MACRO</em>TRACK</div>
+        <div className="hdr-r">
+          <div className="hdr-date">{fmtDate(new Date(selectedDate+"T12:00:00"))}</div>
+        </div>
+      </div>
+
+      {/* LOG TAB */}
+      {tab==="log"&&<div className="page">
+        <div style={{height:12}}/>
+        <WeekSelector selectedDate={selectedDate} onSelect={setSelectedDate} weekOffset={weekOffset} onOffsetChange={handleOffsetChange} entries={entries}/>
+        <CalHero logged={logged} goals={goals}/>
+
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"16px 0 8px"}}>
+          <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700}}>Meals</div>
+          {dayEntries.length>0&&<button style={{background:"none",border:"none",fontSize:11,color:"var(--mu)",cursor:"pointer"}} onClick={()=>{if(window.confirm("Clear all food entries for this day?"))clearDay();}}>Clear day</button>}
+        </div>
+
+        {MEALS.map(meal=>{
+          const items=mEntries(meal.id);const isOpen=openMeals[meal.id];
+          return(
+            <div className="meal-block" key={meal.id}>
+              <div className={"meal-hd"+(isOpen?" open":"")} onClick={()=>setOpenMeals(p=>({...p,[meal.id]:!p[meal.id]}))}>
+                <div className="meal-hd-l"><span className="meal-emoji">{meal.emoji}</span><span className="meal-hd-name">{meal.id}</span></div>
+                <div className="meal-hd-r">
+                  <span className="meal-kcal">{mCals(meal.id)} kcal</span>
+                  {isToday&&<button className="meal-add" onClick={e=>{e.stopPropagation();setTargetMeal(meal.id);setModal("add");}}>+</button>}
+                </div>
+              </div>
+              {isOpen&&<div className="meal-items">
+                {items.length===0
+                  ?<div className="meal-empty">{isToday?"Nothing logged yet — tap + to add":"Nothing logged"}</div>
+                  :items.map(item=><div className="food-row" key={item.id}>
+                    <div className="food-info"><div className="food-name">{item.name}</div><div className="food-srv">{item.serving}</div></div>
+                    <div className="food-right"><div className="food-cal">{item.cal}</div><div className="food-mpw">{item.p}P·{item.c}C·{item.f}F</div></div>
+                    {isToday&&<button className="food-del" onClick={()=>delEntry(item.id)}>×</button>}
+                  </div>)}
+              </div>}
+            </div>
+          );
+        })}
+
+        {isToday&&<button className="fab" onClick={()=>{setTargetMeal("Breakfast");setModal("add");}}>+ LOG FOOD</button>}
+        {!isToday&&<div style={{textAlign:"center",fontSize:13,color:"var(--mu)",marginTop:20,paddingBottom:8}}>Viewing {fmtShort(new Date(selectedDate+"T12:00:00"))} — tap today to log food</div>}
+      </div>}
+
+      {/* WEIGHT TAB */}
+      {tab==="weight"&&<div className="page">
+        <div style={{height:12}}/>
+        <div className="w-hero">
+          <div className="w-lbl">Current Weight</div>
+          <div className="w-big">{latW?<span>{latW.weight}<span> lbs</span></span>:<span style={{color:"var(--mu)",fontSize:22,fontFamily:"DM Sans"}}>Not logged yet</span>}</div>
+          {wDelta&&<div className={"w-delta "+(parseFloat(wDelta)<=0?"dn":"up")}>{parseFloat(wDelta)<=0?"↓":"↑"} {Math.abs(wDelta)} lbs from last entry</div>}
+          <WeightChart data={sorted}/>
+          {sorted.length>1&&<div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--mu)",fontFamily:"'JetBrains Mono',monospace",marginTop:2}}><span>{sorted[0].date}</span><span>{sorted[sorted.length-1].date}</span></div>}
+        </div>
+
+        <div style={{background:"var(--s1)",border:"1px solid var(--b1)",borderRadius:20,padding:18,marginBottom:14}}>
+          <div className="w-lbl" style={{marginBottom:12}}>Log Today's Weight</div>
+          <LogWeightInline onLog={logWeight}/>
+        </div>
+
+        {adapt?<div className={"adapt"+(adapt.state==="ontrack"?" ontrack":"")}>
+          <div className="adapt-head"><span style={{fontSize:22}}>{adapt.state==="ontrack"?"✅":"🧠"}</span><span className="adapt-title">{adapt.state==="ontrack"?"On Track!":"Weekly Adjustment"}</span></div>
+          <div className="adapt-body">{adapt.msg}</div>
+          {adapt.adj!==0&&<div>
+            <div className="adapt-stats">
+              <div className="ast"><div className="ast-lbl">Current</div><div className="ast-val">{goals.calories}</div></div>
+              <div className="ast"><div className="ast-lbl">Suggested</div><div className="ast-val">{adapt.newCal}</div></div>
+              <div className="ast"><div className="ast-lbl">Change</div><div className="ast-val" style={{color:adapt.adj<0?"var(--rosel)":"var(--eml)"}}>{adapt.adj>0?"+":""}{adapt.adj}</div></div>
+            </div>
+            <button className="btn" style={{marginTop:14}} onClick={()=>{setGoals({...goals,calories:adapt.newCal});}}>Apply Adjustment</button>
+          </div>}
+        </div>:<div className="adapt">
+          <div className="adapt-head"><span style={{fontSize:22}}>📊</span><span className="adapt-title">Adaptive Engine</span></div>
+          <div className="adapt-body" style={{marginBottom:12}}>Log your weight for <strong style={{color:"var(--indll)"}}>{Math.max(0,7-sorted.length)} more day{7-sorted.length!==1?"s":""}</strong> to unlock personalized weekly calorie adjustments.</div>
+          <div className="unlock-dots">{Array.from({length:7},(_,i)=><div key={i} className={"udot"+(i<sorted.length?" on":"")}/>)}</div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--mu)",marginTop:6}}><span>{sorted.length}/7 days</span><span>Need 7</span></div>
+        </div>}
+
+        <div style={{background:"var(--s1)",border:"1px solid var(--b1)",borderRadius:20,padding:20,marginBottom:14}}>
+          <div className="w-lbl" style={{marginBottom:10}}>History</div>
+          {sorted.length===0?<div className="muted-t">No entries yet.</div>
+          :sorted.slice().reverse().slice(0,14).map((e,i)=><div className="wlog-row" key={i}><span className="wlog-date">{e.date}</span><span className="wlog-val">{e.weight} lbs</span></div>)}
+        </div>
+      </div>}
+
+      {/* GOALS TAB */}
+      {tab==="goals"&&<div className="page">
+        <div style={{height:12}}/>
+        <div className="scard">
+          <div className="stitle">Daily Targets</div>
+          <div className="srow"><span className="slbl">Calories</span><span className="sval">{goals.calories.toLocaleString()} kcal</span></div>
+          <div className="srow"><span className="slbl">Protein</span><span className="sval" style={{color:"var(--rosel)"}}>{goals.protein}g</span></div>
+          <div className="srow"><span className="slbl">Carbs</span><span className="sval" style={{color:"var(--cyanl)"}}>{goals.carbs}g</span></div>
+          <div className="srow"><span className="slbl">Fat</span><span className="sval" style={{color:"var(--ambl)"}}>{goals.fat}g</span></div>
+          <button className="btn" style={{marginTop:16}} onClick={()=>setModal("goals")}>Edit Goals</button>
+        </div>
+
+        <div className="scard">
+          <div className="stitle">Today's Progress</div>
+          {[{label:"Calories",val:logged.calories,goal:goals.calories,unit:"kcal",color:null},{label:"Protein",val:logged.protein,goal:goals.protein,unit:"g",color:"var(--rose)"},{label:"Carbs",val:logged.carbs,goal:goals.carbs,unit:"g",color:"var(--cyan)"},{label:"Fat",val:logged.fat,goal:goals.fat,unit:"g",color:"var(--amb)"}].map(it=>{
+            const pct=Math.min((it.val/it.goal)*100,100),over=it.val>it.goal;
+            return(<div className="prog-row" key={it.label}>
+              <div className="prog-head"><span className="prog-lbl">{it.label}</span><span className="prog-val" style={{color:over?"var(--rose)":it.color||"var(--indll)"}}>{it.val}/{it.goal}{it.unit}</span></div>
+              <div className="pbar-track" style={{marginBottom:0}}><div className={"pbar-fill"+(over?" over":"")} style={{width:pct+"%",background:over?"var(--rose)":it.color?"linear-gradient(90deg,"+it.color+"99,"+it.color+")":"linear-gradient(90deg,var(--ind),var(--vio))"}}/></div>
+            </div>);
+          })}
+        </div>
+
+        <div className="scard">
+          <div className="stitle">USDA Food Database</div>
+          {usdaKey?<div>
+            <div className="srow"><span className="slbl">API Key</span><span className="sval" style={{fontSize:11}}>{"••••"+usdaKey.slice(-4)}</span></div>
+            <div className="ok-text">✓ Connected — 600k+ foods available</div>
+            <button className="btn-ghost" style={{marginTop:12}} onClick={()=>setUsdaKey("")}>Remove Key</button>
+          </div>:<div>
+            <div className="muted-t" style={{marginBottom:12}}>Connect the free USDA API to search 600,000+ foods.<br/>Get your key at <strong style={{color:"var(--indll)"}}>fdc.nal.usda.gov/api-key-signup</strong></div>
+            <div className="fg"><div className="fl">Your API Key</div><input className="field" placeholder="Paste key here…" value={keyIn} onChange={e=>setKeyIn(e.target.value)}/></div>
+            {keyIn.length>10&&<button className="btn" style={{marginTop:0}} onClick={()=>{setUsdaKey(keyIn.trim());setKeyIn("");}}>Save Key</button>}
+          </div>}
+        </div>
+
+        <div className="scard">
+          <div className="stitle">AI Photo Scanning</div>
+          {workerUrl?<div>
+            <div className="srow"><span className="slbl">Worker URL</span><span className="sval" style={{fontSize:10}}>{"…"+workerUrl.slice(-20)}</span></div>
+            <div className="ok-text">✓ AI scanning ready</div>
+            <button className="btn-ghost" style={{marginTop:12}} onClick={()=>setWorkerUrl("")}>Remove</button>
+          </div>:<div>
+            <div className="muted-t" style={{marginBottom:12}}>Paste your Cloudflare Worker URL to enable AI photo meal scanning. See <strong style={{color:"var(--indll)"}}>WORKER_SETUP.md</strong> for setup instructions — takes about 5 minutes and is free.</div>
+            <WorkerUrlInput onSave={setWorkerUrl}/>
+          </div>}
+        </div>
+
+        <div className="scard">
+          <div className="stitle">Data Storage</div>
+          <div className="muted-t">All your data — food logs, weight entries, goals, and API key — is saved to this device's local storage. It persists between sessions as long as you use the app from your home screen (not the Claude.ai preview). Nothing is ever sent to a server.</div>
+        </div>
+
+        <div className="scard">
+          <div className="stitle">About</div>
+          <div className="muted-t">MacroTrack uses the Claude API for AI photo scanning and the USDA FoodData Central API for food search — both called directly from your device. Built as a free alternative to MacroFactor.</div>
+        </div>
+      </div>}
+
+      {/* Nav */}
+      <div className="nav">
+        {[{id:"log",icon:"📋",label:"Log"},{id:"weight",icon:"⚖️",label:"Weight"},{id:"goals",icon:"⚙️",label:"Goals"}].map(n=>(
+          <button key={n.id} className={"nav-btn"+(tab===n.id?" active":"")} onClick={()=>{setTab(n.id);try{navigator.vibrate&&navigator.vibrate(8);}catch(e){}}}>
+            <span className="nav-icon">{n.icon}</span>
+            <span className="nav-lbl">{n.label}</span>
+            <div className="nav-dot"/>
+          </button>
+        ))}
+      </div>
+
+      {modal==="add"&&<AddFoodModal onClose={()=>setModal(null)} onAdd={addEntry} targetMeal={targetMeal} usdaKey={usdaKey} workerUrl={workerUrl}/>}
+      {modal==="weight"&&<WeightModal onClose={()=>setModal(null)} onLog={logWeight}/>}
+      {modal==="goals"&&<GoalsModal goals={goals} onClose={()=>setModal(null)} onSave={setGoals}/>}
+    </div>
+  );
+}
+
+/* ── Inline weight logger ── */
+function LogWeightInline({onLog}){
+  const [v,setV]=useState("");
+  return(
+    <div style={{display:"flex",gap:8}}>
+      <input className="field" type="number" step="0.1" placeholder="e.g. 215.4" value={v} onChange={e=>setV(e.target.value)} style={{flex:1}}/>
+      <button className="btn-sm" disabled={!v} onClick={()=>{onLog(parseFloat(v));setV("");}}>Log</button>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("./sw.js").catch(e=>console.log("SW:",e));});}
+</script>
+</body>
+</html>
