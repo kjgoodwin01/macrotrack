@@ -13,6 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     :root{
@@ -599,100 +600,88 @@ function FoodDetail({food,meal,onBack,onConfirm}){
 
 /* ── BarcodeScanner ── */
 function BarcodeScanner({onDetected}){
-  const vRef=useRef(null);const streamRef=useRef(null);const rafRef=useRef(null);const detRef=useRef(null);
+  const vRef=useRef(null);const streamRef=useRef(null);const readerRef=useRef(null);
   const [status,setStatus]=useState("starting");const [code,setCode]=useState("");
+  const [err,setErr]=useState("");
 
   useEffect(()=>{
     let dead=false;
 
     async function go(){
-      // iOS Safari PWA sometimes has BarcodeDetector under a different check
-      // Try to instantiate directly rather than checking window property first
-      let detector=null;
-      try{
-        // Try standard BarcodeDetector
-        const BD=window.BarcodeDetector||globalThis.BarcodeDetector;
-        if(BD){
-          detector=new BD({formats:["ean_13","ean_8","upc_a","upc_e","code_128","code_39","itf","qr_code","aztec","data_matrix"]});
-        }
-      }catch(e){detector=null;}
-
-      // If BarcodeDetector not available, fall back to camera + manual hint
-      if(!detector){
-        // Still try to open camera — user can point and type what they see
-        // or we use a JS barcode library fallback
-        try{
-          const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:640},height:{ideal:480}}});
-          if(dead){s.getTracks().forEach(t=>t.stop());return;}
-          streamRef.current=s;
-          if(vRef.current){vRef.current.srcObject=s;await vRef.current.play();}
-          setStatus("camera_only");
-        }catch(e){setStatus("unsupported");}
-        return;
-      }
-
-      detRef.current=detector;
+      // Check if ZXing loaded
+      if(!window.ZXing){setErr("Scanner library not loaded. Try refreshing.");setStatus("error");return;}
 
       // Request camera
       try{
         const constraints={video:{facingMode:{ideal:"environment"},width:{ideal:640},height:{ideal:480}}};
-        const s=await navigator.mediaDevices.getUserMedia(constraints);
-        if(dead){s.getTracks().forEach(t=>t.stop());return;}
-        streamRef.current=s;
-        if(vRef.current){vRef.current.srcObject=s;await vRef.current.play();}
-        setStatus("scanning");
-        tick();
+        const stream=await navigator.mediaDevices.getUserMedia(constraints);
+        if(dead){stream.getTracks().forEach(t=>t.stop());return;}
+        streamRef.current=stream;
+        if(vRef.current){
+          vRef.current.srcObject=stream;
+          await vRef.current.play();
+        }
       }catch(e){
-        if(!dead)setStatus("error");
+        if(!dead){
+          if(e.name==="NotAllowedError"){setErr("Camera permission denied. Go to Settings → Safari → Camera and allow access.");setStatus("error");}
+          else{setErr("Could not open camera: "+e.message);setStatus("error");}
+        }
+        return;
+      }
+
+      if(dead)return;
+
+      // Start ZXing scanning
+      try{
+        const hints=new Map();
+        const formats=[
+          window.ZXing.BarcodeFormat.EAN_13,
+          window.ZXing.BarcodeFormat.EAN_8,
+          window.ZXing.BarcodeFormat.UPC_A,
+          window.ZXing.BarcodeFormat.UPC_E,
+          window.ZXing.BarcodeFormat.CODE_128,
+          window.ZXing.BarcodeFormat.CODE_39,
+          window.ZXing.BarcodeFormat.QR_CODE,
+          window.ZXing.BarcodeFormat.DATA_MATRIX,
+        ];
+        hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+        hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
+
+        const reader=new window.ZXing.BrowserMultiFormatReader(hints, {
+          delayBetweenScanAttempts: 100,
+          delayBetweenScanSuccess: 500,
+        });
+        readerRef.current=reader;
+
+        setStatus("scanning");
+
+        reader.decodeFromVideoElement(vRef.current, function(result, error){
+          if(dead)return;
+          if(result){
+            const v=result.getText();
+            setCode(v);
+            setStatus("success");
+            setTimeout(function(){if(!dead)onDetected(v);},500);
+          }
+        });
+      }catch(e){
+        if(!dead){setErr("Scanner error: "+e.message);setStatus("error");}
       }
     }
 
-    async function tick(){
-      if(dead||!vRef.current||!detRef.current)return;
-      try{
-        const codes=await detRef.current.detect(vRef.current);
-        if(codes.length>0&&!dead){
-          const v=codes[0].rawValue;
-          setCode(v);
-          setStatus("success");
-          setTimeout(()=>{if(!dead)onDetected(v);},500);
-          return;
-        }
-      }catch(e){}
-      if(!dead)rafRef.current=setTimeout(()=>{if(!dead)requestAnimationFrame(tick);},80);
-    }
-
     go();
-    return()=>{
+
+    return function(){
       dead=true;
-      if(rafRef.current){clearTimeout(rafRef.current);cancelAnimationFrame(rafRef.current);}
+      if(readerRef.current){try{readerRef.current.reset();}catch(e){}}
       if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());
     };
   },[]);
 
-  if(status==="unsupported")return(
-    <div style={{textAlign:"center",padding:"14px 0"}}>
-      <div style={{fontSize:36,marginBottom:10}}>😕</div>
-      <div className="muted-t">Camera not available. Type the barcode below instead.</div>
-    </div>
-  );
-
   if(status==="error")return(
     <div style={{textAlign:"center",padding:"14px 0"}}>
       <div style={{fontSize:36,marginBottom:10}}>📷</div>
-      <div className="muted-t">Camera permission denied. Go to Settings → Safari → Camera and allow access, then try again.</div>
-    </div>
-  );
-
-  if(status==="camera_only")return(
-    <div>
-      <div className="scanner-wrap">
-        <video ref={vRef} className="scanner-video" muted playsInline/>
-        <div className="scanner-hint">Type the barcode number below</div>
-      </div>
-      <div className="muted-t" style={{textAlign:"center",marginTop:8,fontSize:12}}>
-        Auto-detection not available on this device — type the barcode manually below.
-      </div>
+      <div className="muted-t">{err||"Camera unavailable. Type the barcode below instead."}</div>
     </div>
   );
 
@@ -719,7 +708,7 @@ function BarcodeScanner({onDetected}){
             <div className="spin"/>
           </div>
         )}
-        <div className="scanner-hint">Point at any barcode — auto-detects</div>
+        <div className="scanner-hint">Point camera at barcode — auto-detects</div>
       </div>
       {status==="success"&&<div style={{textAlign:"center",fontSize:12,color:"var(--em)",marginBottom:8}}>✓ Detected: {code}</div>}
     </div>
