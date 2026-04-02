@@ -341,6 +341,44 @@ const DAY_LETTERS=["Su","M","Tu","W","Th","F","Sa"];
 const DEFAULT_GOALS={calories:2100,protein:180,carbs:210,fat:60,targetWeight:200,goalType:"cut"};
 const USDA="https://api.nal.usda.gov/fdc/v1";
 
+/* ── Device ID — persistent anonymous user identifier ── */
+function getDeviceId(){
+  let id=localStorage.getItem("mt_device_id");
+  if(!id){
+    id="dev_"+Math.random().toString(36).slice(2)+Date.now().toString(36);
+    localStorage.setItem("mt_device_id",id);
+  }
+  return id;
+}
+const DEVICE_ID=getDeviceId();
+
+/* ── Sync helper — fire and forget, localStorage is source of truth ── */
+async function syncToCloud(workerUrl, type, payload){
+  if(!workerUrl)return;
+  try{
+    await fetch(workerUrl.replace(/\/$/,""),{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(Object.assign({type:type,deviceId:DEVICE_ID},payload)),
+    });
+  }catch(e){}
+}
+
+/* ── Load from cloud on first open ── */
+async function loadFromCloud(workerUrl){
+  if(!workerUrl)return null;
+  try{
+    const r=await fetch(workerUrl.replace(/\/$/,""),{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({type:"sync_load",deviceId:DEVICE_ID}),
+    });
+    if(!r.ok)return null;
+    return await r.json();
+  }catch(e){return null;}
+}
+
+
 /* ── Date helpers ── */
 function isoDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function todayISO(){return isoDate(new Date());}
@@ -1454,17 +1492,72 @@ function App(){
   }
 
   // Wrapped setters that show a toast on save
-  function setGoals(v){setGoalsRaw(v);showToast("✓ Goals saved");}
+  function setGoals(v){
+    setGoalsRaw(v);
+    syncToCloud(workerUrl,"sync_profile",{
+      name:userName,goalType:v.goalType,targetWeight:v.targetWeight,
+      calories:v.calories,protein:v.protein,carbs:v.carbs,fat:v.fat,
+    });
+    showToast("✓ Goals saved");
+  }
   function setUsdaKey(v){setUsdaKeyRaw(v);if(v)showToast("✓ API key saved");}
   function setWorkerUrl(v){setWorkerUrlRaw(v);if(v)showToast("✓ Worker URL saved");}
+
+  // Load from cloud when worker URL is available
+  useEffect(function(){
+    if(!workerUrl)return;
+    loadFromCloud(workerUrl).then(function(cloud){
+      if(!cloud)return;
+      // Merge cloud entries into local (cloud wins for any date with data)
+      if(cloud.entries&&cloud.entries.length>0){
+        const byDate={};
+        cloud.entries.forEach(function(e){
+          const d=e.log_date;
+          if(!byDate[d])byDate[d]=[];
+          byDate[d].push({
+            id:e.id,name:e.name,meal:e.meal,serving:e.serving,
+            cal:e.cal,p:e.protein,c:e.carbs,f:e.fat
+          });
+        });
+        setEntriesRaw(function(prev){
+          return Object.assign({},prev,byDate);
+        });
+      }
+      // Merge cloud weight log
+      if(cloud.wlog&&cloud.wlog.length>0){
+        setWlogRaw(function(prev){
+          const map={};
+          prev.forEach(function(w){map[w.date]=w;});
+          cloud.wlog.forEach(function(w){map[w.log_date]={date:w.log_date,weight:parseFloat(w.weight)};});
+          return Object.values(map).sort(function(a,b){return a.date.localeCompare(b.date);});
+        });
+      }
+      // Merge profile if local has no name set
+      if(cloud.profile&&!userName&&cloud.profile.name){
+        setUserNameRaw(cloud.profile.name);
+      }
+    });
+  },[workerUrl]);
 
   function completeOnboarding(data){
     setUserNameRaw(data.name);
     setGoalsRaw(data.goals);
     if(data.startWeight){
-      setWlogRaw([{date:todayISO(),weight:data.startWeight}]);
+      const startEntry={date:todayISO(),weight:data.startWeight};
+      setWlogRaw([startEntry]);
+      syncToCloud(workerUrl,"sync_log_weight",{date:startEntry.date,weight:startEntry.weight});
     }
     setOnboardedRaw(true);
+    // Sync profile to cloud
+    syncToCloud(workerUrl,"sync_profile",{
+      name:data.name,
+      goalType:data.goals.goalType,
+      targetWeight:data.goals.targetWeight,
+      calories:data.goals.calories,
+      protein:data.goals.protein,
+      carbs:data.goals.carbs,
+      fat:data.goals.fat,
+    });
     showToast("Welcome to MacroTrack, "+data.name+"!");
   }
 
@@ -1487,18 +1580,32 @@ function App(){
   }
 
   function addEntry(e){
-    setEntriesRaw(prev=>{
-      const n={...prev};
-      n[selectedDate]=(prev[selectedDate]||[]).concat([{...e,id:Date.now()}]);
+    setEntriesRaw(function(prev){
+      const n=Object.assign({},prev);
+      const entry=Object.assign({},e,{id:Date.now()});
+      n[selectedDate]=(prev[selectedDate]||[]).concat([entry]);
+      // Sync to cloud
+      syncToCloud(workerUrl,"sync_add_entry",{entry:Object.assign({},entry,{date:selectedDate})});
       return n;
     });
     showToast("✓ Food logged");
   }
   function delEntry(id){
-    setEntriesRaw(prev=>{const n={...prev};n[selectedDate]=(prev[selectedDate]||[]).filter(e=>e.id!==id);return n;});
+    syncToCloud(workerUrl,"sync_delete_entry",{entryId:id});
+    setEntriesRaw(function(prev){
+      const n=Object.assign({},prev);
+      n[selectedDate]=(prev[selectedDate]||[]).filter(function(e){return e.id!==id;});
+      return n;
+    });
   }
   function logWeight(w){
-    setWlogRaw(prev=>{const e={date:todayISO(),weight:w};const idx=prev.findIndex(x=>x.date===todayISO());if(idx>=0){const n=[...prev];n[idx]=e;return n;}return prev.concat([e]).slice(-90);});
+    const entry={date:todayISO(),weight:w};
+    syncToCloud(workerUrl,"sync_log_weight",{date:entry.date,weight:entry.weight});
+    setWlogRaw(function(prev){
+      const idx=prev.findIndex(function(x){return x.date===todayISO();});
+      if(idx>=0){const n=prev.slice();n[idx]=entry;return n;}
+      return prev.concat([entry]).slice(-90);
+    });
     showToast("✓ Weight saved");
   }
   function clearDay(){
