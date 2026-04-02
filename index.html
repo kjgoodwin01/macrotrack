@@ -316,26 +316,24 @@ function fmtShort(d){return d.toLocaleDateString("en-US",{month:"short",day:"num
 /* ── localStorage persistence ── */
 // Robust save with verification and retry
 function lsSave(key,val){
-  const str=JSON.stringify(val);
-  for(let i=0;i<3;i++){
-    try{
-      localStorage.setItem(key,str);
-      const verify=localStorage.getItem(key);
-      if(verify===str)return true;
-    }catch(e){}
-  }
-  return false;
+  try{localStorage.setItem(key,JSON.stringify(val));return true;}
+  catch(e){return false;}
 }
 function lsLoad(key,init){
   try{const s=localStorage.getItem(key);return s?JSON.parse(s):init;}catch{return init;}
 }
 function useLocal(k,init){
   const [v,setV]=useState(()=>lsLoad(k,init));
+  const ref=useRef(v);
+  ref.current=v;
   const set=useCallback((val)=>{
-    const next=typeof val==="function"?val(v):val;
-    setV(next);
-    lsSave(k,next);
-  },[k,v]);
+    setV(function(prev){
+      const next=typeof val==="function"?val(prev):val;
+      ref.current=next;
+      lsSave(k,next);
+      return next;
+    });
+  },[k]);
   return [v,set];
 }
 
