@@ -341,6 +341,9 @@ const DAY_LETTERS=["Su","M","Tu","W","Th","F","Sa"];
 const DEFAULT_GOALS={calories:2100,protein:180,carbs:210,fat:60,targetWeight:200,goalType:"cut"};
 const USDA="https://api.nal.usda.gov/fdc/v1";
 
+/* ── Worker URL — hardcoded so users need zero configuration ── */
+const DEFAULT_WORKER_URL = "https://macrotrack-ai.kjgoodwin01.workers.dev";
+
 /* ── Device ID — persistent anonymous user identifier ── */
 function getDeviceId(){
   let id=localStorage.getItem("mt_device_id");
@@ -354,7 +357,9 @@ const DEVICE_ID=getDeviceId();
 
 /* ── Sync helper — fire and forget, localStorage is source of truth ── */
 async function syncToCloud(workerUrl, type, payload){
-  if(!workerUrl)return;
+  const url=workerUrl||DEFAULT_WORKER_URL;
+  if(!url)return;
+  workerUrl=url;
   try{
     await fetch(workerUrl.replace(/\/$/,""),{
       method:"POST",
@@ -366,6 +371,7 @@ async function syncToCloud(workerUrl, type, payload){
 
 /* ── Load from cloud on first open ── */
 async function loadFromCloud(workerUrl){
+  workerUrl=workerUrl||DEFAULT_WORKER_URL;
   if(!workerUrl)return null;
   try{
     const r=await fetch(workerUrl.replace(/\/$/,""),{
@@ -607,23 +613,24 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
 
   useEffect(()=>{
     if(!query.trim()||query.length<2){setResults([]);setSErr("");return;}
+    if(!workerUrl){setSErr("Add your Worker URL in Goals to enable food search.");return;}
     clearTimeout(tRef.current);
     tRef.current=setTimeout(async()=>{
       setSearching(true);setSErr("");
-      try{const r=await fetch(USDA+"/foods/search?query="+encodeURIComponent(query)+"&pageSize=10&api_key="+usdaKey);if(!r.ok)throw new Error();const d=await r.json();setResults((d.foods||[]).map(parseFood));}
+      try{const r=await fetch(workerUrl.replace(/\/$/,""),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"usda_search",query:query,pageSize:10})});if(!r.ok)throw new Error();const d=await r.json();setResults((d.foods||[]).map(parseFood));}
       catch(e){setSErr("Search failed — check your USDA API key in Goals.");}
       finally{setSearching(false);}
     },500);
     return()=>clearTimeout(tRef.current);
-  },[query,usdaKey]);
+  },[query,workerUrl]);
 
   async function lookupBarcode(code){
     const c=(code||barcode||"").trim();if(!c)return;
     setBLoad(true);setBErr("");setBFood(null);
     try{
       // Layer 1: USDA direct GTIN/UPC lookup
-      if(usdaKey){
-        const r1=await fetch(USDA+"/foods/search?query="+encodeURIComponent(c)+"&pageSize=5&api_key="+usdaKey);
+      if(workerUrl){
+        const r1=await fetch(workerUrl.replace(/\/$/,""),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"usda_search",query:c,pageSize:5,branded:true})});
         if(r1.ok){
           const d1=await r1.json();
           const foods=d1.foods||[];
@@ -658,9 +665,9 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
           return;
         }
       }
-      // Layer 3: USDA name search fallback — search the barcode as a number, user can pick
-      if(usdaKey){
-        const r3=await fetch(USDA+"/foods/search?query="+encodeURIComponent(c)+"&pageSize=8&dataType=Branded&api_key="+usdaKey);
+      // Layer 3: USDA name search fallback via worker
+      if(workerUrl){
+        const r3=await fetch(workerUrl.replace(/\/$/,""),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"usda_search",query:c,pageSize:8,branded:true})});
         if(r3.ok){
           const d3=await r3.json();
           const foods=d3.foods||[];
@@ -717,7 +724,7 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
         {tab==="search"&&<div>
           {!selected?<div>
             <div className="search-wrap"><span className="search-ico">🔍</span><input className="search-field" placeholder="Search 600k+ foods…" value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);}} autoFocus/></div>
-            {!usdaKey&&<div className="err">⚠ Add your USDA API key in Goals to enable search.</div>}
+            
             {searching&&<div className="loading-row"><div className="spin"/><span>Searching USDA…</span></div>}
             {sErr&&<div className="err">{sErr}</div>}
             {!searching&&results.map(f=><div key={f.fdcId} className="sres" onClick={()=>setSelected(f)}><div style={{minWidth:0}}><div className="sr-name">{f.name}</div><div className="sr-sub">{f.brand||f.dataType} · {f.p100}P/{f.c100}C/{f.f100}F per 100g</div></div><div className="sr-cal">{f.cal100}</div></div>)}
@@ -727,7 +734,7 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
 
         {tab==="barcode"&&<div>
           {!bFood?<div>
-            {!usdaKey&&<div className="err" style={{marginBottom:10}}>⚠ Add your USDA API key in Goals first.</div>}
+            
             <BarcodeScanner onDetected={c=>{setBarcode(c);lookupBarcode(c);}}/>
             <div style={{marginTop:10}}>
               <div className="fl" style={{marginBottom:6}}>Or enter barcode manually</div>
@@ -740,7 +747,7 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
 
         {tab==="photo"&&<div>
           <input ref={fRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handlePhoto}/>
-          {!workerUrl&&<div className="err" style={{marginBottom:12}}>⚠ Add your Cloudflare Worker URL in Goals → AI Photo Scanning to enable this feature.</div>}
+          
           {!img?<div className="scan-drop" onClick={()=>{if(!workerUrl)return;fRef.current&&fRef.current.click();}} style={{opacity:workerUrl?1:0.5}}>
             <div style={{fontSize:50,marginBottom:12}}>📷</div>
             <div style={{fontSize:15,color:"var(--txt2)",fontWeight:500}}>Tap to take a photo</div>
@@ -1464,7 +1471,7 @@ function App(){
   const [entries,setEntriesRaw]=useLocal("mt_entries",{});
   const [wlog,setWlogRaw]=useLocal("mt_wlog",[]);
   const [usdaKey,setUsdaKeyRaw]=useLocal("mt_usda","");
-  const [workerUrl,setWorkerUrlRaw]=useLocal("mt_worker","");
+  const [workerUrl,setWorkerUrlRaw]=useLocal("mt_worker","https://macrotrack-ai.kjgoodwin01.workers.dev");
   const [userName,setUserNameRaw]=useLocal("mt_name","");
   const [onboarded,setOnboardedRaw]=useLocal("mt_onboarded",false);
   const [aiUsage,setAiUsageRaw]=useLocal("mt_ai_usage",{});
@@ -1774,28 +1781,15 @@ function App(){
         </div>
 
         <div className="scard">
-          <div className="stitle">USDA Food Database</div>
-          {usdaKey?<div>
-            <div className="srow"><span className="slbl">API Key</span><span className="sval" style={{fontSize:11}}>{"••••"+usdaKey.slice(-4)}</span></div>
-            <div className="ok-text">✓ Connected — 600k+ foods available</div>
-            <button className="btn-ghost" style={{marginTop:12}} onClick={()=>setUsdaKey("")}>Remove Key</button>
-          </div>:<div>
-            <div className="muted-t" style={{marginBottom:12}}>Connect the free USDA API to search 600,000+ foods.<br/>Get your key at <strong style={{color:"var(--indll)"}}>fdc.nal.usda.gov/api-key-signup</strong></div>
-            <div className="fg"><div className="fl">Your API Key</div><input className="field" placeholder="Paste key here…" value={keyIn} onChange={e=>setKeyIn(e.target.value)}/></div>
-            {keyIn.length>10&&<button className="btn" style={{marginTop:0}} onClick={()=>{setUsdaKey(keyIn.trim());setKeyIn("");}}>Save Key</button>}
-          </div>}
+          <div className="stitle">Food Database</div>
+          <div className="muted-t">MacroTrack uses the USDA FoodData Central database — 600,000+ foods including branded products. Search and barcode scanning work automatically once your Worker URL is set up. No API key needed.</div>
+          {workerUrl&&<div className="ok-text" style={{marginTop:10}}>✓ Food database connected via your Worker</div>}
         </div>
 
         <div className="scard">
-          <div className="stitle">AI Photo Scanning</div>
-          {workerUrl?<div>
-            <div className="srow"><span className="slbl">Worker URL</span><span className="sval" style={{fontSize:10}}>{"…"+workerUrl.slice(-20)}</span></div>
-            <div className="ok-text">✓ AI scanning ready</div>
-            <button className="btn-ghost" style={{marginTop:12}} onClick={()=>setWorkerUrl("")}>Remove</button>
-          </div>:<div>
-            <div className="muted-t" style={{marginBottom:12}}>Paste your Cloudflare Worker URL to enable AI photo meal scanning. See <strong style={{color:"var(--indll)"}}>WORKER_SETUP.md</strong> for setup instructions — takes about 5 minutes and is free.</div>
-            <WorkerUrlInput onSave={setWorkerUrl}/>
-          </div>}
+          <div className="stitle">AI Features</div>
+          <div className="ok-text">✓ AI photo scanning, Coach, and food search are all active</div>
+          <div className="muted-t" style={{marginTop:8}}>Powered by Claude AI. Photo scanning, coaching, and the full food database work automatically — no setup required.</div>
         </div>
 
         <div className="scard">
