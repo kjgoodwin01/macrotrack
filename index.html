@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     :root{
@@ -600,6 +600,8 @@ function FoodDetail({food,meal,onBack,onConfirm}){
 
 /* ── BarcodeScanner ── */
 function BarcodeScanner({onDetected}){
+  const divId="mt-scanner-"+Math.random().toString(36).slice(2);
+  const idRef=useRef(divId);
   const scannerRef=useRef(null);
   const [status,setStatus]=useState("starting");
   const [code,setCode]=useState("");
@@ -607,70 +609,61 @@ function BarcodeScanner({onDetected}){
   const detectedRef=useRef(false);
 
   useEffect(()=>{
-    if(!window.Quagga){setErr("Scanner not loaded. Refresh and try again.");setStatus("error");return;}
+    if(!window.Html5Qrcode){
+      setErr("Scanner not loaded. Refresh and try again.");
+      setStatus("error");
+      return;
+    }
 
-    Quagga.init({
-      inputStream:{
-        name:"Live",
-        type:"LiveStream",
-        target:scannerRef.current,
-        constraints:{
-          facingMode:"environment",
-          width:{ideal:1280},
-          height:{ideal:720},
-          focusMode:"continuous",
-        },
+    const scanner=new Html5Qrcode(idRef.current);
+    scannerRef.current=scanner;
+
+    const config={
+      fps:25,
+      qrbox:function(w,h){
+        // Use a wide rectangular box — perfect for portrait mode barcode scanning
+        const size=Math.min(w,h)*0.8;
+        return{width:Math.round(size*1.8),height:Math.round(size*0.5)};
       },
-      locator:{
-        patchSize:"large",
-        halfSample:false,
+      aspectRatio:1.0,
+      formatsToSupport:[
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+      ],
+      experimentalFeatures:{useBarCodeDetectorIfSupported:true},
+    };
+
+    scanner.start(
+      {facingMode:"environment"},
+      config,
+      function(decodedText){
+        if(detectedRef.current)return;
+        detectedRef.current=true;
+        setCode(decodedText);
+        setStatus("success");
+        scanner.stop().catch(function(){});
+        setTimeout(function(){onDetected(decodedText);},300);
       },
-      numOfWorkers:0,
-      frequency:25,
-      decoder:{
-        readers:[
-          "ean_reader",
-          "ean_8_reader",
-          "upc_reader",
-          "upc_e_reader",
-          "code_128_reader",
-        ],
-        multiple:false,
-      },
-      locate:true,
-    }, function(initErr){
-      if(initErr){
-        if(initErr.name==="NotAllowedError"){
-          setErr("Camera permission denied. Go to Settings → Safari → Camera and allow access.");
-        }else{
-          setErr("Could not start scanner: "+(initErr.message||initErr));
-        }
-        setStatus("error");
-        return;
-      }
-      Quagga.start();
+      function(errorMsg){}  // ignore per-frame errors silently
+    ).then(function(){
       setStatus("scanning");
-    });
-
-    Quagga.onDetected(function(data){
-      if(detectedRef.current)return;
-      const val=data.codeResult&&data.codeResult.code;
-      if(!val||val.length<6)return;
-      // Check confidence — only fire if the read has decent error correction
-      const errors=data.codeResult.decodedCodes
-        .filter(function(c){return c.error!==undefined;})
-        .map(function(c){return c.error;});
-      const avgErr=errors.length>0?errors.reduce(function(a,b){return a+b;},0)/errors.length:1;
-      if(avgErr>0.35)return; // skip low confidence reads
-      detectedRef.current=true;
-      setCode(val);
-      setStatus("success");
-      try{Quagga.stop();}catch(e){}
-      setTimeout(function(){onDetected(val);},300);
+    }).catch(function(e){
+      if(e&&(e.toString().includes("NotAllowed")||e.toString().includes("Permission"))){
+        setErr("Camera permission denied. Go to Settings → Safari → Camera and allow access.");
+      } else {
+        setErr("Could not start camera. Try refreshing.");
+      }
+      setStatus("error");
     });
 
     return function(){
-      try{Quagga.stop();}catch(e){}
+      if(scannerRef.current){
+        scannerRef.current.stop().catch(function(){});
+      }
     };
   },[]);
 
@@ -683,15 +676,11 @@ function BarcodeScanner({onDetected}){
 
   return(
     <div>
-      <div className="scanner-wrap" style={{position:"relative",overflow:"hidden",borderRadius:18,background:"#000",aspectRatio:"1"}}>
-        <div ref={scannerRef} style={{width:"100%",height:"100%"}}/>
-        {status==="scanning"&&(
-          <div className="scanner-frame" style={{pointerEvents:"none"}}>
-            <div className="scanner-box">
-              <div className="sc tl"/><div className="sc tr"/>
-              <div className="sc bl"/><div className="sc br"/>
-              <div className="scan-line"/>
-            </div>
+      <div style={{position:"relative",borderRadius:18,overflow:"hidden",background:"#000"}}>
+        <div id={idRef.current} style={{width:"100%"}}/>
+        {status==="starting"&&(
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.6)"}}>
+            <div className="spin"/>
           </div>
         )}
         {status==="success"&&(
@@ -699,15 +688,14 @@ function BarcodeScanner({onDetected}){
             <div style={{fontSize:64}}>✅</div>
           </div>
         )}
-        {status==="starting"&&(
-          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <div className="spin"/>
-          </div>
-        )}
-        <div className="scanner-hint">Point camera at barcode</div>
       </div>
+      {status==="scanning"&&(
+        <div style={{textAlign:"center",fontSize:12,color:"var(--mu)",marginTop:8}}>
+          Point camera at barcode — auto-detects
+        </div>
+      )}
       {status==="success"&&(
-        <div style={{textAlign:"center",fontSize:13,color:"var(--em)",marginBottom:8,marginTop:6,fontFamily:"'JetBrains Mono',monospace"}}>
+        <div style={{textAlign:"center",fontSize:13,color:"var(--em)",marginTop:8,fontFamily:"'JetBrains Mono',monospace"}}>
           ✓ {code}
         </div>
       )}
