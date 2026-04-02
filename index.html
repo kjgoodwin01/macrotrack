@@ -753,7 +753,7 @@ function computeAdapt(wlog,goals){
 
 
 /* ── Coach Tab ── */
-function CoachTab({goals,entries,wlog,workerUrl,selectedDate}){
+function CoachTab({goals,entries,wlog,workerUrl}){
   const [report,setReport]=useLocal("mt_coach_report",null);
   const [reportDate,setReportDate]=useLocal("mt_coach_date","");
   const [reportLoading,setReportLoading]=useState(false);
@@ -761,9 +761,7 @@ function CoachTab({goals,entries,wlog,workerUrl,selectedDate}){
   const [input,setInput]=useState("");
   const [aiTyping,setAiTyping]=useState(false);
   const msgsEndRef=useRef(null);
-  const inputRef=useRef(null);
 
-  // Build full context string from user's data
   function buildContext(){
     const today=todayISO();
     const last7=Array.from({length:7},function(_,i){
@@ -775,7 +773,7 @@ function CoachTab({goals,entries,wlog,workerUrl,selectedDate}){
       if(dayE.length>0)return k+": "+tot.cal+" kcal | "+tot.p+"g protein | "+foods;
       return k+": not logged";
     }).reverse().join("\n");
-    const sortedW=[...wlog].sort(function(a,b){return a.date.localeCompare(b.date);});
+    const sortedW=wlog.slice().sort(function(a,b){return a.date.localeCompare(b.date);});
     const recentW=sortedW.slice(-14);
     const wChange=recentW.length>=2?(recentW[recentW.length-1].weight-recentW[0].weight).toFixed(1):null;
     const wLines=recentW.length>0?recentW.map(function(w){return w.date+": "+w.weight+" lbs";}).join("\n"):"No weight logged yet";
@@ -785,133 +783,125 @@ function CoachTab({goals,entries,wlog,workerUrl,selectedDate}){
     const remCal=goals.calories-todayTot.cal;
     const remP=goals.protein-todayTot.p;
     const todayFoods=todayE.map(function(e){return e.name;}).join(", ")||"nothing yet";
-    return "USER PROFILE & DATA:\n\n"+
-      "GOALS: "+goals.calories+" kcal/day | Protein: "+goals.protein+"g | Carbs: "+goals.carbs+"g | Fat: "+goals.fat+"g\n"+
-      "GOAL TYPE: Fat loss / cut\n\n"+
-      "TODAY ("+today+"):\n"+
-      "- Calories: "+todayTot.cal+" / "+goals.calories+" kcal ("+(remCal>0?remCal+" remaining":Math.abs(remCal)+" over")+")\n"+
-      "- Protein: "+todayTot.p+"g / "+goals.protein+"g ("+(remP>0?remP+"g remaining":Math.abs(remP)+"g over")+")\n"+
-      "- Carbs: "+todayTot.c+"g | Fat: "+todayTot.f+"g\n"+
-      "- Foods today: "+todayFoods+"\n\n"+
-      "LAST 7 DAYS:\n"+last7+"\n\n"+
-      "WEIGHT HISTORY:\n"+wLines+wTrend;
+    return "USER DATA:\n\nGOALS: "+goals.calories+" kcal | Protein: "+goals.protein+"g | Carbs: "+goals.carbs+"g | Fat: "+goals.fat+"g\n"+
+      "TODAY ("+today+"): "+todayTot.cal+"/"+goals.calories+" kcal, "+(remCal>0?remCal+" remaining":Math.abs(remCal)+" over")+
+      ", protein "+todayTot.p+"g/"+(remP>0?remP+"g remaining":Math.abs(remP)+"g over")+"\n"+
+      "Foods today: "+todayFoods+"\n\nLAST 7 DAYS:\n"+last7+"\n\nWEIGHT:\n"+wLines+wTrend;
   }
 
-    // Generate weekly report
-  async function generateReport(force=false){
+  async function generateReport(force){
     const thisWeek=isoDate(new Date());
-    if(!force && report && reportDate===thisWeek)return;
-    if(!workerUrl){return;}
+    if(!force&&report&&reportDate===thisWeek)return;
+    if(!workerUrl)return;
     setReportLoading(true);
-    const ctx=buildContext();
     try{
       const r=await fetch(workerUrl.replace(/\/$/,""),{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          type:"coach_report",
-          context:ctx,
-          prompt:"Generate a concise weekly coaching check-in. Format it as 3-4 bullet points. Cover:\n1. Weight trend assessment (is the rate of loss on track, too fast, too slow?)\n2. Calorie adherence (how consistently are they hitting their target?)\n3. Protein performance (are they hitting protein goals? Why does it matter for their cut?)\n4. One specific, actionable win or adjustment for next week\n\nBe direct, specific to their actual numbers, and motivating. Use their real data. No fluff. Each bullet should be 1-2 sentences max. Start each bullet with an emoji that fits the topic."
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({type:"coach_report",context:buildContext(),
+          prompt:"Write a concise weekly coaching check-in as 3-4 bullet points. Cover: weight trend, calorie adherence, protein performance, and one actionable adjustment. Be direct and specific to their numbers. Start each bullet with a relevant emoji."
         })
       });
       if(!r.ok)throw new Error("Worker error");
       const d=await r.json();
-      setReport(d.text||d.message||JSON.stringify(d));
+      setReport(d.text||d.message||"");
       setReportDate(thisWeek);
-    }catch(e){setReport("Could not generate report. Make sure your Worker URL is set up correctly in Goals.");}
+    }catch(e){setReport("Could not generate report. Check your Worker URL in Goals.");}
     finally{setReportLoading(false);}
   }
 
-  // Auto-generate report on mount if needed
-  useEffect(()=>{
-    if(workerUrl){const thisWeek=isoDate(new Date());if(!report||reportDate!==thisWeek)generateReport();}
+  useEffect(function(){
+    if(workerUrl){const w=isoDate(new Date());if(!report||reportDate!==w)generateReport(false);}
   },[workerUrl]);
 
-  // Scroll chat to bottom
-  useEffect(()=>{
+  useEffect(function(){
     if(msgsEndRef.current)msgsEndRef.current.scrollIntoView({behavior:"smooth"});
   },[msgs,aiTyping]);
 
-  // Send chat message
   async function sendMessage(text){
     if(!text.trim()||!workerUrl||aiTyping)return;
-    const userMsg={role:"user",text:text.trim(),time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})};
-    const newMsgs=[...msgs,userMsg];
+    const t=new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+    const userMsg={role:"user",text:text.trim(),time:t};
+    const newMsgs=msgs.concat([userMsg]);
     setMsgs(newMsgs);
     setInput("");
     setAiTyping(true);
-    const ctx=buildContext();
-    // Build conversation history for Claude
-    const history=newMsgs.map(m=>({role:m.role==="user"?"user":"assistant",content:m.text}));
+    const history=newMsgs.map(function(m){return{role:m.role==="user"?"user":"assistant",content:m.text};});
     try{
       const r=await fetch(workerUrl.replace(/\/$/,""),{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          type:"coach_chat",
-          context:ctx,
-          messages:history,
-        })
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({type:"coach_chat",context:buildContext(),messages:history})
       });
       if(!r.ok)throw new Error("Worker error");
       const d=await r.json();
-      const aiText=d.text||d.message||"Sorry, I couldn't process that.";
-      setMsgs(prev=>[...prev,{role:"ai",text:aiText,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}]);
-    }catch(e){setMsgs(prev=>[...prev,{role:"ai",text:"Connection error — check your Worker URL in Goals and try again.",time:""}]);}
+      const aiText=d.text||d.message||"Sorry, could not process that.";
+      const aiTime=new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+      setMsgs(function(prev){return prev.concat([{role:"ai",text:aiText,time:aiTime}]);});
+    }catch(e){
+      setMsgs(function(prev){return prev.concat([{role:"ai",text:"Connection error — check your Worker URL in Goals.",time:""}]);});
+    }
     finally{setAiTyping(false);}
   }
 
-  function handleKeyDown(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage(input);}}
+  function handleKey(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage(input);}}
 
-  const QUICK_PROMPTS=[
+  const QUICK=[
     "What should I eat for dinner?",
     "Am I losing weight fast enough?",
-    "How much protein do I need today?",
-    "Best foods to hit my macros?",
-    "Should I eat back burned calories?",
+    "How much protein do I still need today?",
+    "Best foods to hit my remaining macros?",
+    "Should I eat back calories I burned?",
     "How does lifting affect my cut?",
   ];
 
-  if(!workerUrl)return(
-    <div>
-      <div className="no-worker-coach">
-        <div className="no-worker-icon">🧠</div>
-        <div className="no-worker-title">AI Coach</div>
-        <div className="no-worker-text">Set up your Cloudflare Worker URL in the Goals tab to unlock your personal AI coaching interface — weekly reports, real-time chat, meal suggestions, and more.</div>
-      </div>
-      <div className="scard">
-        <div className="stitle">What Coach Can Do</div>
-        {["📊 Weekly check-in analyzing your actual weight trend and calorie data","💬 Chat with full context — it knows your goals, logs, and history","🍽️ Meal suggestions based on your remaining macros right now","💪 Workout and nutrition advice tailored to your cut"].map((t,i)=>(
-          <div key={i} style={{display:"flex",gap:10,padding:"10px 0",borderBottom:i<3?"1px solid var(--b1)":"none",alignItems:"flex-start"}}>
-            <span style={{fontSize:13,color:"var(--txt2)",lineHeight:1.6}}>{t}</span>
+  if(!workerUrl){
+    return (
+      <div>
+        <div className="no-worker-coach">
+          <div className="no-worker-icon">🧠</div>
+          <div className="no-worker-title">AI Coach</div>
+          <div className="no-worker-text">Set up your Cloudflare Worker URL in the Goals tab to unlock your personal AI coaching interface.</div>
+        </div>
+        <div className="scard">
+          <div className="stitle">What Coach Can Do</div>
+          <div style={{fontSize:13,color:"var(--txt2)",lineHeight:1.8}}>
+            📊 Weekly check-in analyzing your actual weight trend and calorie data<br/>
+            💬 Chat with full context — it knows your goals, logs, and history<br/>
+            🍽️ Meal suggestions based on your remaining macros right now<br/>
+            💪 Workout and nutrition advice tailored to your cut
           </div>
-        ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  return(
+  return (
     <div>
-      {/* Weekly Report */}
       <div className="coach-hero">
         <div className="coach-hero-head">
           <div>
             <div className="coach-hero-title">Weekly Check-in</div>
-            <div className="coach-hero-sub">{reportDate?"Generated "+reportDate:"Generating your report…"}</div>
+            <div className="coach-hero-sub">{reportDate?"Generated "+reportDate:"Generating..."}</div>
           </div>
-          <button className="coach-regen" onClick={()=>generateReport(true)} disabled={reportLoading}>
-            {reportLoading?"…":"↻ Refresh"}
+          <button className="coach-regen" onClick={function(){generateReport(true);}} disabled={reportLoading}>
+            {reportLoading?"...":"Refresh"}
           </button>
         </div>
-        {reportLoading&&<div className="report-loading"><div className="spin"/><span>Analyzing your data…</span></div>}
+        {reportLoading&&(
+          <div className="report-loading">
+            <div className="spin"/>
+            <span>Analyzing your data...</span>
+          </div>
+        )}
         {!reportLoading&&report&&(
           <div className="report-body">
-            {report.split("\n").filter(l=>l.trim()).map((line,i)=>(
-              <div key={i} className="bullet">
-                <div className="bullet-dot"/>
-                <span dangerouslySetInnerHTML={{__html:line.replace(/^[•\-\*]\s*/,"").replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>")}}/>
-              </div>
-            ))}
+            {report.split("\n").filter(function(l){return l.trim();}).map(function(line,i){
+              return (
+                <div key={i} className="bullet">
+                  <div className="bullet-dot"/>
+                  <span>{line.replace(/^[•\-\*]\s*/,"")}</span>
+                </div>
+              );
+            })}
           </div>
         )}
         {!reportLoading&&!report&&(
@@ -922,15 +912,13 @@ function CoachTab({goals,entries,wlog,workerUrl,selectedDate}){
         )}
       </div>
 
-      {/* Quick prompts */}
       <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700,marginBottom:8}}>Quick Questions</div>
       <div className="quick-btns">
-        {QUICK_PROMPTS.map(p=>(
-          <button key={p} className="quick-btn" onClick={()=>sendMessage(p)}>{p}</button>
-        ))}
+        {QUICK.map(function(p){
+          return <button key={p} className="quick-btn" onClick={function(){sendMessage(p);}}>{p}</button>;
+        })}
       </div>
 
-      {/* Chat */}
       <div className="chat-wrap">
         <div className="chat-msgs">
           {msgs.length===0&&(
@@ -939,17 +927,21 @@ function CoachTab({goals,entries,wlog,workerUrl,selectedDate}){
               <div style={{fontSize:13,color:"var(--mu)",lineHeight:1.6}}>Ask me anything about your nutrition, progress, or training. I have full access to your data.</div>
             </div>
           )}
-          {msgs.map((m,i)=>(
-            <div key={i} className={"msg "+(m.role==="user"?"user":"ai")}>
-              <div className="msg-bubble" dangerouslySetInnerHTML={{__html:m.text.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").split("\n").join("<br/>")}}>
-              {m.time&&<div className="msg-time">{m.time}</div>}
-            </div>
-          ))}
+          {msgs.map(function(m,i){
+            return (
+              <div key={i} className={"msg "+(m.role==="user"?"user":"ai")}>
+                <div className="msg-bubble">{m.text}</div>
+                {m.time&&<div className="msg-time">{m.time}</div>}
+              </div>
+            );
+          })}
           {aiTyping&&(
             <div className="msg ai">
               <div className="msg-bubble" style={{padding:"10px 16px"}}>
                 <div className="typing-bubble">
-                  <div className="typing-dot"/><div className="typing-dot"/><div className="typing-dot"/>
+                  <div className="typing-dot"/>
+                  <div className="typing-dot"/>
+                  <div className="typing-dot"/>
                 </div>
               </div>
             </div>
@@ -957,16 +949,20 @@ function CoachTab({goals,entries,wlog,workerUrl,selectedDate}){
           <div ref={msgsEndRef}/>
         </div>
         <div className="chat-input-row">
-          <textarea ref={inputRef} className="chat-input" placeholder="Ask your coach…" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={handleKeyDown} rows={1}/>
-          <button className="chat-send" onClick={()=>sendMessage(input)} disabled={!input.trim()||aiTyping}>➤</button>
+          <textarea className="chat-input" placeholder="Ask your coach..." value={input} onChange={function(e){setInput(e.target.value);}} onKeyDown={handleKey} rows={1}/>
+          <button className="chat-send" onClick={function(){sendMessage(input);}} disabled={!input.trim()||aiTyping}>Send</button>
         </div>
       </div>
 
-      {/* Clear chat */}
-      {msgs.length>0&&<button className="btn-ghost" style={{fontSize:12,color:"var(--mu)"}} onClick={()=>{if(window.confirm("Clear chat history?"))setMsgs([]);}}>Clear conversation</button>}
+      {msgs.length>0&&(
+        <button className="btn-ghost" style={{fontSize:12,color:"var(--mu)"}} onClick={function(){if(window.confirm("Clear chat history?"))setMsgs([]);}}>
+          Clear conversation
+        </button>
+      )}
     </div>
   );
 }
+
 
 /* ── App ── */
 function App(){
