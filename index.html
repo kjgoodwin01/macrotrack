@@ -326,6 +326,36 @@
     .rate-banner-icon{font-size:22px;flex-shrink:0}
     .rate-banner-text{font-size:13px;color:var(--txt2);line-height:1.55}
     .rate-banner-text strong{color:var(--rosel)}
+
+    /* Light mode */
+    .light{
+      --bg:#f4f4f8;--s1:#ffffff;--s2:#f0f0f5;--s3:#e8e8f0;
+      --b1:rgba(0,0,0,0.08);--b2:rgba(0,0,0,0.14);
+      --txt:#0d0d1a;--txt2:#3a3a5c;--mu:#8888aa;
+    }
+    .light .logo em{color:var(--ind)}
+    .light .cal-hero{background:linear-gradient(145deg,#eeeef8 0%,#e8e8f5 60%,#f0f0fa 100%)}
+    .light .w-hero{background:linear-gradient(145deg,#eeeef8,#e8e8f5)}
+    .light .coach-hero{background:linear-gradient(145deg,#eaeaf5,#e4e4f0)}
+    .light .adapt{background:linear-gradient(145deg,#eaeaf5,#e4e4f0)}
+    .light .no-worker-coach{background:linear-gradient(145deg,#eaeaf5,#e4e4f0)}
+    .light .msg.ai .msg-bubble{background:var(--s3);border-color:var(--b2)}
+    .light .ob-wrap{background:var(--bg)}
+    .light .ob-result{background:linear-gradient(145deg,#eaeaf5,#e4e4f0)}
+
+    /* Settings panel */
+    .settings-panel{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:300;background:var(--s1);border-bottom:1px solid var(--b2);padding:calc(var(--st) + 56px) 20px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.25);animation:slideDown 0.25s cubic-bezier(0.4,0,0.2,1)}
+    @keyframes slideDown{from{transform:translateX(-50%) translateY(-100%)}to{transform:translateX(-50%) translateY(0)}}
+    .settings-panel-overlay{position:fixed;inset:0;z-index:299;background:rgba(0,0,0,0.4)}
+    .sp-title{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1.2px;font-weight:700;margin-bottom:14px}
+    .theme-row{display:flex;gap:10px;margin-bottom:4px}
+    .theme-btn{flex:1;padding:14px 10px;border-radius:14px;border:1px solid var(--b1);background:var(--s2);cursor:pointer;text-align:center;transition:all 0.15s;font-family:'DM Sans',sans-serif}
+    .theme-btn.active{border-color:var(--ind);background:rgba(99,102,241,0.1)}
+    .theme-btn-icon{font-size:24px;margin-bottom:4px}
+    .theme-btn-label{font-size:12px;font-weight:600;color:var(--txt2)}
+    .theme-btn.active .theme-btn-label{color:var(--ind)}
+    .settings-gear{background:none;border:none;cursor:pointer;padding:4px;color:var(--mu);font-size:20px;transition:color 0.15s;line-height:1}
+    .settings-gear:active{color:var(--indl)}
   </style>
 </head>
 <body>
@@ -1619,6 +1649,18 @@ function App(){
   const [userName,setUserNameRaw]=useLocal("mt_name","");
   const [onboarded,setOnboardedRaw]=useLocal("mt_onboarded",false);
   const [aiUsage,setAiUsageRaw]=useLocal("mt_ai_usage",{});
+  const [theme,setThemeRaw]=useLocal("mt_theme","dark");
+  const [settingsOpen,setSettingsOpen]=useState(false);
+
+  function setTheme(t){
+    setThemeRaw(t);
+    document.documentElement.className=t==="light"?"light":"";
+  }
+
+  // Apply theme on mount
+  useEffect(function(){
+    document.documentElement.className=theme==="light"?"light":"";
+  },[]);
   const [keyIn,setKeyIn]=useState("");
   const [modal,setModal]=useState(null);
   const [openMeals,setOpenMeals]=useState({Breakfast:true,Lunch:true,Dinner:true,Snacks:true});
@@ -1789,8 +1831,9 @@ function App(){
           <div className="logo"><em>MACRO</em>TRACK</div>
           {userName&&<div style={{fontSize:10,color:"var(--mu)",fontFamily:"'DM Sans',sans-serif",marginTop:1}}>Hey, {userName} 👋</div>}
         </div>
-        <div className="hdr-r">
+        <div className="hdr-r" style={{display:"flex",alignItems:"center",gap:10}}>
           <div className="hdr-date">{(()=>{const[y,m,d]=selectedDate.split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});})()}</div>
+          <button className="settings-gear" onClick={function(){setSettingsOpen(true);}}>⚙️</button>
         </div>
       </div>
 
@@ -1957,7 +2000,7 @@ function App(){
 
       {/* Nav */}
       <div className="nav">
-        {[{id:"log",icon:"📋",label:"Log"},{id:"weight",icon:"⚖️",label:"Weight"},{id:"coach",icon:"🧠",label:"Coach"},{id:"goals",icon:"⚙️",label:"Goals"}].map(n=>(
+        {[{id:"log",icon:"📋",label:"Log"},{id:"weight",icon:"⚖️",label:"Weight"},{id:"coach",icon:"🧠",label:"Coach"},{id:"goals",icon:"🎯",label:"Goals"}].map(n=>(
           <button key={n.id} className={"nav-btn"+(tab===n.id?" active":"")} onClick={()=>{setTab(n.id);try{navigator.vibrate&&navigator.vibrate(8);}catch(e){}}}>
             <span className="nav-icon">{n.icon}</span>
             <span className="nav-lbl">{n.label}</span>
@@ -1965,6 +2008,25 @@ function App(){
           </button>
         ))}
       </div>
+
+      {settingsOpen&&(
+        <>
+          <div className="settings-panel-overlay" onClick={function(){setSettingsOpen(false);}}/>
+          <div className="settings-panel">
+            <div className="sp-title">Appearance</div>
+            <div className="theme-row">
+              <button className={"theme-btn"+(theme==="dark"?" active":"")} onClick={function(){setTheme("dark");setSettingsOpen(false);}}>
+                <div className="theme-btn-icon">🌙</div>
+                <div className="theme-btn-label">Dark</div>
+              </button>
+              <button className={"theme-btn"+(theme==="light"?" active":"")} onClick={function(){setTheme("light");setSettingsOpen(false);}}>
+                <div className="theme-btn-icon">☀️</div>
+                <div className="theme-btn-label">Light</div>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {modal==="add"&&<AddFoodModal onClose={()=>setModal(null)} onAdd={addEntry} targetMeal={targetMeal} usdaKey={usdaKey} workerUrl={workerUrl}/>}
       {modal==="weight"&&<WeightModal onClose={()=>setModal(null)} onLog={logWeight}/>}
