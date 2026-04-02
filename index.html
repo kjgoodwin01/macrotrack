@@ -236,6 +236,53 @@
     .prog-lbl{font-size:13px}
     .prog-val{font-size:11px;font-family:'JetBrains Mono',monospace}
     .muted-t{color:var(--mu);font-size:13px;line-height:1.65}
+
+    /* Coach tab */
+    .coach-hero{background:linear-gradient(145deg,#0d0d24 0%,#111130 60%,#0a0a20 100%);border:1px solid rgba(99,102,241,0.3);border-radius:24px;padding:22px;margin-bottom:14px;position:relative;overflow:hidden}
+    .coach-hero::before{content:'';position:absolute;top:-50px;right:-50px;width:200px;height:200px;background:radial-gradient(circle,rgba(139,92,246,0.15) 0%,transparent 65%);pointer-events:none}
+    .coach-hero::after{content:'';position:absolute;bottom:-40px;left:-20px;width:160px;height:160px;background:radial-gradient(circle,rgba(99,102,241,0.08) 0%,transparent 65%);pointer-events:none}
+    .coach-hero-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;position:relative}
+    .coach-hero-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1.5px;color:var(--indll)}
+    .coach-hero-sub{font-size:11px;color:var(--mu);margin-top:2px}
+    .coach-regen{background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:10px;color:var(--indll);font-size:11px;font-weight:600;padding:6px 12px;cursor:pointer;transition:all 0.15s;white-space:nowrap}
+    .coach-regen:active{background:rgba(99,102,241,0.3)}
+    .coach-regen:disabled{opacity:0.4;cursor:not-allowed}
+    .report-loading{display:flex;align-items:center;gap:10px;color:var(--mu);font-size:13px;padding:8px 0}
+    .report-body{font-size:14px;color:var(--txt2);line-height:1.75;position:relative}
+    .report-body strong{color:var(--txt);font-weight:600}
+    .report-body .bullet{display:flex;gap:10px;margin-bottom:10px;align-items:flex-start}
+    .report-body .bullet-dot{width:6px;height:6px;border-radius:50%;background:var(--indl);flex-shrink:0;margin-top:6px}
+    .report-no-data{text-align:center;padding:16px 0}
+    .report-no-data-icon{font-size:40px;margin-bottom:10px}
+    .quick-btns{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+    .quick-btn{padding:8px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:22px;font-size:12px;font-weight:500;color:var(--txt2);cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;white-space:nowrap}
+    .quick-btn:active{background:rgba(99,102,241,0.15);border-color:var(--ind);color:var(--indll)}
+    .chat-wrap{background:var(--s1);border:1px solid var(--b1);border-radius:20px;overflow:hidden;margin-bottom:14px;display:flex;flex-direction:column}
+    .chat-msgs{padding:16px;display:flex;flex-direction:column;gap:12px;min-height:80px;max-height:420px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .chat-msgs::-webkit-scrollbar{display:none}
+    .msg{display:flex;flex-direction:column;gap:3px}
+    .msg.user{align-items:flex-end}
+    .msg.ai{align-items:flex-start}
+    .msg-bubble{padding:10px 14px;border-radius:18px;max-width:86%;font-size:13px;line-height:1.6}
+    .msg.user .msg-bubble{background:var(--ind);color:#fff;border-radius:18px 18px 4px 18px}
+    .msg.ai .msg-bubble{background:var(--s2);color:var(--txt2);border-radius:18px 18px 18px 4px;border:1px solid var(--b1)}
+    .msg.ai .msg-bubble strong{color:var(--txt)}
+    .msg-time{font-size:10px;color:var(--mu);padding:0 4px}
+    .chat-input-row{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--b1);background:var(--s1)}
+    .chat-input{flex:1;padding:10px 14px;background:rgba(255,255,255,0.05);border:1px solid var(--b1);border-radius:24px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s;resize:none;max-height:100px;line-height:1.4}
+    .chat-input:focus{border-color:var(--ind)}
+    .chat-send{width:40px;height:40px;border-radius:50%;background:var(--ind);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform 0.15s,background 0.15s;align-self:flex-end}
+    .chat-send:active{transform:scale(0.92);background:var(--vio)}
+    .chat-send:disabled{opacity:0.35;cursor:not-allowed;transform:none}
+    .typing-bubble{display:flex;align-items:center;gap:4px;padding:10px 14px}
+    .typing-dot{width:7px;height:7px;border-radius:50%;background:var(--mu);animation:tdot 1.2s ease-in-out infinite}
+    .typing-dot:nth-child(2){animation-delay:0.2s}
+    .typing-dot:nth-child(3){animation-delay:0.4s}
+    @keyframes tdot{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}
+    .no-worker-coach{background:linear-gradient(145deg,#0d0d24,#111130);border:1px solid rgba(99,102,241,0.25);border-radius:20px;padding:24px;text-align:center;margin-bottom:14px}
+    .no-worker-icon{font-size:44px;margin-bottom:12px}
+    .no-worker-title{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--indll);letter-spacing:1px;margin-bottom:8px}
+    .no-worker-text{font-size:13px;color:var(--mu);line-height:1.65}
   </style>
 </head>
 <body>
@@ -704,6 +751,242 @@ function computeAdapt(wlog,goals){
   return{ch:ch.toFixed(1),adj,newCal:goals.calories+adj,msg,state};
 }
 
+
+/* ── Coach Tab ── */
+function CoachTab({goals,entries,wlog,workerUrl,selectedDate}){
+  const [report,setReport]=useLocal("mt_coach_report",null);
+  const [reportDate,setReportDate]=useLocal("mt_coach_date","");
+  const [reportLoading,setReportLoading]=useState(false);
+  const [msgs,setMsgs]=useLocal("mt_coach_msgs",[]);
+  const [input,setInput]=useState("");
+  const [aiTyping,setAiTyping]=useState(false);
+  const msgsEndRef=useRef(null);
+  const inputRef=useRef(null);
+
+  // Build full context string from user's data
+  function buildContext(){
+    const today=todayISO();
+    // Last 7 days of food logs
+    const last7=Array.from({length:7},(_,i)=>{
+      const d=new Date();d.setDate(d.getDate()-i);
+      const k=isoDate(d);
+      const dayEntries=entries[k]||[];
+      const totals=dayEntries.reduce((a,e)=>({cal:a.cal+e.cal,p:a.p+e.p,c:a.c+e.c,f:a.f+e.f}),{cal:0,p:0,c:0,f:0});
+      return {date:k,logged:dayEntries.length>0,cal:totals.cal,p:totals.p,c:totals.c,f:totals.f,foods:dayEntries.map(e=>e.name+` (${e.cal}kcal)`).join(", ")||"nothing logged"};
+    }).reverse();
+
+    // Weight history
+    const sortedW=[...wlog].sort((a,b)=>a.date.localeCompare(b.date));
+    const recentW=sortedW.slice(-14);
+    const wChange=recentW.length>=2?(recentW[recentW.length-1].weight-recentW[0].weight).toFixed(1):null;
+
+    // Today remaining
+    const todayE=entries[today]||[];
+    const todayTotals=todayE.reduce((a,e)=>({cal:a.cal+e.cal,p:a.p+e.p,c:a.c+e.c,f:a.f+e.f}),{cal:0,p:0,c:0,f:0});
+    const remCal=goals.calories-todayTotals.cal;
+    const remP=goals.protein-todayTotals.p;
+
+    return `USER PROFILE & DATA (use this to give personalized advice):
+
+GOALS: ${goals.calories} kcal/day | Protein: ${goals.protein}g | Carbs: ${goals.carbs}g | Fat: ${goals.fat}g
+GOAL TYPE: Fat loss / cut
+
+TODAY (${today}):
+- Calories consumed: ${todayTotals.cal} / ${goals.calories} kcal (${remCal > 0 ? remCal+" remaining" : Math.abs(remCal)+" over"})
+- Protein: ${todayTotals.p}g / ${goals.protein}g (${remP > 0 ? remP+"g remaining" : Math.abs(remP)+"g over"})
+- Carbs: ${todayTotals.c}g | Fat: ${todayTotals.f}g
+- Foods eaten today: ${todayE.map(e=>e.name).join(", ")||"nothing yet"}
+
+LAST 7 DAYS LOG:
+${last7.map(d=>`${d.date}: ${d.logged?`${d.cal} kcal | ${d.p}g protein | foods: ${d.foods}`:"not logged"}`).join("
+")}
+
+WEIGHT HISTORY (recent):
+${recentW.length>0?recentW.map(w=>`${w.date}: ${w.weight} lbs`).join("
+"):"No weight logged yet"}
+${wChange?`
+Weight trend: ${parseFloat(wChange)<0?"Lost":"Gained"} ${Math.abs(wChange)} lbs over last ${recentW.length} entries`:""}`;
+  }
+
+  // Generate weekly report
+  async function generateReport(force=false){
+    const thisWeek=isoDate(new Date());
+    if(!force && report && reportDate===thisWeek)return;
+    if(!workerUrl){return;}
+    setReportLoading(true);
+    const ctx=buildContext();
+    try{
+      const r=await fetch(workerUrl.replace(/\/$/,""),{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          type:"coach_report",
+          context:ctx,
+          prompt:`Generate a concise weekly coaching check-in. Format it as 3-4 bullet points. Cover:
+1. Weight trend assessment (is the rate of loss on track, too fast, too slow?)
+2. Calorie adherence (how consistently are they hitting their target?)
+3. Protein performance (are they hitting protein goals? Why does it matter for their cut?)
+4. One specific, actionable win or adjustment for next week
+
+Be direct, specific to their actual numbers, and motivating. Use their real data. No fluff. Each bullet should be 1-2 sentences max. Start each bullet with an emoji that fits the topic.`
+        })
+      });
+      if(!r.ok)throw new Error("Worker error");
+      const d=await r.json();
+      setReport(d.text||d.message||JSON.stringify(d));
+      setReportDate(thisWeek);
+    }catch(e){setReport("Could not generate report. Make sure your Worker URL is set up correctly in Goals.");}
+    finally{setReportLoading(false);}
+  }
+
+  // Auto-generate report on mount if needed
+  useEffect(()=>{
+    if(workerUrl){const thisWeek=isoDate(new Date());if(!report||reportDate!==thisWeek)generateReport();}
+  },[workerUrl]);
+
+  // Scroll chat to bottom
+  useEffect(()=>{
+    if(msgsEndRef.current)msgsEndRef.current.scrollIntoView({behavior:"smooth"});
+  },[msgs,aiTyping]);
+
+  // Send chat message
+  async function sendMessage(text){
+    if(!text.trim()||!workerUrl||aiTyping)return;
+    const userMsg={role:"user",text:text.trim(),time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})};
+    const newMsgs=[...msgs,userMsg];
+    setMsgs(newMsgs);
+    setInput("");
+    setAiTyping(true);
+    const ctx=buildContext();
+    // Build conversation history for Claude
+    const history=newMsgs.map(m=>({role:m.role==="user"?"user":"assistant",content:m.text}));
+    try{
+      const r=await fetch(workerUrl.replace(/\/$/,""),{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          type:"coach_chat",
+          context:ctx,
+          messages:history,
+        })
+      });
+      if(!r.ok)throw new Error("Worker error");
+      const d=await r.json();
+      const aiText=d.text||d.message||"Sorry, I couldn't process that.";
+      setMsgs(prev=>[...prev,{role:"ai",text:aiText,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}]);
+    }catch(e){setMsgs(prev=>[...prev,{role:"ai",text:"Connection error — check your Worker URL in Goals and try again.",time:""}]);}
+    finally{setAiTyping(false);}
+  }
+
+  function handleKeyDown(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage(input);}}
+
+  const QUICK_PROMPTS=[
+    "What should I eat for dinner?",
+    "Am I losing weight fast enough?",
+    "How much protein do I need today?",
+    "Best foods to hit my macros?",
+    "Should I eat back burned calories?",
+    "How does lifting affect my cut?",
+  ];
+
+  if(!workerUrl)return(
+    <div>
+      <div className="no-worker-coach">
+        <div className="no-worker-icon">🧠</div>
+        <div className="no-worker-title">AI Coach</div>
+        <div className="no-worker-text">Set up your Cloudflare Worker URL in the Goals tab to unlock your personal AI coaching interface — weekly reports, real-time chat, meal suggestions, and more.</div>
+      </div>
+      <div className="scard">
+        <div className="stitle">What Coach Can Do</div>
+        {["📊 Weekly check-in analyzing your actual weight trend and calorie data","💬 Chat with full context — it knows your goals, logs, and history","🍽️ Meal suggestions based on your remaining macros right now","💪 Workout and nutrition advice tailored to your cut"].map((t,i)=>(
+          <div key={i} style={{display:"flex",gap:10,padding:"10px 0",borderBottom:i<3?"1px solid var(--b1)":"none",alignItems:"flex-start"}}>
+            <span style={{fontSize:13,color:"var(--txt2)",lineHeight:1.6}}>{t}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return(
+    <div>
+      {/* Weekly Report */}
+      <div className="coach-hero">
+        <div className="coach-hero-head">
+          <div>
+            <div className="coach-hero-title">Weekly Check-in</div>
+            <div className="coach-hero-sub">{reportDate?`Generated ${reportDate}`:"Generating your report…"}</div>
+          </div>
+          <button className="coach-regen" onClick={()=>generateReport(true)} disabled={reportLoading}>
+            {reportLoading?"…":"↻ Refresh"}
+          </button>
+        </div>
+        {reportLoading&&<div className="report-loading"><div className="spin"/><span>Analyzing your data…</span></div>}
+        {!reportLoading&&report&&(
+          <div className="report-body">
+            {report.split("
+").filter(l=>l.trim()).map((line,i)=>(
+              <div key={i} className="bullet">
+                <div className="bullet-dot"/>
+                <span dangerouslySetInnerHTML={{__html:line.replace(/^[•\-\*]\s*/,"").replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>")}}/>
+              </div>
+            ))}
+          </div>
+        )}
+        {!reportLoading&&!report&&(
+          <div className="report-no-data">
+            <div className="report-no-data-icon">📊</div>
+            <div style={{fontSize:13,color:"var(--mu)"}}>Log food and weight for a few days to get your first coaching report.</div>
+          </div>
+        )}
+      </div>
+
+      {/* Quick prompts */}
+      <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700,marginBottom:8}}>Quick Questions</div>
+      <div className="quick-btns">
+        {QUICK_PROMPTS.map(p=>(
+          <button key={p} className="quick-btn" onClick={()=>sendMessage(p)}>{p}</button>
+        ))}
+      </div>
+
+      {/* Chat */}
+      <div className="chat-wrap">
+        <div className="chat-msgs">
+          {msgs.length===0&&(
+            <div style={{textAlign:"center",padding:"16px 0"}}>
+              <div style={{fontSize:28,marginBottom:8}}>👋</div>
+              <div style={{fontSize:13,color:"var(--mu)",lineHeight:1.6}}>Ask me anything about your nutrition, progress, or training. I have full access to your data.</div>
+            </div>
+          )}
+          {msgs.map((m,i)=>(
+            <div key={i} className={"msg "+(m.role==="user"?"user":"ai")}>
+              <div className="msg-bubble" dangerouslySetInnerHTML={{__html:m.text.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/
+/g,"<br/>")}}/>
+              {m.time&&<div className="msg-time">{m.time}</div>}
+            </div>
+          ))}
+          {aiTyping&&(
+            <div className="msg ai">
+              <div className="msg-bubble" style={{padding:"10px 16px"}}>
+                <div className="typing-bubble">
+                  <div className="typing-dot"/><div className="typing-dot"/><div className="typing-dot"/>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={msgsEndRef}/>
+        </div>
+        <div className="chat-input-row">
+          <textarea ref={inputRef} className="chat-input" placeholder="Ask your coach…" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={handleKeyDown} rows={1}/>
+          <button className="chat-send" onClick={()=>sendMessage(input)} disabled={!input.trim()||aiTyping}>➤</button>
+        </div>
+      </div>
+
+      {/* Clear chat */}
+      {msgs.length>0&&<button className="btn-ghost" style={{fontSize:12,color:"var(--mu)"}} onClick={()=>{if(window.confirm("Clear chat history?"))setMsgs([]);}}>Clear conversation</button>}
+    </div>
+  );
+}
+
 /* ── App ── */
 function App(){
   const [tab,setTab]=useLocal("mt_tab","log");
@@ -863,6 +1146,12 @@ function App(){
         </div>
       </div>}
 
+      {/* COACH TAB */}
+      {tab==="coach"&&<div className="page">
+        <div style={{height:12}}/>
+        <CoachTab goals={goals} entries={entries} wlog={wlog} workerUrl={workerUrl} selectedDate={selectedDate}/>
+      </div>}
+
       {/* GOALS TAB */}
       {tab==="goals"&&<div className="page">
         <div style={{height:12}}/>
@@ -924,7 +1213,7 @@ function App(){
 
       {/* Nav */}
       <div className="nav">
-        {[{id:"log",icon:"📋",label:"Log"},{id:"weight",icon:"⚖️",label:"Weight"},{id:"goals",icon:"⚙️",label:"Goals"}].map(n=>(
+        {[{id:"log",icon:"📋",label:"Log"},{id:"weight",icon:"⚖️",label:"Weight"},{id:"coach",icon:"🧠",label:"Coach"},{id:"goals",icon:"⚙️",label:"Goals"}].map(n=>(
           <button key={n.id} className={"nav-btn"+(tab===n.id?" active":"")} onClick={()=>{setTab(n.id);try{navigator.vibrate&&navigator.vibrate(8);}catch(e){}}}>
             <span className="nav-icon">{n.icon}</span>
             <span className="nav-lbl">{n.label}</span>
