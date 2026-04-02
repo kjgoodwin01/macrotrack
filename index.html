@@ -47,11 +47,11 @@
     .page::-webkit-scrollbar{display:none}
 
     /* Week selector */
-    .week-nav{display:flex;align-items:center;gap:6px;margin-bottom:14px}
+    .week-nav{display:flex;align-items:center;gap:4px;margin-bottom:14px}
     .week-arrow{background:none;border:1px solid var(--b1);border-radius:10px;color:var(--mu);width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;flex-shrink:0;transition:border-color 0.15s,color 0.15s}
     .week-arrow:active{border-color:var(--ind);color:var(--indl)}
-    .week-days{display:flex;gap:4px;flex:1;overflow:hidden}
-    .day-pill{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-radius:12px;cursor:pointer;border:1px solid transparent;transition:all 0.15s;background:none;font-family:'DM Sans',sans-serif}
+    .week-days{display:flex;gap:3px;flex:1;overflow:visible;min-width:0}
+    .day-pill{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 1px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:all 0.15s;background:none;font-family:'DM Sans',sans-serif;min-width:0}
     .day-pill-letter{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:var(--mu)}
     .day-pill-num{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--mu)}
     .day-pill.today .day-pill-letter,.day-pill.today .day-pill-num{color:var(--txt2)}
@@ -360,7 +360,7 @@ function WeekSelector({selectedDate,onSelect,weekOffset,onOffsetChange,entries})
             const isToday=isoDate(d)===isoDate(today);
             const isSel=iso===selectedDate;
             const hasData=(entries[iso]||[]).length>0;
-            const letter=DAY_LETTERS[(i+1)%7];// Mon=M, Sun=Su
+            const letter=["M","Tu","W","Th","F","Sa","Su"][i];
             return(
               <button key={iso} className={"day-pill"+(isToday?" today":"")+(isSel?" selected":"")+(hasData&&!isSel?" has-data":"")} onClick={()=>onSelect(iso)}>
                 <span className="day-pill-letter">{letter}</span>
