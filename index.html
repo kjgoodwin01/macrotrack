@@ -502,6 +502,23 @@ function BarcodeScanner({onDetected}){
 }
 
 /* ── AddFoodModal ── */
+// Compress image using canvas to stay under API size limits
+function compressImage(dataUrl,maxWidth,quality){
+  return new Promise(function(resolve){
+    const img=new Image();
+    img.onload=function(){
+      const canvas=document.createElement("canvas");
+      let w=img.width,h=img.height;
+      if(w>maxWidth){h=Math.round(h*(maxWidth/w));w=maxWidth;}
+      canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext("2d");
+      ctx.drawImage(img,0,0,w,h);
+      resolve(canvas.toDataURL("image/jpeg",quality));
+    };
+    img.src=dataUrl;
+  });
+}
+
 function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
   const [tab,setTab]=useState("search");const [meal,setMeal]=useState(targetMeal||"Breakfast");
   const [query,setQuery]=useState("");const [results,setResults]=useState([]);const [searching,setSearching]=useState(false);const [sErr,setSErr]=useState("");const [selected,setSelected]=useState(null);
@@ -584,11 +601,13 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
     reader.onload=async ev=>{
       setImg(ev.target.result);setScanning(true);setAiRes(null);setAiErr("");
       try{
-        const base64=ev.target.result.split(",")[1];
+        // Compress image to stay under Anthropic 5MB limit
+        const compressed=await compressImage(ev.target.result,1200,0.82);
+        const base64=compressed.split(",")[1];
         const r=await fetch(workerUrl.replace(/\/$/,""),{
           method:"POST",
           headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({imageBase64:base64,mediaType:file.type||"image/jpeg"}),
+          body:JSON.stringify({imageBase64:base64,mediaType:"image/jpeg"}),
         });
         if(!r.ok){const err=await r.json().catch(()=>({}));throw new Error(err.error||"Worker returned "+r.status);}
         const nutrition=await r.json();
