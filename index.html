@@ -426,11 +426,59 @@ function useLocal(k,init){
 /* ── USDA helpers ── */
 function getNutrient(arr,id){const n=(arr||[]).find(x=>x.nutrientId===id||x.nutrientNumber===String(id));return Math.round((n&&n.value)?n.value:0);}
 function parseFood(item){
-  const n=item.foodNutrients||[];const servings=[];
-  if(item.servingSize&&item.servingSizeUnit)servings.push({label:item.servingSize+item.servingSizeUnit,grams:item.servingSize});
-  (item.foodPortions||[]).forEach(p=>{if(p.gramWeight)servings.push({label:(p.portionDescription||(p.measureUnit&&p.measureUnit.name)||"serving")+" ("+p.gramWeight+"g)",grams:p.gramWeight});});
-  servings.push({label:"100g",grams:100});
-  return{fdcId:item.fdcId,name:item.description||"",brand:item.brandOwner||item.brandName||"",dataType:item.dataType||"",cal100:getNutrient(n,1008),p100:getNutrient(n,1003),c100:getNutrient(n,1005),f100:getNutrient(n,1004),servings};
+  const n=item.foodNutrients||[];
+  const servings=[];
+
+  // Helper: clean up messy serving labels from the database
+  function cleanLabel(raw, grams){
+    if(!raw)return grams+"g";
+    // Remove duplicate gram info like "1 bar (60g) (60g)"
+    const deduped=raw.replace(/\s*\(\d+\.?\d*\s*g\)\s*\(\d+\.?\d*\s*g\)/gi,"");
+    // If label is just a number or "1.0 serving" with no useful info, use grams
+    if(/^[\d\.]+\s*(serving|servings|unit|units)?$/i.test(deduped.trim()))return grams+"g";
+    // If label doesn't already have grams, append it
+    if(grams&&!/\d+\s*g/i.test(deduped))return deduped.trim()+" ("+Math.round(grams)+"g)";
+    return deduped.trim();
+  }
+
+  // Primary serving size from the item
+  if(item.servingSize&&item.servingSize>0){
+    const unit=item.servingSizeUnit||"g";
+    const grams=unit.toLowerCase()==="g"?item.servingSize:unit.toLowerCase()==="oz"?item.servingSize*28.35:item.servingSize;
+    const label=item.householdServingFullText?cleanLabel(item.householdServingFullText,grams):"1 serving ("+Math.round(grams)+"g)";
+    servings.push({label:label,grams:Math.round(grams)});
+  }
+
+  // Additional portions from the database
+  (item.foodPortions||[]).forEach(function(p){
+    if(!p.gramWeight||p.gramWeight<=0)return;
+    const raw=p.portionDescription||(p.measureUnit&&p.measureUnit.name)||"serving";
+    const label=cleanLabel(raw,p.gramWeight);
+    // Don't add duplicate gram weights
+    if(!servings.find(function(s){return Math.abs(s.grams-p.gramWeight)<2;})){
+      servings.push({label:label,grams:Math.round(p.gramWeight)});
+    }
+  });
+
+  // Always offer 100g as a fallback option
+  if(!servings.find(function(s){return s.grams===100;})){
+    servings.push({label:"100g",grams:100});
+  }
+
+  // If we still have nothing useful, just use 100g
+  if(servings.length===0)servings.push({label:"100g",grams:100});
+
+  return{
+    fdcId:item.fdcId,
+    name:item.description||"",
+    brand:item.brandOwner||item.brandName||"",
+    dataType:item.dataType||"",
+    cal100:getNutrient(n,1008),
+    p100:getNutrient(n,1003),
+    c100:getNutrient(n,1005),
+    f100:getNutrient(n,1004),
+    servings:servings,
+  };
 }
 function scaleMacros(food,grams,qty){const f=(grams*(parseFloat(qty)||1))/100;return{cal:Math.round(food.cal100*f),p:Math.round(food.p100*f),c:Math.round(food.c100*f),f:Math.round(food.f100*f)};}
 
