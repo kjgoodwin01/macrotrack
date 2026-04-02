@@ -602,141 +602,114 @@ function FoodDetail({food,meal,onBack,onConfirm}){
 /* ── BarcodeScanner ── */
 function BarcodeScanner({onDetected}){
   const videoRef=useRef(null);
-  const canvasRef=useRef(null);
+  const displayRef=useRef(null);
   const [status,setStatus]=useState("starting");
   const [code,setCode]=useState("");
   const [manualCode,setManualCode]=useState("");
   const detectedRef=useRef(false);
   const streamRef=useRef(null);
-  const rafRef=useRef(null);
-  const detectorRef=useRef(null);
+  const timerRef=useRef(null);
 
   useEffect(()=>{
     let dead=false;
 
     async function go(){
-      // Get camera stream
       try{
         const stream=await navigator.mediaDevices.getUserMedia({
           video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}}
         });
         if(dead){stream.getTracks().forEach(t=>t.stop());return;}
         streamRef.current=stream;
-        videoRef.current.srcObject=stream;
-        await videoRef.current.play();
-      }catch(e){
-        if(!dead)setStatus("error");
-        return;
-      }
+        if(videoRef.current){videoRef.current.srcObject=stream;await videoRef.current.play();}
+        if(displayRef.current){displayRef.current.srcObject=stream;displayRef.current.play().catch(function(){});}
+      }catch(e){if(!dead)setStatus("error");return;}
+      if(!dead){setStatus("scanning");scan();}
+    }
 
-      // Init BarcodeDetector if available
+    function drawRotated(video, angleDeg){
+      // Draw a video frame onto a new canvas rotated by angleDeg
+      const rad=angleDeg*(Math.PI/180);
+      const vw=video.videoWidth;
+      const vh=video.videoHeight;
+      // For 90/-90 degree rotations, swap width/height
+      const abs=Math.abs(angleDeg)===90||Math.abs(angleDeg)===270;
+      const cw=abs?vh:vw;
+      const ch=abs?vw:vh;
+      const c=document.createElement("canvas");
+      c.width=cw;c.height=ch;
+      const ctx=c.getContext("2d");
+      ctx.translate(cw/2,ch/2);
+      ctx.rotate(rad);
+      ctx.drawImage(video,-vw/2,-vh/2,vw,vh);
+      return c;
+    }
+
+    async function tryDetect(canvas){
+      // Try BarcodeDetector first
       try{
         const BD=window.BarcodeDetector||globalThis.BarcodeDetector;
         if(BD){
-          detectorRef.current=new BD({formats:["ean_13","ean_8","upc_a","upc_e","code_128"]});
+          const det=new BD({formats:["ean_13","ean_8","upc_a","upc_e","code_128","code_39"]});
+          const results=await det.detect(canvas);
+          if(results&&results.length>0&&results[0].rawValue.length>=6)return results[0].rawValue;
         }
-      }catch(e){detectorRef.current=null;}
-
-      if(!dead)setStatus("scanning");
-      if(!dead)processFrame();
+      }catch(e){}
+      // Fall back to Quagga decodeSingle
+      if(window.Quagga){
+        return new Promise(function(resolve){
+          try{
+            Quagga.decodeSingle({
+              decoder:{readers:["ean_reader","ean_8_reader","upc_reader","upc_e_reader","code_128_reader"]},
+              locate:true,
+              src:canvas.toDataURL("image/jpeg",0.9),
+            },function(result){
+              if(result&&result.codeResult&&result.codeResult.code&&result.codeResult.code.length>=6){
+                resolve(result.codeResult.code);
+              }else{resolve(null);}
+            });
+          }catch(e){resolve(null);}
+        });
+      }
+      return null;
     }
 
-    function processFrame(){
+    async function scan(){
       if(dead||detectedRef.current)return;
       const video=videoRef.current;
-      const canvas=canvasRef.current;
-      if(!video||!canvas||video.readyState<2){
-        rafRef.current=requestAnimationFrame(processFrame);
+      if(!video||video.readyState<2||!video.videoWidth){
+        timerRef.current=setTimeout(function(){if(!dead)scan();},100);
         return;
       }
 
-      const vw=video.videoWidth;
-      const vh=video.videoHeight;
-      if(!vw||!vh){
-        rafRef.current=requestAnimationFrame(processFrame);
-        return;
-      }
-
-      // Draw frame rotated 90 degrees onto canvas
-      // This rotates the actual pixel data so Quagga/BarcodeDetector
-      // sees the barcode horizontally regardless of phone orientation
-      canvas.width=vh;
-      canvas.height=vw;
-      const ctx=canvas.getContext("2d");
-      ctx.save();
-      ctx.translate(vh/2,vw/2);
-      ctx.rotate(Math.PI/2);
-      ctx.drawImage(video,-vw/2,-vh/2,vw,vh);
-      ctx.restore();
-
-      // Try BarcodeDetector on the rotated canvas first
-      if(detectorRef.current){
-        detectorRef.current.detect(canvas).then(function(results){
-          if(dead||detectedRef.current)return;
-          if(results&&results.length>0){
-            const val=results[0].rawValue;
-            if(val&&val.length>=6){
-              fire(val);
-              return;
+      // Try all 4 orientations — whichever one finds the barcode wins
+      // This guarantees it works no matter how the phone is held
+      const angles=[0,-90,90,180];
+      for(let i=0;i<angles.length;i++){
+        if(dead||detectedRef.current)return;
+        try{
+          const canvas=drawRotated(video,angles[i]);
+          const val=await tryDetect(canvas);
+          if(val){
+            if(!dead&&!detectedRef.current){
+              detectedRef.current=true;
+              setCode(val);
+              setStatus("success");
+              if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());
+              setTimeout(function(){onDetected(val);},300);
             }
+            return;
           }
-          rafRef.current=setTimeout(function(){
-            if(!dead)requestAnimationFrame(processFrame);
-          },60);
-        }).catch(function(){
-          // BarcodeDetector failed on rotated canvas, try Quagga fallback
-          tryQuagga(canvas,dead);
-        });
-      } else if(window.Quagga){
-        tryQuagga(canvas,dead);
-      } else {
-        rafRef.current=setTimeout(function(){
-          if(!dead)requestAnimationFrame(processFrame);
-        },60);
+        }catch(e){}
       }
-    }
 
-    function tryQuagga(canvas,dead){
-      if(dead||detectedRef.current)return;
-      try{
-        Quagga.decodeSingle({
-          decoder:{readers:["ean_reader","ean_8_reader","upc_reader","upc_e_reader","code_128_reader"]},
-          locate:true,
-          src:canvas.toDataURL("image/jpeg",0.8),
-        },function(result){
-          if(dead||detectedRef.current)return;
-          if(result&&result.codeResult&&result.codeResult.code){
-            const val=result.codeResult.code;
-            if(val.length>=6)fire(val);
-            else schedule();
-          } else {
-            schedule();
-          }
-        });
-      }catch(e){schedule();}
-    }
-
-    function schedule(){
-      rafRef.current=setTimeout(function(){
-        if(!dead&&!detectedRef.current)requestAnimationFrame(processFrame);
-      },80);
-    }
-
-    function fire(val){
-      if(detectedRef.current)return;
-      detectedRef.current=true;
-      setCode(val);
-      setStatus("success");
-      if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());
-      setTimeout(function(){onDetected(val);},300);
+      // Nothing found in any orientation — try again shortly
+      timerRef.current=setTimeout(function(){if(!dead&&!detectedRef.current)scan();},100);
     }
 
     go();
-
     return function(){
-      dead=true;
-      detectedRef.current=true;
-      if(rafRef.current){clearTimeout(rafRef.current);cancelAnimationFrame(rafRef.current);}
+      dead=true;detectedRef.current=true;
+      if(timerRef.current)clearTimeout(timerRef.current);
       if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());
     };
   },[]);
@@ -748,22 +721,9 @@ function BarcodeScanner({onDetected}){
 
   return(
     <div>
-      {/* Hidden video — we process frames manually */}
       <video ref={videoRef} style={{display:"none"}} muted playsInline/>
-      {/* Hidden canvas — rotated frames go here for detection */}
-      <canvas ref={canvasRef} style={{display:"none"}}/>
-
       <div style={{position:"relative",width:"100%",paddingBottom:"100%",background:"#111",borderRadius:18,overflow:"hidden",marginBottom:10}}>
-        {/* Show the actual camera feed without rotation so user sees normal view */}
-        <video style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}
-          ref={function(el){
-            if(el&&streamRef.current&&!el.srcObject){
-              el.srcObject=streamRef.current;
-              el.play().catch(function(){});
-            }
-          }}
-          muted playsInline autoPlay/>
-
+        <video ref={displayRef} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}} muted playsInline/>
         {status==="starting"&&(
           <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,background:"rgba(0,0,0,0.7)"}}>
             <div className="spin"/>
@@ -783,7 +743,7 @@ function BarcodeScanner({onDetected}){
           <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.8)"}}>
             <div style={{textAlign:"center",padding:20}}>
               <div style={{fontSize:32,marginBottom:8}}>📷</div>
-              <div style={{fontSize:12,color:"rgba(255,255,255,0.6)"}}>Camera unavailable</div>
+              <div style={{fontSize:12,color:"rgba(255,255,255,0.6)"}}>Camera unavailable — type barcode below</div>
             </div>
           </div>
         )}
@@ -793,10 +753,8 @@ function BarcodeScanner({onDetected}){
           </div>
         )}
       </div>
-
-      {status==="scanning"&&<div style={{textAlign:"center",fontSize:12,color:"var(--mu)",marginBottom:10}}>Center the barcode in the frame</div>}
+      {status==="scanning"&&<div style={{textAlign:"center",fontSize:12,color:"var(--mu)",marginBottom:10}}>Center barcode in the frame</div>}
       {status==="success"&&<div style={{textAlign:"center",fontSize:13,color:"var(--em)",marginBottom:10,fontFamily:"'JetBrains Mono',monospace"}}>✓ {code}</div>}
-
       <div style={{display:"flex",gap:8,marginTop:4}}>
         <input className="field" placeholder="Or type barcode manually" value={manualCode}
           onChange={function(e){setManualCode(e.target.value);}}
