@@ -787,6 +787,86 @@ function WorkerUrlInput({onSave}){
   );
 }
 
+/* ── DataBackup ── */
+function DataBackup({entries,wlog,goals,onImport}){
+  const [importing,setImporting]=useState(false);
+  const [importErr,setImportErr]=useState("");
+  const fileRef=useRef(null);
+
+  function exportData(){
+    const data={
+      version:1,
+      exportedAt:new Date().toISOString(),
+      goals:goals,
+      entries:entries,
+      wlog:wlog,
+    };
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download="macrotrack-backup-"+isoDate(new Date())+".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function handleImportFile(e){
+    const file=e.target.files[0];
+    if(!file)return;
+    setImportErr("");
+    const reader=new FileReader();
+    reader.onload=function(ev){
+      try{
+        const data=JSON.parse(ev.target.result);
+        if(!data.version||(!data.entries&&!data.wlog)){
+          setImportErr("Invalid backup file.");
+          return;
+        }
+        if(window.confirm("This will replace your current data with the backup. Continue?")){
+          onImport(data);
+        }
+      }catch(e){
+        setImportErr("Could not read file. Make sure it is a MacroTrack backup.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value="";
+  }
+
+  const entryDays=Object.keys(entries||{}).length;
+  const wlogDays=(wlog||[]).length;
+
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
+        <div style={{fontSize:12,color:"var(--mu)"}}>
+          <div>{entryDays} day{entryDays!==1?"s":""} of food logs</div>
+          <div>{wlogDays} weight entr{wlogDays!==1?"ies":"y"}</div>
+        </div>
+        <div style={{fontSize:11,color:"var(--mu)",textAlign:"right",fontFamily:"'JetBrains Mono',monospace"}}>
+          Last export: {localStorage.getItem("mt_last_export")||"never"}
+        </div>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button className="btn" style={{marginTop:0,flex:1,fontSize:13,padding:"12px 8px"}} onClick={function(){
+          exportData();
+          localStorage.setItem("mt_last_export",isoDate(new Date()));
+        }}>Export Backup</button>
+        <button className="btn-ghost" style={{marginTop:0,flex:1,fontSize:13,padding:"12px 8px"}} onClick={function(){
+          if(fileRef.current)fileRef.current.click();
+        }}>Import Backup</button>
+      </div>
+      <input ref={fileRef} type="file" accept=".json,application/json" style={{display:"none"}} onChange={handleImportFile}/>
+      {importErr&&<div className="err" style={{marginTop:8}}>{importErr}</div>}
+      <div style={{fontSize:11,color:"var(--mu)",marginTop:10,lineHeight:1.6}}>
+        Export saves a .json file to your device. Store it in iCloud, Google Drive, or email it to yourself. Import it anytime to restore your data.
+      </div>
+    </div>
+  );
+}
+
 /* ── Adapt Engine ── */
 function computeAdapt(wlog,goals){
   if(wlog.length<7)return null;
@@ -1252,8 +1332,16 @@ function App(){
         </div>
 
         <div className="scard">
-          <div className="stitle">Data Storage</div>
-          <div className="muted-t">All your data — food logs, weight entries, goals, and API key — is saved to this device's local storage. It persists between sessions as long as you use the app from your home screen (not the Claude.ai preview). Nothing is ever sent to a server.</div>
+          <div className="stitle">Data Backup</div>
+          <div className="muted-t" style={{marginBottom:14}}>
+            Your data lives in this device's local storage. Export a backup regularly — especially before clearing your browser or switching phones. Import to restore from a backup.
+          </div>
+          <DataBackup entries={entries} wlog={wlog} goals={goals} onImport={function(data){
+            if(data.entries)setEntriesRaw(data.entries);
+            if(data.wlog)setWlogRaw(data.wlog);
+            if(data.goals)setGoals(data.goals);
+            showToast("✓ Data restored");
+          }}/>
         </div>
 
         <div className="scard">
@@ -1290,6 +1378,10 @@ function LogWeightInline({onLog}){
     </div>
   );
 }
+
+// Keep localStorage alive — iOS Safari evicts PWA storage after 7 days of inactivity
+// Writing any value on load resets the eviction timer
+try{localStorage.setItem("mt_keepalive",Date.now());}catch(e){}
 
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
 if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("./sw.js").catch(e=>console.log("SW:",e));});}
