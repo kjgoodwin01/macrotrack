@@ -616,16 +616,17 @@ function BarcodeScanner({onDetected}){
         target:scannerRef.current,
         constraints:{
           facingMode:"environment",
-          width:{min:320,ideal:640,max:1280},
-          height:{min:240,ideal:480,max:720},
-        },
-        area:{
-          top:"20%",left:"10%",right:"10%",bottom:"20%",
+          width:{ideal:1280},
+          height:{ideal:720},
+          focusMode:"continuous",
         },
       },
-      locator:{patchSize:"medium",halfSample:true},
+      locator:{
+        patchSize:"large",
+        halfSample:false,
+      },
       numOfWorkers:0,
-      frequency:15,
+      frequency:25,
       decoder:{
         readers:[
           "ean_reader",
@@ -637,12 +638,12 @@ function BarcodeScanner({onDetected}){
         multiple:false,
       },
       locate:true,
-    }, function(err){
-      if(err){
-        if(err.name==="NotAllowedError"){
+    }, function(initErr){
+      if(initErr){
+        if(initErr.name==="NotAllowedError"){
           setErr("Camera permission denied. Go to Settings → Safari → Camera and allow access.");
         }else{
-          setErr("Could not start scanner: "+(err.message||err));
+          setErr("Could not start scanner: "+(initErr.message||initErr));
         }
         setStatus("error");
         return;
@@ -651,24 +652,21 @@ function BarcodeScanner({onDetected}){
       setStatus("scanning");
     });
 
-    // Collect results and only fire when we get 3 consistent reads
-    const results=[];
     Quagga.onDetected(function(data){
       if(detectedRef.current)return;
-      const val=data.codeResult.code;
-      if(!val||val.length<8)return;
-      results.push(val);
-      // Require 2 consistent reads to reduce false positives
-      const counts={};
-      results.forEach(function(v){counts[v]=(counts[v]||0)+1;});
-      const best=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];})[0];
-      if(counts[best]>=2){
-        detectedRef.current=true;
-        setCode(best);
-        setStatus("success");
-        Quagga.stop();
-        setTimeout(function(){onDetected(best);},400);
-      }
+      const val=data.codeResult&&data.codeResult.code;
+      if(!val||val.length<6)return;
+      // Check confidence — only fire if the read has decent error correction
+      const errors=data.codeResult.decodedCodes
+        .filter(function(c){return c.error!==undefined;})
+        .map(function(c){return c.error;});
+      const avgErr=errors.length>0?errors.reduce(function(a,b){return a+b;},0)/errors.length:1;
+      if(avgErr>0.35)return; // skip low confidence reads
+      detectedRef.current=true;
+      setCode(val);
+      setStatus("success");
+      try{Quagga.stop();}catch(e){}
+      setTimeout(function(){onDetected(val);},300);
     });
 
     return function(){
@@ -706,9 +704,13 @@ function BarcodeScanner({onDetected}){
             <div className="spin"/>
           </div>
         )}
-        <div className="scanner-hint">Point at barcode — hold steady</div>
+        <div className="scanner-hint">Point camera at barcode</div>
       </div>
-      {status==="success"&&<div style={{textAlign:"center",fontSize:12,color:"var(--em)",marginBottom:8,marginTop:6}}>✓ {code}</div>}
+      {status==="success"&&(
+        <div style={{textAlign:"center",fontSize:13,color:"var(--em)",marginBottom:8,marginTop:6,fontFamily:"'JetBrains Mono',monospace"}}>
+          ✓ {code}
+        </div>
+      )}
     </div>
   );
 }
