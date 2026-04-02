@@ -601,111 +601,186 @@ function FoodDetail({food,meal,onBack,onConfirm}){
 
 /* ── BarcodeScanner ── */
 function BarcodeScanner({onDetected}){
-  const containerRef=useRef(null);
+  const videoRef=useRef(null);
+  const canvasRef=useRef(null);
   const [status,setStatus]=useState("starting");
   const [code,setCode]=useState("");
   const [manualCode,setManualCode]=useState("");
   const detectedRef=useRef(false);
+  const streamRef=useRef(null);
+  const rafRef=useRef(null);
+  const detectorRef=useRef(null);
 
   useEffect(()=>{
-    if(!window.Quagga){setStatus("error");return;}
+    let dead=false;
 
-    Quagga.init({
-      inputStream:{
-        name:"Live",
-        type:"LiveStream",
-        target:containerRef.current,
-        constraints:{
-          facingMode:"environment",
-          width:{ideal:1280},
-          height:{ideal:720},
-        },
-      },
-      locator:{patchSize:"large",halfSample:false},
-      numOfWorkers:0,
-      frequency:20,
-      decoder:{
-        readers:["ean_reader","ean_8_reader","upc_reader","upc_e_reader","code_128_reader"],
-        multiple:false,
-      },
-      locate:true,
-    },function(err){
-      if(err){
-        setStatus("error");
+    async function go(){
+      // Get camera stream
+      try{
+        const stream=await navigator.mediaDevices.getUserMedia({
+          video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}}
+        });
+        if(dead){stream.getTracks().forEach(t=>t.stop());return;}
+        streamRef.current=stream;
+        videoRef.current.srcObject=stream;
+        await videoRef.current.play();
+      }catch(e){
+        if(!dead)setStatus("error");
         return;
       }
 
-      // Rotate video 90deg so portrait-mode phone sees horizontal barcodes
-      setTimeout(function(){
-        if(!containerRef.current)return;
-        const video=containerRef.current.querySelector("video");
-        const canvas=containerRef.current.querySelector("canvas");
-        if(video){
-          video.style.cssText="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;transform:rotate(90deg) scaleX(1);transform-origin:center center;";
+      // Init BarcodeDetector if available
+      try{
+        const BD=window.BarcodeDetector||globalThis.BarcodeDetector;
+        if(BD){
+          detectorRef.current=new BD({formats:["ean_13","ean_8","upc_a","upc_e","code_128"]});
         }
-        if(canvas){
-          canvas.style.cssText="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;";
-        }
-      },300);
+      }catch(e){detectorRef.current=null;}
 
-      Quagga.start();
-      setStatus("scanning");
-    });
+      if(!dead)setStatus("scanning");
+      if(!dead)processFrame();
+    }
 
-    Quagga.onDetected(function(data){
+    function processFrame(){
+      if(dead||detectedRef.current)return;
+      const video=videoRef.current;
+      const canvas=canvasRef.current;
+      if(!video||!canvas||video.readyState<2){
+        rafRef.current=requestAnimationFrame(processFrame);
+        return;
+      }
+
+      const vw=video.videoWidth;
+      const vh=video.videoHeight;
+      if(!vw||!vh){
+        rafRef.current=requestAnimationFrame(processFrame);
+        return;
+      }
+
+      // Draw frame rotated 90 degrees onto canvas
+      // This rotates the actual pixel data so Quagga/BarcodeDetector
+      // sees the barcode horizontally regardless of phone orientation
+      canvas.width=vh;
+      canvas.height=vw;
+      const ctx=canvas.getContext("2d");
+      ctx.save();
+      ctx.translate(vh/2,vw/2);
+      ctx.rotate(Math.PI/2);
+      ctx.drawImage(video,-vw/2,-vh/2,vw,vh);
+      ctx.restore();
+
+      // Try BarcodeDetector on the rotated canvas first
+      if(detectorRef.current){
+        detectorRef.current.detect(canvas).then(function(results){
+          if(dead||detectedRef.current)return;
+          if(results&&results.length>0){
+            const val=results[0].rawValue;
+            if(val&&val.length>=6){
+              fire(val);
+              return;
+            }
+          }
+          rafRef.current=setTimeout(function(){
+            if(!dead)requestAnimationFrame(processFrame);
+          },60);
+        }).catch(function(){
+          // BarcodeDetector failed on rotated canvas, try Quagga fallback
+          tryQuagga(canvas,dead);
+        });
+      } else if(window.Quagga){
+        tryQuagga(canvas,dead);
+      } else {
+        rafRef.current=setTimeout(function(){
+          if(!dead)requestAnimationFrame(processFrame);
+        },60);
+      }
+    }
+
+    function tryQuagga(canvas,dead){
+      if(dead||detectedRef.current)return;
+      try{
+        Quagga.decodeSingle({
+          decoder:{readers:["ean_reader","ean_8_reader","upc_reader","upc_e_reader","code_128_reader"]},
+          locate:true,
+          src:canvas.toDataURL("image/jpeg",0.8),
+        },function(result){
+          if(dead||detectedRef.current)return;
+          if(result&&result.codeResult&&result.codeResult.code){
+            const val=result.codeResult.code;
+            if(val.length>=6)fire(val);
+            else schedule();
+          } else {
+            schedule();
+          }
+        });
+      }catch(e){schedule();}
+    }
+
+    function schedule(){
+      rafRef.current=setTimeout(function(){
+        if(!dead&&!detectedRef.current)requestAnimationFrame(processFrame);
+      },80);
+    }
+
+    function fire(val){
       if(detectedRef.current)return;
-      const val=data.codeResult&&data.codeResult.code;
-      if(!val||val.length<6)return;
-
-      // Confidence check
-      const errors=(data.codeResult.decodedCodes||[])
-        .filter(function(c){return c.error!==undefined;})
-        .map(function(c){return c.error;});
-      const avg=errors.length?errors.reduce(function(a,b){return a+b;},0)/errors.length:1;
-      if(avg>0.4)return;
-
       detectedRef.current=true;
       setCode(val);
       setStatus("success");
-      try{Quagga.stop();}catch(e){}
+      if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());
       setTimeout(function(){onDetected(val);},300);
-    });
+    }
 
-    return function(){try{Quagga.stop();}catch(e){}};
+    go();
+
+    return function(){
+      dead=true;
+      detectedRef.current=true;
+      if(rafRef.current){clearTimeout(rafRef.current);cancelAnimationFrame(rafRef.current);}
+      if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());
+    };
   },[]);
 
   function submitManual(){
     const c=manualCode.trim();
-    if(c.length<6)return;
-    onDetected(c);
+    if(c.length>=6)onDetected(c);
   }
 
   return(
     <div>
-      <div ref={containerRef} style={{
-        position:"relative",width:"100%",paddingBottom:"100%",
-        background:"#000",borderRadius:18,overflow:"hidden",marginBottom:10
-      }}>
+      {/* Hidden video — we process frames manually */}
+      <video ref={videoRef} style={{display:"none"}} muted playsInline/>
+      {/* Hidden canvas — rotated frames go here for detection */}
+      <canvas ref={canvasRef} style={{display:"none"}}/>
+
+      <div style={{position:"relative",width:"100%",paddingBottom:"100%",background:"#111",borderRadius:18,overflow:"hidden",marginBottom:10}}>
+        {/* Show the actual camera feed without rotation so user sees normal view */}
+        <video style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}
+          ref={function(el){
+            if(el&&streamRef.current&&!el.srcObject){
+              el.srcObject=streamRef.current;
+              el.play().catch(function(){});
+            }
+          }}
+          muted playsInline autoPlay/>
+
         {status==="starting"&&(
-          <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}}>
+          <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,background:"rgba(0,0,0,0.7)"}}>
             <div className="spin"/>
             <div style={{fontSize:12,color:"rgba(255,255,255,0.6)"}}>Starting camera...</div>
           </div>
         )}
         {status==="scanning"&&(
-          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none",zIndex:10}}>
-            <div style={{
-              width:"40%",height:"75%",
-              border:"2px solid rgba(99,102,241,0.9)",
-              borderRadius:10,position:"relative",
-              boxShadow:"0 0 0 9999px rgba(0,0,0,0.4)"
-            }}>
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
+            <div style={{width:"80%",height:"38%",border:"2px solid rgba(99,102,241,0.95)",borderRadius:12,position:"relative",boxShadow:"0 0 0 9999px rgba(0,0,0,0.45)"}}>
               <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:"linear-gradient(90deg,transparent,var(--indl),transparent)",animation:"sl 1.5s ease-in-out infinite"}}/>
+              <div className="sc tl"/><div className="sc tr"/>
+              <div className="sc bl"/><div className="sc br"/>
             </div>
           </div>
         )}
         {status==="error"&&(
-          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.8)"}}>
             <div style={{textAlign:"center",padding:20}}>
               <div style={{fontSize:32,marginBottom:8}}>📷</div>
               <div style={{fontSize:12,color:"rgba(255,255,255,0.6)"}}>Camera unavailable</div>
@@ -713,22 +788,14 @@ function BarcodeScanner({onDetected}){
           </div>
         )}
         {status==="success"&&(
-          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(16,185,129,0.3)",zIndex:10}}>
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(16,185,129,0.3)"}}>
             <div style={{fontSize:64}}>✅</div>
           </div>
         )}
       </div>
 
-      {status==="scanning"&&(
-        <div style={{textAlign:"center",fontSize:12,color:"var(--mu)",marginBottom:10}}>
-          Hold barcode in the frame
-        </div>
-      )}
-      {status==="success"&&(
-        <div style={{textAlign:"center",fontSize:13,color:"var(--em)",marginBottom:10,fontFamily:"'JetBrains Mono',monospace"}}>
-          ✓ {code}
-        </div>
-      )}
+      {status==="scanning"&&<div style={{textAlign:"center",fontSize:12,color:"var(--mu)",marginBottom:10}}>Center the barcode in the frame</div>}
+      {status==="success"&&<div style={{textAlign:"center",fontSize:13,color:"var(--em)",marginBottom:10,fontFamily:"'JetBrains Mono',monospace"}}>✓ {code}</div>}
 
       <div style={{display:"flex",gap:8,marginTop:4}}>
         <input className="field" placeholder="Or type barcode manually" value={manualCode}
