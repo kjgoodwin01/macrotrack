@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="MacroTrack"/>
@@ -426,13 +426,13 @@ function BarcodeScanner({onDetected}){
     async function go(){
       if(!("BarcodeDetector" in window)){setStatus("unsupported");return;}
       try{detRef.current=new window.BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128","code_39","itf","qr_code"]});}catch(e){setStatus("unsupported");return;}
-      try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1280},height:{ideal:720}}});if(dead){s.getTracks().forEach(t=>t.stop());return;}streamRef.current=s;if(vRef.current){vRef.current.srcObject=s;await vRef.current.play();}setStatus("scanning");tick();}
+      try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:640},height:{ideal:480}}});if(dead){s.getTracks().forEach(t=>t.stop());return;}streamRef.current=s;if(vRef.current){vRef.current.srcObject=s;await vRef.current.play();}setStatus("scanning");tick();}
       catch(e){if(!dead)setStatus("error");}
     }
     async function tick(){
       if(dead||!vRef.current||!detRef.current)return;
-      try{const codes=await detRef.current.detect(vRef.current);if(codes.length>0&&!dead){const v=codes[0].rawValue;setCode(v);setStatus("success");setTimeout(()=>{if(!dead)onDetected(v);},700);return;}}catch(e){}
-      if(!dead)rafRef.current=requestAnimationFrame(tick);
+      try{const codes=await detRef.current.detect(vRef.current);if(codes.length>0&&!dead){const v=codes[0].rawValue;setCode(v);setStatus("success");setTimeout(()=>{if(!dead)onDetected(v);},500);return;}}catch(e){}
+      if(!dead)rafRef.current=setTimeout(()=>{if(!dead)requestAnimationFrame(tick);},80);
     }
     go();
     return()=>{dead=true;cancelAnimationFrame(rafRef.current);if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());};
