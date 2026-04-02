@@ -253,14 +253,15 @@ const DEFAULT_GOALS={calories:2100,protein:180,carbs:210,fat:60};
 const USDA="https://api.nal.usda.gov/fdc/v1";
 
 /* ── Date helpers ── */
-function isoDate(d){return d.toISOString().split("T")[0];}
+function isoDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function todayISO(){return isoDate(new Date());}
 function getMondayOfWeek(d){
-  const dt=new Date(d);const day=dt.getDay();const diff=day===0?-6:1-day;
-  dt.setDate(dt.getDate()+diff);dt.setHours(0,0,0,0);return dt;
+  const dt=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  const day=dt.getDay();const diff=day===0?-6:1-day;
+  dt.setDate(dt.getDate()+diff);return dt;
 }
 function getWeekDates(monday){
-  return Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setDate(d.getDate()+i);return d;});
+  return Array.from({length:7},(_,i)=>{const d=new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+i);return d;});
 }
 function fmtDate(d){return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});}
 function fmtShort(d){return d.toLocaleDateString("en-US",{month:"short",day:"numeric"});}
@@ -778,7 +779,7 @@ function App(){
       <div className="hdr">
         <div className="logo"><em>MACRO</em>TRACK</div>
         <div className="hdr-r">
-          <div className="hdr-date">{fmtDate(new Date(selectedDate+"T12:00:00"))}</div>
+          <div className="hdr-date">{(()=>{const[y,m,d]=selectedDate.split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});})()}</div>
         </div>
       </div>
 
