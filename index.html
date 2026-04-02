@@ -766,49 +766,38 @@ function CoachTab({goals,entries,wlog,workerUrl,selectedDate}){
   // Build full context string from user's data
   function buildContext(){
     const today=todayISO();
-    // Last 7 days of food logs
-    const last7=Array.from({length:7},(_,i)=>{
+    const last7=Array.from({length:7},function(_,i){
       const d=new Date();d.setDate(d.getDate()-i);
       const k=isoDate(d);
-      const dayEntries=entries[k]||[];
-      const totals=dayEntries.reduce((a,e)=>({cal:a.cal+e.cal,p:a.p+e.p,c:a.c+e.c,f:a.f+e.f}),{cal:0,p:0,c:0,f:0});
-      return {date:k,logged:dayEntries.length>0,cal:totals.cal,p:totals.p,c:totals.c,f:totals.f,foods:dayEntries.map(e=>e.name+` (${e.cal}kcal)`).join(", ")||"nothing logged"};
-    }).reverse();
-
-    // Weight history
-    const sortedW=[...wlog].sort((a,b)=>a.date.localeCompare(b.date));
+      const dayE=entries[k]||[];
+      const tot=dayE.reduce(function(a,e){return{cal:a.cal+e.cal,p:a.p+e.p,c:a.c+e.c,f:a.f+e.f};},{cal:0,p:0,c:0,f:0});
+      const foods=dayE.map(function(e){return e.name+" ("+e.cal+"kcal)";}).join(", ")||"nothing logged";
+      if(dayE.length>0)return k+": "+tot.cal+" kcal | "+tot.p+"g protein | "+foods;
+      return k+": not logged";
+    }).reverse().join("\n");
+    const sortedW=[...wlog].sort(function(a,b){return a.date.localeCompare(b.date);});
     const recentW=sortedW.slice(-14);
     const wChange=recentW.length>=2?(recentW[recentW.length-1].weight-recentW[0].weight).toFixed(1):null;
-
-    // Today remaining
+    const wLines=recentW.length>0?recentW.map(function(w){return w.date+": "+w.weight+" lbs";}).join("\n"):"No weight logged yet";
+    const wTrend=wChange?"\nWeight trend: "+(parseFloat(wChange)<0?"Lost":"Gained")+" "+Math.abs(wChange)+" lbs over last "+recentW.length+" entries":"";
     const todayE=entries[today]||[];
-    const todayTotals=todayE.reduce((a,e)=>({cal:a.cal+e.cal,p:a.p+e.p,c:a.c+e.c,f:a.f+e.f}),{cal:0,p:0,c:0,f:0});
-    const remCal=goals.calories-todayTotals.cal;
-    const remP=goals.protein-todayTotals.p;
-
-    return `USER PROFILE & DATA (use this to give personalized advice):
-
-GOALS: ${goals.calories} kcal/day | Protein: ${goals.protein}g | Carbs: ${goals.carbs}g | Fat: ${goals.fat}g
-GOAL TYPE: Fat loss / cut
-
-TODAY (${today}):
-- Calories consumed: ${todayTotals.cal} / ${goals.calories} kcal (${remCal > 0 ? remCal+" remaining" : Math.abs(remCal)+" over"})
-- Protein: ${todayTotals.p}g / ${goals.protein}g (${remP > 0 ? remP+"g remaining" : Math.abs(remP)+"g over"})
-- Carbs: ${todayTotals.c}g | Fat: ${todayTotals.f}g
-- Foods eaten today: ${todayE.map(e=>e.name).join(", ")||"nothing yet"}
-
-LAST 7 DAYS LOG:
-${last7.map(d=>`${d.date}: ${d.logged?`${d.cal} kcal | ${d.p}g protein | foods: ${d.foods}`:"not logged"}`).join("
-")}
-
-WEIGHT HISTORY (recent):
-${recentW.length>0?recentW.map(w=>`${w.date}: ${w.weight} lbs`).join("
-"):"No weight logged yet"}
-${wChange?`
-Weight trend: ${parseFloat(wChange)<0?"Lost":"Gained"} ${Math.abs(wChange)} lbs over last ${recentW.length} entries`:""}`;
+    const todayTot=todayE.reduce(function(a,e){return{cal:a.cal+e.cal,p:a.p+e.p,c:a.c+e.c,f:a.f+e.f};},{cal:0,p:0,c:0,f:0});
+    const remCal=goals.calories-todayTot.cal;
+    const remP=goals.protein-todayTot.p;
+    const todayFoods=todayE.map(function(e){return e.name;}).join(", ")||"nothing yet";
+    return "USER PROFILE & DATA:\n\n"+
+      "GOALS: "+goals.calories+" kcal/day | Protein: "+goals.protein+"g | Carbs: "+goals.carbs+"g | Fat: "+goals.fat+"g\n"+
+      "GOAL TYPE: Fat loss / cut\n\n"+
+      "TODAY ("+today+"):\n"+
+      "- Calories: "+todayTot.cal+" / "+goals.calories+" kcal ("+(remCal>0?remCal+" remaining":Math.abs(remCal)+" over")+")\n"+
+      "- Protein: "+todayTot.p+"g / "+goals.protein+"g ("+(remP>0?remP+"g remaining":Math.abs(remP)+"g over")+")\n"+
+      "- Carbs: "+todayTot.c+"g | Fat: "+todayTot.f+"g\n"+
+      "- Foods today: "+todayFoods+"\n\n"+
+      "LAST 7 DAYS:\n"+last7+"\n\n"+
+      "WEIGHT HISTORY:\n"+wLines+wTrend;
   }
 
-  // Generate weekly report
+    // Generate weekly report
   async function generateReport(force=false){
     const thisWeek=isoDate(new Date());
     if(!force && report && reportDate===thisWeek)return;
@@ -822,13 +811,7 @@ Weight trend: ${parseFloat(wChange)<0?"Lost":"Gained"} ${Math.abs(wChange)} lbs 
         body:JSON.stringify({
           type:"coach_report",
           context:ctx,
-          prompt:`Generate a concise weekly coaching check-in. Format it as 3-4 bullet points. Cover:
-1. Weight trend assessment (is the rate of loss on track, too fast, too slow?)
-2. Calorie adherence (how consistently are they hitting their target?)
-3. Protein performance (are they hitting protein goals? Why does it matter for their cut?)
-4. One specific, actionable win or adjustment for next week
-
-Be direct, specific to their actual numbers, and motivating. Use their real data. No fluff. Each bullet should be 1-2 sentences max. Start each bullet with an emoji that fits the topic.`
+          prompt:"Generate a concise weekly coaching check-in. Format it as 3-4 bullet points. Cover:\n1. Weight trend assessment (is the rate of loss on track, too fast, too slow?)\n2. Calorie adherence (how consistently are they hitting their target?)\n3. Protein performance (are they hitting protein goals? Why does it matter for their cut?)\n4. One specific, actionable win or adjustment for next week\n\nBe direct, specific to their actual numbers, and motivating. Use their real data. No fluff. Each bullet should be 1-2 sentences max. Start each bullet with an emoji that fits the topic."
         })
       });
       if(!r.ok)throw new Error("Worker error");
@@ -914,7 +897,7 @@ Be direct, specific to their actual numbers, and motivating. Use their real data
         <div className="coach-hero-head">
           <div>
             <div className="coach-hero-title">Weekly Check-in</div>
-            <div className="coach-hero-sub">{reportDate?`Generated ${reportDate}`:"Generating your report…"}</div>
+            <div className="coach-hero-sub">{reportDate?"Generated "+reportDate:"Generating your report…"}</div>
           </div>
           <button className="coach-regen" onClick={()=>generateReport(true)} disabled={reportLoading}>
             {reportLoading?"…":"↻ Refresh"}
@@ -959,8 +942,7 @@ Be direct, specific to their actual numbers, and motivating. Use their real data
           )}
           {msgs.map((m,i)=>(
             <div key={i} className={"msg "+(m.role==="user"?"user":"ai")}>
-              <div className="msg-bubble" dangerouslySetInnerHTML={{__html:m.text.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/
-/g,"<br/>")}}/>
+              <div className="msg-bubble" dangerouslySetInnerHTML={{__html:m.text.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").split("\n").join("<br/>")}}>
               {m.time&&<div className="msg-time">{m.time}</div>}
             </div>
           ))}
