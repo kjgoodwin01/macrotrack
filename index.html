@@ -628,53 +628,16 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
     const c=(code||barcode||"").trim();if(!c)return;
     setBLoad(true);setBErr("");setBFood(null);
     try{
-      // Layer 1: USDA direct GTIN/UPC lookup
-      if(workerUrl){
-        const r1=await fetch(workerUrl.replace(/\/$/,""),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"usda_search",query:c,pageSize:5,branded:true})});
-        if(r1.ok){
-          const d1=await r1.json();
-          const foods=d1.foods||[];
-          // Prefer exact UPC match, then any branded result, then any result
-          const exact=foods.find(f=>f.gtinUpc===c);
-          const branded=foods.find(f=>f.dataType==="Branded");
-          const match=exact||branded||foods[0];
-          if(match){setBFood(parseFood(match));return;}
-        }
-      }
-      // Layer 2: Open Food Facts — great branded product coverage, no key needed
-      const r2=await fetch("https://world.openfoodfacts.org/api/v0/product/"+c+".json");
-      if(r2.ok){
-        const d2=await r2.json();
-        if(d2.status===1&&d2.product){
-          const p=d2.product;
-          const n=p.nutriments||{};
-          const servings=[];
-          if(p.serving_size)servings.push({label:p.serving_size,grams:parseFloat(p.serving_quantity)||100});
-          servings.push({label:"100g",grams:100});
-          setBFood({
-            fdcId:"off-"+c,
-            name:p.product_name||p.product_name_en||"Unknown Product",
-            brand:p.brands||"",
-            dataType:"Open Food Facts",
-            cal100:Math.round(n["energy-kcal_100g"]||n["energy_100g"]/4.184||0),
-            p100:Math.round(n.proteins_100g||0),
-            c100:Math.round(n.carbohydrates_100g||0),
-            f100:Math.round(n.fat_100g||0),
-            servings:servings.length>1?servings:[{label:"100g",grams:100}],
-          });
-          return;
-        }
-      }
-      // Layer 3: USDA name search fallback via worker
-      if(workerUrl){
-        const r3=await fetch(workerUrl.replace(/\/$/,""),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"usda_search",query:c,pageSize:8,branded:true})});
-        if(r3.ok){
-          const d3=await r3.json();
-          const foods=d3.foods||[];
-          if(foods.length>0){setBFood(parseFood(foods[0]));return;}
-        }
-      }
-      setBErr("No food found for that barcode. Try searching by name instead.");
+      const r=await fetch(DEFAULT_WORKER_URL,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({type:"barcode_lookup",upc:c}),
+      });
+      if(!r.ok)throw new Error("Worker error");
+      const d=await r.json();
+      const foods=d.foods||[];
+      if(foods.length===0){setBErr("No food found for that barcode. Try searching by name.");return;}
+      setBFood(parseFood(foods[0]));
     }catch(e){setBErr("Lookup failed. Check your connection and try again.");}
     finally{setBLoad(false);}
   }
