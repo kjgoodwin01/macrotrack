@@ -283,6 +283,48 @@
     .no-worker-icon{font-size:44px;margin-bottom:12px}
     .no-worker-title{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--indll);letter-spacing:1px;margin-bottom:8px}
     .no-worker-text{font-size:13px;color:var(--mu);line-height:1.65}
+
+    /* ── Onboarding ── */
+    .ob-wrap{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column;overflow:hidden;max-width:430px;margin:0 auto}
+    .ob-progress{height:3px;background:var(--b1);flex-shrink:0}
+    .ob-progress-fill{height:100%;background:linear-gradient(90deg,var(--ind),var(--vio));transition:width 0.4s ease}
+    .ob-body{flex:1;overflow-y:auto;padding:32px 24px 24px;-webkit-overflow-scrolling:touch}
+    .ob-step-label{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;font-weight:700}
+    .ob-title{font-family:'Bebas Neue',sans-serif;font-size:38px;line-height:1.05;letter-spacing:1px;margin-bottom:8px}
+    .ob-title em{color:var(--indl);font-style:normal}
+    .ob-sub{font-size:14px;color:var(--txt2);line-height:1.65;margin-bottom:28px}
+    .ob-footer{flex-shrink:0;padding:16px 24px calc(var(--sb) + 16px);border-top:1px solid var(--b1);background:var(--bg)}
+    .ob-btn{width:100%;padding:16px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:16px;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;cursor:pointer;box-shadow:0 6px 24px var(--glow);transition:transform 0.15s}
+    .ob-btn:active{transform:scale(0.98)}
+    .ob-btn:disabled{opacity:0.35;cursor:not-allowed;transform:none}
+    .ob-back{background:none;border:none;color:var(--mu);font-size:13px;cursor:pointer;padding:10px 0 0;display:block;margin:0 auto;font-family:'DM Sans',sans-serif}
+    .ob-seg{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+    .ob-seg-btn{flex:1;min-width:80px;padding:11px 8px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:12px;color:var(--mu);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;text-align:center}
+    .ob-seg-btn.active{background:var(--ind);color:#fff;border-color:var(--ind)}
+    .ob-field{width:100%;padding:14px 16px;background:rgba(255,255,255,0.05);border:1px solid var(--b1);border-radius:14px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:16px;outline:none;transition:border-color 0.2s;-webkit-appearance:none;margin-bottom:12px}
+    .ob-field:focus{border-color:var(--ind)}
+    .ob-field-label{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;margin-top:4px}
+    .ob-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .ob-result{background:linear-gradient(145deg,#0d0d24,#111130);border:1px solid rgba(99,102,241,0.3);border-radius:20px;padding:20px;margin-bottom:16px}
+    .ob-result-title{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--indll);letter-spacing:1px;margin-bottom:14px}
+    .ob-result-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+    .ob-result-row:last-child{border-bottom:none}
+    .ob-result-lbl{font-size:13px;color:var(--txt2)}
+    .ob-result-val{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--indll)}
+    .ob-macro-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
+    .ob-macro{background:rgba(255,255,255,0.04);border-radius:12px;padding:12px 8px;text-align:center;border:1px solid var(--b1)}
+    .ob-macro-val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;margin-bottom:3px}
+    .ob-macro-lbl{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px}
+    .ob-edit-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--b1)}
+    .ob-edit-row:last-child{border-bottom:none}
+    .ob-edit-lbl{font-size:13px;color:var(--txt2)}
+    .ob-edit-input{width:90px;padding:8px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--b1);border-radius:10px;color:var(--txt);font-family:'JetBrains Mono',monospace;font-size:14px;outline:none;text-align:right;-webkit-appearance:none}
+    .ob-edit-input:focus{border-color:var(--ind)}
+    /* Rate limit banner */
+    .rate-banner{background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.25);border-radius:14px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:flex-start;gap:12px}
+    .rate-banner-icon{font-size:22px;flex-shrink:0}
+    .rate-banner-text{font-size:13px;color:var(--txt2);line-height:1.55}
+    .rate-banner-text strong{color:var(--rosel)}
   </style>
 </head>
 <body>
@@ -787,6 +829,270 @@ function WorkerUrlInput({onSave}){
   );
 }
 
+
+/* ── TDEE Calculator ── */
+function calcTDEE(age, sex, heightCm, weightLbs, activity){
+  const kg = weightLbs * 0.453592;
+  const cm = heightCm;
+  // Mifflin-St Jeor
+  const bmr = sex === "male"
+    ? 10*kg + 6.25*cm - 5*age + 5
+    : 10*kg + 6.25*cm - 5*age - 161;
+  const multipliers = {sedentary:1.2, light:1.375, moderate:1.55, active:1.725, veryactive:1.9};
+  return Math.round(bmr * (multipliers[activity] || 1.55));
+}
+
+function calcMacros(calories, goalType, weightLbs){
+  const protein = Math.round(weightLbs * (goalType === "bulk" ? 0.85 : 0.9));
+  const fat = Math.round(calories * (goalType === "bulk" ? 0.28 : 0.25) / 9);
+  const carbs = Math.round((calories - protein*4 - fat*9) / 4);
+  return {protein, carbs: Math.max(carbs, 50), fat};
+}
+
+function calcCalorieTarget(tdee, goalType){
+  if(goalType === "cut") return Math.round(tdee - 400);
+  if(goalType === "bulk") return Math.round(tdee + 250);
+  return tdee;
+}
+
+function ftToCm(ft, inches){
+  return Math.round((parseInt(ft)||0)*30.48 + (parseInt(inches)||0)*2.54);
+}
+
+/* ── Onboarding ── */
+function Onboarding({onComplete}){
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState("");
+  const [sex, setSex] = useState("male");
+  const [age, setAge] = useState("");
+  const [heightFt, setHeightFt] = useState("");
+  const [heightIn, setHeightIn] = useState("");
+  const [weight, setWeight] = useState("");
+  const [activity, setActivity] = useState("moderate");
+  const [goalType, setGoalType] = useState("cut");
+  const [targetWeight, setTargetWeight] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [editCal, setEditCal] = useState("");
+  const [editProt, setEditProt] = useState("");
+  const [editCarb, setEditCarb] = useState("");
+  const [editFat, setEditFat] = useState("");
+
+  const TOTAL_STEPS = 5;
+  const pct = ((step) / TOTAL_STEPS) * 100;
+
+  const heightCm = ftToCm(heightFt, heightIn);
+  const tdee = age && weight && heightCm ? calcTDEE(parseInt(age), sex, heightCm, parseFloat(weight), activity) : 0;
+  const recCal = tdee ? calcCalorieTarget(tdee, goalType) : 0;
+  const recMacros = recCal ? calcMacros(recCal, goalType, parseFloat(weight)) : null;
+
+  function initEdit(){
+    setEditCal(String(recCal));
+    setEditProt(String(recMacros.protein));
+    setEditCarb(String(recMacros.carbs));
+    setEditFat(String(recMacros.fat));
+    setEditMode(true);
+  }
+
+  function finish(){
+    const finalCal = editMode ? parseInt(editCal)||recCal : recCal;
+    const finalProt = editMode ? parseInt(editProt)||recMacros.protein : recMacros.protein;
+    const finalCarb = editMode ? parseInt(editCarb)||recMacros.carbs : recMacros.carbs;
+    const finalFat = editMode ? parseInt(editFat)||recMacros.fat : recMacros.fat;
+    onComplete({
+      name: name.trim(),
+      goals: {
+        calories: finalCal, protein: finalProt, carbs: finalCarb, fat: finalFat,
+        targetWeight: parseFloat(targetWeight)||null,
+        goalType: goalType,
+      },
+      startWeight: parseFloat(weight)||null,
+    });
+  }
+
+  const ACTIVITY_OPTS = [
+    {id:"sedentary", label:"Sedentary", sub:"Desk job, no gym"},
+    {id:"light", label:"Light", sub:"1-2x / week"},
+    {id:"moderate", label:"Moderate", sub:"3-4x / week"},
+    {id:"active", label:"Active", sub:"5-6x / week"},
+    {id:"veryactive", label:"Very Active", sub:"2x/day or labor"},
+  ];
+
+  const canNext = [
+    name.trim().length > 0,
+    age && weight && heightFt,
+    true,
+    targetWeight.length > 0,
+    true,
+  ][step];
+
+  return (
+    <div className="ob-wrap">
+      <div className="ob-progress">
+        <div className="ob-progress-fill" style={{width: pct+"%"}}/>
+      </div>
+      <div className="ob-body">
+        <div className="ob-step-label">Step {step+1} of {TOTAL_STEPS}</div>
+
+        {step === 0 && (
+          <div>
+            <div className="ob-title"><em>MACRO</em>TRACK</div>
+            <div className="ob-sub">Your personal nutrition coach. Let's set up your profile so we can calculate your exact calorie and macro targets.</div>
+            <div className="ob-field-label">Your first name</div>
+            <input className="ob-field" placeholder="e.g. Kyle" value={name} onChange={function(e){setName(e.target.value);}} autoFocus/>
+            <div className="ob-field-label" style={{marginTop:8}}>Sex</div>
+            <div className="ob-seg">
+              {[["male","Male"],["female","Female"]].map(function(o){
+                return <button key={o[0]} className={"ob-seg-btn"+(sex===o[0]?" active":"")} onClick={function(){setSex(o[0]);}}>{o[1]}</button>;
+              })}
+            </div>
+          </div>
+        )}
+
+        {step === 1 && (
+          <div>
+            <div className="ob-title">Your <em>Stats</em></div>
+            <div className="ob-sub">Used to calculate your TDEE — the number of calories your body burns daily.</div>
+            <div className="ob-field-label">Age</div>
+            <input className="ob-field" type="number" placeholder="e.g. 28" value={age} onChange={function(e){setAge(e.target.value);}}/>
+            <div className="ob-field-label">Height</div>
+            <div className="ob-2col">
+              <input className="ob-field" type="number" placeholder="ft" value={heightFt} onChange={function(e){setHeightFt(e.target.value);}}/>
+              <input className="ob-field" type="number" placeholder="in" value={heightIn} onChange={function(e){setHeightIn(e.target.value);}}/>
+            </div>
+            <div className="ob-field-label">Current Weight (lbs)</div>
+            <input className="ob-field" type="number" step="0.1" placeholder="e.g. 240" value={weight} onChange={function(e){setWeight(e.target.value);}}/>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div>
+            <div className="ob-title">Activity <em>Level</em></div>
+            <div className="ob-sub">How active are you on a typical week? Be honest — overestimating is the most common mistake.</div>
+            {ACTIVITY_OPTS.map(function(opt){
+              return (
+                <div key={opt.id} onClick={function(){setActivity(opt.id);}}
+                  style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+                    padding:"14px 16px",marginBottom:8,
+                    background:activity===opt.id?"rgba(99,102,241,0.12)":"rgba(255,255,255,0.03)",
+                    border:"1px solid "+(activity===opt.id?"rgba(99,102,241,0.4)":"var(--b1)"),
+                    borderRadius:14,cursor:"pointer"}}>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:600,color:activity===opt.id?"var(--indll)":"var(--txt)"}}>{opt.label}</div>
+                    <div style={{fontSize:12,color:"var(--mu)",marginTop:2}}>{opt.sub}</div>
+                  </div>
+                  {activity===opt.id&&<div style={{width:10,height:10,borderRadius:"50%",background:"var(--ind)",flexShrink:0}}/>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {step === 3 && (
+          <div>
+            <div className="ob-title">Your <em>Goal</em></div>
+            <div className="ob-sub">What are you working toward right now?</div>
+            <div className="ob-seg" style={{marginBottom:20}}>
+              {[["cut","Cutting","Fat loss"],["bulk","Bulking","Muscle gain"],["maintain","Maintaining","Body recomp"]].map(function(o){
+                return (
+                  <button key={o[0]} className={"ob-seg-btn"+(goalType===o[0]?" active":"")} onClick={function(){setGoalType(o[0]);}}>
+                    <div>{o[1]}</div>
+                    <div style={{fontSize:10,opacity:0.7,marginTop:2}}>{o[2]}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="ob-field-label">Target Weight (lbs)</div>
+            <input className="ob-field" type="number" step="0.5"
+              placeholder={goalType==="cut"?"e.g. 195":goalType==="bulk"?"e.g. 220":"e.g. 185"}
+              value={targetWeight} onChange={function(e){setTargetWeight(e.target.value);}}/>
+            <div style={{fontSize:12,color:"var(--mu)",marginTop:4}}>
+              {goalType==="cut"?"Your coach will help you hit this while protecting muscle mass.":
+               goalType==="bulk"?"Your coach will guide you toward clean gains.":
+               "Your coach will help you recomp toward this weight."}
+            </div>
+          </div>
+        )}
+
+        {step === 4 && recMacros && (
+          <div>
+            <div className="ob-title">Your <em>Plan</em></div>
+            <div className="ob-sub">Based on your stats and goal, here are your personalized targets.</div>
+            {!editMode ? (
+              <div>
+                <div className="ob-result">
+                  <div className="ob-result-title">Daily Calorie Target</div>
+                  <div className="ob-result-row">
+                    <span className="ob-result-lbl">Your TDEE (maintenance)</span>
+                    <span className="ob-result-val">{tdee.toLocaleString()}</span>
+                  </div>
+                  <div className="ob-result-row">
+                    <span className="ob-result-lbl">{goalType==="cut"?"Deficit":goalType==="bulk"?"Surplus":"Adjustment"}</span>
+                    <span className="ob-result-val" style={{color:goalType==="cut"?"var(--rosel)":goalType==="bulk"?"var(--eml)":"var(--cyanl)"}}>
+                      {goalType==="cut"?"−400":goalType==="bulk"?"+250":"±0"} kcal
+                    </span>
+                  </div>
+                  <div className="ob-result-row">
+                    <span className="ob-result-lbl" style={{fontWeight:600,color:"var(--txt)"}}>Daily Target</span>
+                    <span className="ob-result-val" style={{fontSize:22,color:"var(--indll)"}}>{recCal.toLocaleString()}</span>
+                  </div>
+                  <div className="ob-macro-row">
+                    <div className="ob-macro">
+                      <div className="ob-macro-val" style={{color:"var(--rosel)"}}>{recMacros.protein}g</div>
+                      <div className="ob-macro-lbl">Protein</div>
+                    </div>
+                    <div className="ob-macro">
+                      <div className="ob-macro-val" style={{color:"var(--cyanl)"}}>{recMacros.carbs}g</div>
+                      <div className="ob-macro-lbl">Carbs</div>
+                    </div>
+                    <div className="ob-macro">
+                      <div className="ob-macro-val" style={{color:"var(--ambl)"}}>{recMacros.fat}g</div>
+                      <div className="ob-macro-lbl">Fat</div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{fontSize:12,color:"var(--mu)",lineHeight:1.65,marginBottom:16}}>
+                  Protein set at ~0.9g per lb bodyweight to protect muscle. You can adjust these anytime in Goals.
+                </div>
+                <button className="btn-ghost" style={{marginTop:0}} onClick={initEdit}>Adjust my targets</button>
+              </div>
+            ) : (
+              <div>
+                <div className="scard" style={{marginBottom:12}}>
+                  <div className="stitle">Adjust Your Targets</div>
+                  {[
+                    {label:"Calories (kcal)", val:editCal, set:setEditCal},
+                    {label:"Protein (g)", val:editProt, set:setEditProt},
+                    {label:"Carbs (g)", val:editCarb, set:setEditCarb},
+                    {label:"Fat (g)", val:editFat, set:setEditFat},
+                  ].map(function(row){
+                    return (
+                      <div key={row.label} className="ob-edit-row">
+                        <span className="ob-edit-lbl">{row.label}</span>
+                        <input className="ob-edit-input" type="number" value={row.val} onChange={function(e){row.set(e.target.value);}}/>
+                      </div>
+                    );
+                  })}
+                </div>
+                <button className="btn-ghost" style={{marginTop:0}} onClick={function(){setEditMode(false);}}>Use recommended</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="ob-footer">
+        <button className="ob-btn" disabled={!canNext} onClick={function(){
+          if(step < TOTAL_STEPS-1){setStep(step+1);}
+          else{finish();}
+        }}>
+          {step < TOTAL_STEPS-1 ? "CONTINUE" : "START TRACKING"}
+        </button>
+        {step > 0 && <button className="ob-back" onClick={function(){setStep(step-1);}}>← Back</button>}
+      </div>
+    </div>
+  );
+}
+
 /* ── DataBackup ── */
 function DataBackup({entries,wlog,goals,onImport}){
   const [importing,setImporting]=useState(false);
@@ -881,7 +1187,7 @@ function computeAdapt(wlog,goals){
 
 
 /* ── Coach Tab ── */
-function CoachTab({goals,entries,wlog,workerUrl}){
+function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit}){
   const [report,setReport]=useLocal("mt_coach_report",null);
   const [reportDate,setReportDate]=useLocal("mt_coach_date","");
   const [reportLoading,setReportLoading]=useState(false);
@@ -952,6 +1258,8 @@ function CoachTab({goals,entries,wlog,workerUrl}){
 
   async function sendMessage(text){
     if(!text.trim()||!workerUrl||aiTyping)return;
+    if(aiUsageToday>=aiLimit){return;}
+    onAiCall();
     const t=new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
     const userMsg={role:"user",text:text.trim(),time:t};
     const newMsgs=msgs.concat([userMsg]);
@@ -1052,6 +1360,15 @@ function CoachTab({goals,entries,wlog,workerUrl}){
         })}
       </div>
 
+      {aiUsageToday>=aiLimit&&(
+        <div className="rate-banner">
+          <div className="rate-banner-icon">⚡</div>
+          <div className="rate-banner-text">
+            <strong>Daily limit reached ({aiLimit} messages)</strong><br/>
+            Your AI chat resets at midnight. Use the weekly report above for coaching insights.
+          </div>
+        </div>
+      )}
       <div className="chat-wrap">
         <div className="chat-msgs">
           {msgs.length===0&&(
@@ -1081,9 +1398,14 @@ function CoachTab({goals,entries,wlog,workerUrl}){
           )}
           <div ref={msgsEndRef}/>
         </div>
-        <div className="chat-input-row">
+        <div style={{display:"flex",justifyContent:"flex-end",padding:"4px 14px 0",background:"var(--s1)"}}>
+        <span style={{fontSize:10,color:aiUsageToday>=aiLimit*0.8?"var(--rosel)":"var(--mu)",fontFamily:"'JetBrains Mono',monospace"}}>
+          {aiUsageToday}/{aiLimit} today
+        </span>
+      </div>
+      <div className="chat-input-row">
           <textarea className="chat-input" placeholder="Ask your coach..." value={input} onChange={function(e){setInput(e.target.value);}} onKeyDown={handleKey} rows={1}/>
-          <button className="chat-send" onClick={function(){sendMessage(input);}} disabled={!input.trim()||aiTyping}>Send</button>
+          <button className="chat-send" onClick={function(){sendMessage(input);}} disabled={!input.trim()||aiTyping||aiUsageToday>=aiLimit}>Send</button>
         </div>
       </div>
 
@@ -1105,6 +1427,9 @@ function App(){
   const [wlog,setWlogRaw]=useLocal("mt_wlog",[]);
   const [usdaKey,setUsdaKeyRaw]=useLocal("mt_usda","");
   const [workerUrl,setWorkerUrlRaw]=useLocal("mt_worker","");
+  const [userName,setUserNameRaw]=useLocal("mt_name","");
+  const [onboarded,setOnboardedRaw]=useLocal("mt_onboarded",false);
+  const [aiUsage,setAiUsageRaw]=useLocal("mt_ai_usage",{});
   const [keyIn,setKeyIn]=useState("");
   const [modal,setModal]=useState(null);
   const [openMeals,setOpenMeals]=useState({Breakfast:true,Lunch:true,Dinner:true,Snacks:true});
@@ -1132,6 +1457,34 @@ function App(){
   function setGoals(v){setGoalsRaw(v);showToast("✓ Goals saved");}
   function setUsdaKey(v){setUsdaKeyRaw(v);if(v)showToast("✓ API key saved");}
   function setWorkerUrl(v){setWorkerUrlRaw(v);if(v)showToast("✓ Worker URL saved");}
+
+  function completeOnboarding(data){
+    setUserNameRaw(data.name);
+    setGoalsRaw(data.goals);
+    if(data.startWeight){
+      setWlogRaw([{date:todayISO(),weight:data.startWeight}]);
+    }
+    setOnboardedRaw(true);
+    showToast("Welcome to MacroTrack, "+data.name+"!");
+  }
+
+  // Rate limiting — 20 AI messages per day per user
+  const AI_DAILY_LIMIT = 20;
+  function getAiUsageToday(){
+    const k=todayISO();
+    return (aiUsage[k]||0);
+  }
+  function incrementAiUsage(){
+    const k=todayISO();
+    setAiUsageRaw(function(prev){
+      const n=Object.assign({},prev);
+      n[k]=(n[k]||0)+1;
+      // Clean up old days (keep last 7)
+      const keys=Object.keys(n).sort();
+      if(keys.length>7)keys.slice(0,keys.length-7).forEach(function(old){delete n[old];});
+      return n;
+    });
+  }
 
   function addEntry(e){
     setEntriesRaw(prev=>{
@@ -1164,13 +1517,20 @@ function App(){
   const adapt=computeAdapt(sorted,goals);
   const isToday=selectedDate===todayISO();
 
+  if(!onboarded){
+    return React.createElement(Onboarding,{onComplete:completeOnboarding});
+  }
+
   return(
     <div className="app">
       <Toast msg={toastMsg}/>
 
       {/* Header */}
       <div className="hdr">
-        <div className="logo"><em>MACRO</em>TRACK</div>
+        <div>
+          <div className="logo"><em>MACRO</em>TRACK</div>
+          {userName&&<div style={{fontSize:10,color:"var(--mu)",fontFamily:"'DM Sans',sans-serif",marginTop:1}}>Hey, {userName} 👋</div>}
+        </div>
         <div className="hdr-r">
           <div className="hdr-date">{(()=>{const[y,m,d]=selectedDate.split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});})()}</div>
         </div>
@@ -1259,7 +1619,7 @@ function App(){
       {/* COACH TAB */}
       {tab==="coach"&&<div className="page">
         <div style={{height:12}}/>
-        <CoachTab goals={goals} entries={entries} wlog={wlog} workerUrl={workerUrl} selectedDate={selectedDate}/>
+        <CoachTab goals={goals} entries={entries} wlog={wlog} workerUrl={workerUrl} selectedDate={selectedDate} aiUsageToday={getAiUsageToday()} onAiCall={incrementAiUsage} aiLimit={AI_DAILY_LIMIT}/>
       </div>}
 
       {/* GOALS TAB */}
