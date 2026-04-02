@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
-  <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     :root{
@@ -600,81 +600,79 @@ function FoodDetail({food,meal,onBack,onConfirm}){
 
 /* ── BarcodeScanner ── */
 function BarcodeScanner({onDetected}){
-  const vRef=useRef(null);const streamRef=useRef(null);const readerRef=useRef(null);
-  const [status,setStatus]=useState("starting");const [code,setCode]=useState("");
+  const scannerRef=useRef(null);
+  const [status,setStatus]=useState("starting");
+  const [code,setCode]=useState("");
   const [err,setErr]=useState("");
+  const detectedRef=useRef(false);
 
   useEffect(()=>{
-    let dead=false;
+    if(!window.Quagga){setErr("Scanner not loaded. Refresh and try again.");setStatus("error");return;}
 
-    async function go(){
-      // Check if ZXing loaded
-      if(!window.ZXing){setErr("Scanner library not loaded. Try refreshing.");setStatus("error");return;}
-
-      // Request camera
-      try{
-        const constraints={video:{facingMode:{ideal:"environment"},width:{ideal:640},height:{ideal:480}}};
-        const stream=await navigator.mediaDevices.getUserMedia(constraints);
-        if(dead){stream.getTracks().forEach(t=>t.stop());return;}
-        streamRef.current=stream;
-        if(vRef.current){
-          vRef.current.srcObject=stream;
-          await vRef.current.play();
+    Quagga.init({
+      inputStream:{
+        name:"Live",
+        type:"LiveStream",
+        target:scannerRef.current,
+        constraints:{
+          facingMode:"environment",
+          width:{min:320,ideal:640,max:1280},
+          height:{min:240,ideal:480,max:720},
+        },
+        area:{
+          top:"20%",left:"10%",right:"10%",bottom:"20%",
+        },
+      },
+      locator:{patchSize:"medium",halfSample:true},
+      numOfWorkers:0,
+      frequency:15,
+      decoder:{
+        readers:[
+          "ean_reader",
+          "ean_8_reader",
+          "upc_reader",
+          "upc_e_reader",
+          "code_128_reader",
+        ],
+        multiple:false,
+      },
+      locate:true,
+    }, function(err){
+      if(err){
+        if(err.name==="NotAllowedError"){
+          setErr("Camera permission denied. Go to Settings → Safari → Camera and allow access.");
+        }else{
+          setErr("Could not start scanner: "+(err.message||err));
         }
-      }catch(e){
-        if(!dead){
-          if(e.name==="NotAllowedError"){setErr("Camera permission denied. Go to Settings → Safari → Camera and allow access.");setStatus("error");}
-          else{setErr("Could not open camera: "+e.message);setStatus("error");}
-        }
+        setStatus("error");
         return;
       }
+      Quagga.start();
+      setStatus("scanning");
+    });
 
-      if(dead)return;
-
-      // Start ZXing scanning
-      try{
-        const hints=new Map();
-        const formats=[
-          window.ZXing.BarcodeFormat.EAN_13,
-          window.ZXing.BarcodeFormat.EAN_8,
-          window.ZXing.BarcodeFormat.UPC_A,
-          window.ZXing.BarcodeFormat.UPC_E,
-          window.ZXing.BarcodeFormat.CODE_128,
-          window.ZXing.BarcodeFormat.CODE_39,
-          window.ZXing.BarcodeFormat.QR_CODE,
-          window.ZXing.BarcodeFormat.DATA_MATRIX,
-        ];
-        hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-        hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
-
-        const reader=new window.ZXing.BrowserMultiFormatReader(hints, {
-          delayBetweenScanAttempts: 100,
-          delayBetweenScanSuccess: 500,
-        });
-        readerRef.current=reader;
-
-        setStatus("scanning");
-
-        reader.decodeFromVideoElement(vRef.current, function(result, error){
-          if(dead)return;
-          if(result){
-            const v=result.getText();
-            setCode(v);
-            setStatus("success");
-            setTimeout(function(){if(!dead)onDetected(v);},500);
-          }
-        });
-      }catch(e){
-        if(!dead){setErr("Scanner error: "+e.message);setStatus("error");}
+    // Collect results and only fire when we get 3 consistent reads
+    const results=[];
+    Quagga.onDetected(function(data){
+      if(detectedRef.current)return;
+      const val=data.codeResult.code;
+      if(!val||val.length<8)return;
+      results.push(val);
+      // Require 2 consistent reads to reduce false positives
+      const counts={};
+      results.forEach(function(v){counts[v]=(counts[v]||0)+1;});
+      const best=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];})[0];
+      if(counts[best]>=2){
+        detectedRef.current=true;
+        setCode(best);
+        setStatus("success");
+        Quagga.stop();
+        setTimeout(function(){onDetected(best);},400);
       }
-    }
-
-    go();
+    });
 
     return function(){
-      dead=true;
-      if(readerRef.current){try{readerRef.current.reset();}catch(e){}}
-      if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());
+      try{Quagga.stop();}catch(e){}
     };
   },[]);
 
@@ -687,10 +685,10 @@ function BarcodeScanner({onDetected}){
 
   return(
     <div>
-      <div className="scanner-wrap">
-        <video ref={vRef} className="scanner-video" muted playsInline/>
+      <div className="scanner-wrap" style={{position:"relative",overflow:"hidden",borderRadius:18,background:"#000",aspectRatio:"1"}}>
+        <div ref={scannerRef} style={{width:"100%",height:"100%"}}/>
         {status==="scanning"&&(
-          <div className="scanner-frame">
+          <div className="scanner-frame" style={{pointerEvents:"none"}}>
             <div className="scanner-box">
               <div className="sc tl"/><div className="sc tr"/>
               <div className="sc bl"/><div className="sc br"/>
@@ -699,7 +697,7 @@ function BarcodeScanner({onDetected}){
           </div>
         )}
         {status==="success"&&(
-          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(16,185,129,0.18)"}}>
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(16,185,129,0.25)"}}>
             <div style={{fontSize:64}}>✅</div>
           </div>
         )}
@@ -708,9 +706,9 @@ function BarcodeScanner({onDetected}){
             <div className="spin"/>
           </div>
         )}
-        <div className="scanner-hint">Point camera at barcode — auto-detects</div>
+        <div className="scanner-hint">Point at barcode — hold steady</div>
       </div>
-      {status==="success"&&<div style={{textAlign:"center",fontSize:12,color:"var(--em)",marginBottom:8}}>✓ Detected: {code}</div>}
+      {status==="success"&&<div style={{textAlign:"center",fontSize:12,color:"var(--em)",marginBottom:8,marginTop:6}}>✓ {code}</div>}
     </div>
   );
 }
