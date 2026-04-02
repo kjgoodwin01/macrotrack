@@ -635,36 +635,16 @@ function BarcodeScanner({onDetected}){
         return;
       }
 
-      // KEY FIX: rotate the video and canvas 90 degrees via CSS
-      // This makes Quagga see the barcode horizontally even when
-      // the phone is held in portrait mode
+      // Rotate video 90deg so portrait-mode phone sees horizontal barcodes
       setTimeout(function(){
         if(!containerRef.current)return;
         const video=containerRef.current.querySelector("video");
         const canvas=containerRef.current.querySelector("canvas");
-        const wrap=containerRef.current;
-
-        // Get actual dimensions
-        const w=wrap.offsetWidth;
-        const h=wrap.offsetHeight;
-
         if(video){
-          video.style.position="absolute";
-          video.style.width=h+"px";
-          video.style.height=w+"px";
-          video.style.top=((h-w)/2)+"px";
-          video.style.left=((w-h)/2)+"px";
-          video.style.transform="rotate(90deg)";
-          video.style.transformOrigin="center center";
+          video.style.cssText="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;transform:rotate(90deg) scaleX(1);transform-origin:center center;";
         }
         if(canvas){
-          canvas.style.position="absolute";
-          canvas.style.width=h+"px";
-          canvas.style.height=w+"px";
-          canvas.style.top=((h-w)/2)+"px";
-          canvas.style.left=((w-h)/2)+"px";
-          canvas.style.transform="rotate(90deg)";
-          canvas.style.transformOrigin="center center";
+          canvas.style.cssText="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;";
         }
       },300);
 
