@@ -906,8 +906,7 @@ function CoachTab({goals,entries,wlog,workerUrl,selectedDate}){
         {reportLoading&&<div className="report-loading"><div className="spin"/><span>Analyzing your data…</span></div>}
         {!reportLoading&&report&&(
           <div className="report-body">
-            {report.split("
-").filter(l=>l.trim()).map((line,i)=>(
+            {report.split("\n").filter(l=>l.trim()).map((line,i)=>(
               <div key={i} className="bullet">
                 <div className="bullet-dot"/>
                 <span dangerouslySetInnerHTML={{__html:line.replace(/^[•\-\*]\s*/,"").replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>")}}/>
