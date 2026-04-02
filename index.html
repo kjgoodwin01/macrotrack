@@ -1406,7 +1406,7 @@ function computeAdapt(wlog,goals){
 
 
 /* ── Coach Tab ── */
-function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit}){
+function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit,resetMessage}){
   const [report,setReport]=useLocal("mt_coach_report",null);
   const [reportDate,setReportDate]=useLocal("mt_coach_date","");
   const [reportLoading,setReportLoading]=useState(false);
@@ -1440,11 +1440,28 @@ function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit}){
     const targetWLine=goals.targetWeight?"Target weight: "+goals.targetWeight+" lbs":"Target weight: not set";
     const cur=recentW.length>0?recentW[recentW.length-1].weight:null;
     const toGo=cur&&goals.targetWeight?Math.abs(cur-goals.targetWeight).toFixed(1)+" lbs "+(goals.goalType==="cut"?"to lose":"to gain"):"unknown";
-    return "USER DATA:\n\nGOAL TYPE: "+goalTypeLabel+"\n"+targetWLine+"\nProgress to goal: "+toGo+"\n\n"+
-      "DAILY TARGETS: "+goals.calories+" kcal | Protein: "+goals.protein+"g | Carbs: "+goals.carbs+"g | Fat: "+goals.fat+"g\n\n"+
-      "TODAY ("+today+"): "+todayTot.cal+"/"+goals.calories+" kcal, "+(remCal>0?remCal+" remaining":Math.abs(remCal)+" over")+
-      " | protein "+todayTot.p+"g/"+(remP>0?remP+"g remaining":Math.abs(remP)+"g over")+"\n"+
-      "Foods today: "+todayFoods+"\n\nLAST 7 DAYS:\n"+last7+"\n\nWEIGHT HISTORY:\n"+wLines+wTrend;
+    // Calculate adherence stats
+    const loggedDays=last7.split("\n").filter(function(l){return l.indexOf("not logged")===-1;}).length;
+    const over7=last7.split("\n").filter(function(l){return l.indexOf("not logged")===-1;}).map(function(l){
+      const m=l.match(/(\d+) kcal/);return m?parseInt(m[1]):0;
+    });
+    const avgCal=over7.length?Math.round(over7.reduce(function(a,b){return a+b;},0)/over7.length):0;
+    const calDiff=avgCal-goals.calories;
+    const adherence=loggedDays+"/7 days logged";
+    const calAdherence=avgCal>0?"Average "+avgCal+" kcal/day ("+(calDiff>0?"+":"")+calDiff+" vs "+goals.calories+" target)":"Not enough data";
+
+    return "USER PROFILE:\n"+
+      "Goal: "+goalTypeLabel+" | Target weight: "+(goals.targetWeight?goals.targetWeight+" lbs":"not set")+" | Progress: "+toGo+"\n"+
+      "Daily targets: "+goals.calories+" kcal | Protein: "+goals.protein+"g | Carbs: "+goals.carbs+"g | Fat: "+goals.fat+"g\n\n"+
+      "THIS WEEK ADHERENCE:\n"+
+      adherence+"\n"+calAdherence+"\n\n"+
+      "TODAY ("+today+"):\n"+
+      "Consumed: "+todayTot.cal+"/"+goals.calories+" kcal ("+(remCal>0?remCal+" kcal remaining":Math.abs(remCal)+" kcal over")+")\n"+
+      "Protein: "+todayTot.p+"g/"+(remP>0?remP+"g remaining":Math.abs(remP)+"g over target")+"\n"+
+      "Carbs: "+todayTot.c+"g | Fat: "+todayTot.f+"g\n"+
+      "Foods logged today: "+(todayFoods||"nothing yet")+"\n\n"+
+      "LAST 7 DAYS DETAIL:\n"+last7+"\n\n"+
+      "WEIGHT HISTORY:\n"+wLines+wTrend;
   }
 
   async function generateReport(force){
@@ -1580,11 +1597,25 @@ function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit}){
       </div>
 
       {aiUsageToday>=aiLimit&&(
-        <div className="rate-banner">
-          <div className="rate-banner-icon">⚡</div>
-          <div className="rate-banner-text">
-            <strong>Daily limit reached ({aiLimit} messages)</strong><br/>
-            Your AI chat resets at midnight. Use the weekly report above for coaching insights.
+        <div style={{background:"linear-gradient(145deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08))",border:"1px solid rgba(99,102,241,0.3)",borderRadius:18,padding:"20px",marginBottom:14}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+            <div style={{fontSize:28}}>🔒</div>
+            <div>
+              <div style={{fontSize:15,fontWeight:700,color:"var(--txt)",marginBottom:2}}>Weekly Limit Reached</div>
+              <div style={{fontSize:12,color:"var(--mu)"}}>Free plan — 20 messages per week</div>
+            </div>
+          </div>
+          <div style={{fontSize:13,color:"var(--txt2)",lineHeight:1.65,marginBottom:14}}>
+            You have used all {aiLimit} of your free AI coaching messages this week. {resetMessage}
+          </div>
+          <div style={{background:"rgba(255,255,255,0.05)",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
+            <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8,fontWeight:700}}>Upgrade to Pro</div>
+            <div style={{fontSize:13,color:"var(--txt2)",lineHeight:1.7}}>
+              Unlock <strong style={{color:"var(--indll)"}}>unlimited AI coaching</strong>, priority responses, and advanced weekly analysis — all for less than your morning coffee.
+            </div>
+          </div>
+          <div style={{fontSize:11,color:"var(--mu)",textAlign:"center"}}>
+            Coming soon — stay tuned for MacroTrack Pro
           </div>
         </div>
       )}
@@ -1619,7 +1650,7 @@ function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit}){
         </div>
         <div style={{display:"flex",justifyContent:"flex-end",padding:"4px 14px 0",background:"var(--s1)"}}>
         <span style={{fontSize:10,color:aiUsageToday>=aiLimit*0.8?"var(--rosel)":"var(--mu)",fontFamily:"'JetBrains Mono',monospace"}}>
-          {aiUsageToday}/{aiLimit} today
+          {aiUsageToday}/{aiLimit} this week
         </span>
       </div>
       <div className="chat-input-row">
@@ -1755,21 +1786,42 @@ function App(){
   }
 
   // Rate limiting — 20 AI messages per day per user
-  const AI_DAILY_LIMIT = 20;
-  function getAiUsageToday(){
-    const k=todayISO();
+  const AI_WEEKLY_LIMIT = 20;
+
+  // Get the Monday of the current week as the week key
+  function getWeekKey(){
+    const mon=getMondayOfWeek(new Date());
+    return isoDate(mon);
+  }
+
+  function getAiUsageThisWeek(){
+    const k=getWeekKey();
     return (aiUsage[k]||0);
   }
+
   function incrementAiUsage(){
-    const k=todayISO();
+    const k=getWeekKey();
     setAiUsageRaw(function(prev){
       const n=Object.assign({},prev);
       n[k]=(n[k]||0)+1;
-      // Clean up old days (keep last 7)
+      // Keep only last 4 weeks
       const keys=Object.keys(n).sort();
-      if(keys.length>7)keys.slice(0,keys.length-7).forEach(function(old){delete n[old];});
+      if(keys.length>4)keys.slice(0,keys.length-4).forEach(function(old){delete n[old];});
       return n;
     });
+  }
+
+  function getResetMessage(){
+    // Find next Monday
+    const today=new Date();
+    const mon=getMondayOfWeek(new Date());
+    const nextMon=new Date(mon);
+    nextMon.setDate(nextMon.getDate()+7);
+    const days=Math.ceil((nextMon-today)/(1000*60*60*24));
+    const opts={weekday:"long",month:"long",day:"numeric"};
+    const resetDate=nextMon.toLocaleDateString("en-US",opts);
+    if(days===1)return "Your messages reset tomorrow, "+resetDate+".";
+    return "Your messages reset in "+days+" days, on "+resetDate+".";
   }
 
   function addEntry(e){
@@ -1920,7 +1972,7 @@ function App(){
       {/* COACH TAB */}
       {tab==="coach"&&<div className="page">
         <div style={{height:12}}/>
-        <CoachTab goals={goals} entries={entries} wlog={wlog} workerUrl={workerUrl} selectedDate={selectedDate} aiUsageToday={getAiUsageToday()} onAiCall={incrementAiUsage} aiLimit={AI_DAILY_LIMIT}/>
+        <CoachTab goals={goals} entries={entries} wlog={wlog} workerUrl={workerUrl} selectedDate={selectedDate} aiUsageToday={getAiUsageThisWeek()} onAiCall={incrementAiUsage} aiLimit={AI_WEEKLY_LIMIT} resetMessage={getResetMessage()}/>
       </div>}
 
       {/* GOALS TAB */}
