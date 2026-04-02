@@ -296,7 +296,7 @@ const {useState,useEffect,useRef,useCallback}=React;
 /* ── Constants ── */
 const MEALS=[{id:"Breakfast",emoji:"🌅"},{id:"Lunch",emoji:"☀️"},{id:"Dinner",emoji:"🌙"},{id:"Snacks",emoji:"🍎"}];
 const DAY_LETTERS=["Su","M","Tu","W","Th","F","Sa"];
-const DEFAULT_GOALS={calories:2100,protein:180,carbs:210,fat:60};
+const DEFAULT_GOALS={calories:2100,protein:180,carbs:210,fat:60,targetWeight:200,goalType:"cut"};
 const USDA="https://api.nal.usda.gov/fdc/v1";
 
 /* ── Date helpers ── */
@@ -723,19 +723,50 @@ function WeightModal({onClose,onLog}){
 
 /* ── GoalsModal ── */
 function GoalsModal({goals,onClose,onSave}){
-  const [c,setC]=useState(String(goals.calories));const [p,setP]=useState(String(goals.protein));const [ca,setCa]=useState(String(goals.carbs));const [f,setF]=useState(String(goals.fat));
+  const [c,setC]=useState(String(goals.calories));
+  const [p,setP]=useState(String(goals.protein));
+  const [ca,setCa]=useState(String(goals.carbs));
+  const [f,setF]=useState(String(goals.fat));
+  const [tw,setTw]=useState(String(goals.targetWeight||""));
+  const [gt,setGt]=useState(goals.goalType||"cut");
   return(
     <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div className="sheet">
         <div className="sheet-handle"/>
         <div className="sheet-title">Edit Goals</div>
+
+        <div className="fg">
+          <div className="fl">I am currently...</div>
+          <div style={{display:"flex",gap:8,marginTop:4}}>
+            {[["cut","Cutting (Fat Loss)","var(--rose)"],["bulk","Bulking (Muscle Gain)","var(--em)"],["maintain","Maintaining","var(--cyan)"]].map(function(opt){
+              return (
+                <button key={opt[0]} onClick={function(){setGt(opt[0]);}}
+                  style={{flex:1,padding:"10px 6px",borderRadius:12,border:"1px solid "+(gt===opt[0]?opt[2]:"var(--b1)"),
+                    background:gt===opt[0]?"rgba("+( opt[0]==="cut"?"244,63,94":opt[0]==="bulk"?"16,185,129":"6,182,212")+",0.12)":"rgba(255,255,255,0.03)",
+                    color:gt===opt[0]?opt[2]:"var(--mu)",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",lineHeight:1.3}}>
+                  {opt[1]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="fg">
+          <div className="fl">Target Weight (lbs)</div>
+          <input className="field" type="number" step="0.5" placeholder="e.g. 185" value={tw} onChange={e=>setTw(e.target.value)}/>
+        </div>
+
         <div className="fg"><div className="fl">Daily Calories</div><input className="field" type="number" value={c} onChange={e=>setC(e.target.value)}/></div>
         <div className="g3">
           <div className="fg"><div className="fl" style={{color:"var(--rose)"}}>Protein (g)</div><input className="field fp" type="number" value={p} onChange={e=>setP(e.target.value)}/></div>
           <div className="fg"><div className="fl" style={{color:"var(--cyan)"}}>Carbs (g)</div><input className="field fc" type="number" value={ca} onChange={e=>setCa(e.target.value)}/></div>
           <div className="fg"><div className="fl" style={{color:"var(--amb)"}}>Fat (g)</div><input className="field ff" type="number" value={f} onChange={e=>setF(e.target.value)}/></div>
         </div>
-        <button className="btn" onClick={()=>{onSave({calories:parseInt(c,10),protein:parseInt(p,10),carbs:parseInt(ca,10),fat:parseInt(f,10)});onClose();}}>Save Goals</button>
+        <button className="btn" onClick={function(){
+          onSave({calories:parseInt(c,10),protein:parseInt(p,10),carbs:parseInt(ca,10),fat:parseInt(f,10),
+            targetWeight:parseFloat(tw)||null,goalType:gt});
+          onClose();
+        }}>Save Goals</button>
         <button className="btn-ghost" onClick={onClose}>Cancel</button>
       </div>
     </div>
@@ -802,10 +833,15 @@ function CoachTab({goals,entries,wlog,workerUrl}){
     const remCal=goals.calories-todayTot.cal;
     const remP=goals.protein-todayTot.p;
     const todayFoods=todayE.map(function(e){return e.name;}).join(", ")||"nothing yet";
-    return "USER DATA:\n\nGOALS: "+goals.calories+" kcal | Protein: "+goals.protein+"g | Carbs: "+goals.carbs+"g | Fat: "+goals.fat+"g\n"+
+    const goalTypeLabel=goals.goalType==="cut"?"Cutting (fat loss)":(goals.goalType==="bulk"?"Bulking (muscle gain)":"Maintaining");
+    const targetWLine=goals.targetWeight?"Target weight: "+goals.targetWeight+" lbs":"Target weight: not set";
+    const cur=recentW.length>0?recentW[recentW.length-1].weight:null;
+    const toGo=cur&&goals.targetWeight?Math.abs(cur-goals.targetWeight).toFixed(1)+" lbs "+(goals.goalType==="cut"?"to lose":"to gain"):"unknown";
+    return "USER DATA:\n\nGOAL TYPE: "+goalTypeLabel+"\n"+targetWLine+"\nProgress to goal: "+toGo+"\n\n"+
+      "DAILY TARGETS: "+goals.calories+" kcal | Protein: "+goals.protein+"g | Carbs: "+goals.carbs+"g | Fat: "+goals.fat+"g\n\n"+
       "TODAY ("+today+"): "+todayTot.cal+"/"+goals.calories+" kcal, "+(remCal>0?remCal+" remaining":Math.abs(remCal)+" over")+
-      ", protein "+todayTot.p+"g/"+(remP>0?remP+"g remaining":Math.abs(remP)+"g over")+"\n"+
-      "Foods today: "+todayFoods+"\n\nLAST 7 DAYS:\n"+last7+"\n\nWEIGHT:\n"+wLines+wTrend;
+      " | protein "+todayTot.p+"g/"+(remP>0?remP+"g remaining":Math.abs(remP)+"g over")+"\n"+
+      "Foods today: "+todayFoods+"\n\nLAST 7 DAYS:\n"+last7+"\n\nWEIGHT HISTORY:\n"+wLines+wTrend;
   }
 
   async function generateReport(force){
@@ -817,7 +853,7 @@ function CoachTab({goals,entries,wlog,workerUrl}){
       const r=await fetch(workerUrl.replace(/\/$/,""),{
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({type:"coach_report",context:buildContext(),
-          prompt:"Write a concise weekly coaching check-in as 3-4 bullet points. Cover: weight trend, calorie adherence, protein performance, and one actionable adjustment. Be direct and specific to their numbers. Start each bullet with a relevant emoji."
+          prompt:"Write a concise weekly coaching check-in as 3-4 bullet points tailored to their specific goal (cut/bulk/maintain). Cover: 1) Weight trend and whether it aligns with their goal rate and target weight 2) Calorie adherence to their targets 3) Protein performance 4) One specific actionable adjustment for next week. Be direct, use their real numbers, start each bullet with a relevant emoji."
         })
       });
       if(!r.ok)throw new Error("Worker error");
@@ -1152,7 +1188,28 @@ function App(){
       {tab==="goals"&&<div className="page">
         <div style={{height:12}}/>
         <div className="scard">
-          <div className="stitle">Daily Targets</div>
+          <div className="stitle">My Goal</div>
+          <div className="srow">
+            <span className="slbl">Currently</span>
+            <span className="sval" style={{color:goals.goalType==="cut"?"var(--rosel)":goals.goalType==="bulk"?"var(--eml)":"var(--cyanl)"}}>
+              {goals.goalType==="cut"?"Cutting":goals.goalType==="bulk"?"Bulking":"Maintaining"}
+            </span>
+          </div>
+          {goals.targetWeight&&<div className="srow">
+            <span className="slbl">Target Weight</span>
+            <span className="sval">{goals.targetWeight} lbs</span>
+          </div>}
+          {goals.targetWeight&&(()=>{
+            const sorted=wlog.slice().sort(function(a,b){return a.date.localeCompare(b.date);});
+            const cur=sorted.length>0?sorted[sorted.length-1].weight:null;
+            const diff=cur?Math.abs(cur-goals.targetWeight).toFixed(1):null;
+            return diff?<div className="srow">
+              <span className="slbl">To Go</span>
+              <span className="sval" style={{color:"var(--indll)"}}>{diff} lbs</span>
+            </div>:null;
+          })()}
+          <div style={{height:12}}/>
+          <div className="stitle" style={{marginBottom:12}}>Daily Targets</div>
           <div className="srow"><span className="slbl">Calories</span><span className="sval">{goals.calories.toLocaleString()} kcal</span></div>
           <div className="srow"><span className="slbl">Protein</span><span className="sval" style={{color:"var(--rosel)"}}>{goals.protein}g</span></div>
           <div className="srow"><span className="slbl">Carbs</span><span className="sval" style={{color:"var(--cyanl)"}}>{goals.carbs}g</span></div>
