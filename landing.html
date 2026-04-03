@@ -703,23 +703,23 @@
         const r = await fetch(WORKER_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "waitlist_join", name, email, reason }),
+          body: JSON.stringify({ type: "waitlist_join", name: name, email: email, reason: reason }),
         });
         const d = await r.json();
         if(d.ok){
           document.getElementById("formState").style.display = "none";
           document.getElementById("successState").style.display = "block";
         } else if(d.error === "already_exists"){
-          showErr("That email is already on the waitlist. We'll be in touch soon!");
+          showErr("That email is already on the waitlist. Come back to check your status above.");
           btn.disabled = false;
           btn.textContent = "REQUEST EARLY ACCESS";
         } else {
-          showErr("Something went wrong. Please try again.");
+          showErr("Error: " + (d.error || "Something went wrong. Please try again."));
           btn.disabled = false;
           btn.textContent = "REQUEST EARLY ACCESS";
         }
       } catch(e){
-        showErr("Connection error. Please try again.");
+        showErr("Connection error: " + e.message);
         btn.disabled = false;
         btn.textContent = "REQUEST EARLY ACCESS";
       }
@@ -731,9 +731,8 @@
       el.style.display = "block";
     }
 
-        async function checkStatus(){
+    async function checkStatus(){
       const email = document.getElementById("checkEmailInput").value.trim();
-      const resultEl = document.getElementById("statusResult");
       if(!email || !email.includes("@")){
         showStatusResult("error", "Please enter a valid email address.");
         return;
@@ -743,17 +742,17 @@
         const r = await fetch(WORKER_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "waitlist_status", email }),
+          body: JSON.stringify({ type: "waitlist_status", email: email }),
         });
         const d = await r.json();
         if(!d.found){
-          showStatusResult("error", "That email isn't on the waitlist. Sign up below to request access.");
+          showStatusResult("error", "That email is not on the waitlist. Sign up below to request access.");
         } else if(d.status === "pending"){
           showStatusResult("pending", "Your application is under review. Check back soon — approvals typically happen within 24 hours.");
         } else if(d.status === "approved"){
           showStatusResult("approved", d.appUrl);
         } else if(d.status === "denied"){
-          showStatusResult("error", "Unfortunately your application wasn't approved at this time.");
+          showStatusResult("error", "Unfortunately your application was not approved at this time.");
         }
       } catch(e){
         showStatusResult("error", "Connection error. Please try again.");
@@ -763,29 +762,32 @@
     function showStatusResult(type, msg){
       const el = document.getElementById("statusResult");
       el.style.display = "block";
-      const styles = {
-        approved: "background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25)",
-        pending: "background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2)",
-        error: "background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.2)",
-        loading: "background:transparent;border:none"
-      };
-      const colors = { approved:"#34d399", pending:"#fbbf24", error:"#fb7185", loading:"#5a5a7a" };
-      const style = styles[type] || styles.error;
-      const color = colors[type] || colors.error;
+
+      if(type === "loading"){
+        el.innerHTML = "<div style='font-size:13px;color:#5a5a7a;text-align:center;padding:8px'>Checking...</div>";
+        return;
+      }
 
       if(type === "approved"){
-        el.innerHTML = '<div style="'+style+';border-radius:12px;padding:16px 18px;text-align:center">'
-          + '<div style="font-size:13px;font-weight:600;color:#34d399;margin-bottom:10px">You're approved!</div>'
-          + '<a href="'+msg+'" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;letter-spacing:0.5px">Open MacroTrack &rarr;</a>'
-          + '<div style="font-size:11px;color:#5a5a7a;margin-top:10px">Tap above to open the app. Add it to your home screen for the best experience.</div>'
-          + '</div>';
-      } else if(type === "loading"){
-        el.innerHTML = '<div style="font-size:13px;color:#5a5a7a;text-align:center;padding:8px">Checking...</div>';
-      } else {
-        el.innerHTML = '<div style="'+style+';border-radius:12px;padding:14px 16px">'
-          + '<div style="font-size:13px;color:'+color+';line-height:1.6">'+msg+'</div>'
-          + '</div>';
+        el.innerHTML = "<div style='background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:12px;padding:16px 18px;text-align:center'>"
+          + "<div style='font-size:14px;font-weight:600;color:#34d399;margin-bottom:12px'>You are approved!</div>"
+          + "<a href='" + msg + "' style='display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.5px'>Open MacroTrack &rarr;</a>"
+          + "<div style='font-size:11px;color:#5a5a7a;margin-top:10px'>Tap to open the app. Add it to your home screen for the best experience.</div>"
+          + "</div>";
+        return;
       }
+
+      if(type === "pending"){
+        el.innerHTML = "<div style='background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:12px;padding:14px 16px'>"
+          + "<div style='font-size:13px;color:#fbbf24;font-weight:600;margin-bottom:4px'>Under Review</div>"
+          + "<div style='font-size:12px;color:#a0a0c0;line-height:1.6'>" + msg + "</div>"
+          + "</div>";
+        return;
+      }
+
+      el.innerHTML = "<div style='background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.2);border-radius:12px;padding:14px 16px'>"
+        + "<div style='font-size:13px;color:#fb7185;line-height:1.6'>" + msg + "</div>"
+        + "</div>";
     }
 
     document.addEventListener("keydown", function(e){
