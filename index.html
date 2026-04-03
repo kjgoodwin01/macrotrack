@@ -424,15 +424,15 @@ const DEVICE_ID=getDeviceId();
 /* ── Sync helper — fire and forget, localStorage is source of truth ── */
 async function syncToCloud(workerUrl, type, payload){
   const url=workerUrl||DEFAULT_WORKER_URL;
-  if(!url)return;
-  workerUrl=url;
+  if(!url)return Promise.resolve();
   try{
-    await fetch(workerUrl.replace(/\/$/,""),{
+    await fetch(url.replace(/\/$/,""),{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify(Object.assign({type:type,deviceId:DEVICE_ID},payload)),
     });
   }catch(e){}
+  return Promise.resolve();
 }
 
 /* ── Load from cloud on first open ── */
@@ -2267,18 +2267,20 @@ function App(){
   // Wrapped setters that show a toast on save
   function setGoals(v){
     setGoalsRaw(v);
-    syncToCloud(workerUrl,"sync_profile",{
-      name:userName,goalType:v.goalType,targetWeight:v.targetWeight,
-      calories:v.calories,protein:v.protein,carbs:v.carbs,fat:v.fat,
-    });
+    if(userName&&userName.trim()){
+      syncToCloud(workerUrl,"sync_profile",{
+        name:userName,goalType:v.goalType,targetWeight:v.targetWeight,
+        calories:v.calories,protein:v.protein,carbs:v.carbs,fat:v.fat,
+      });
+    }
     showToast("✓ Goals saved");
   }
   function setUsdaKey(v){setUsdaKeyRaw(v);if(v)showToast("✓ API key saved");}
   function setWorkerUrl(v){setWorkerUrlRaw(v);if(v)showToast("✓ Worker URL saved");}
 
-  // Load from cloud when worker URL is available
+  // Load from cloud only after onboarding is complete
   useEffect(function(){
-    if(!workerUrl)return;
+    if(!workerUrl||!onboarded)return;
     loadFromCloud(workerUrl).then(function(cloud){
       if(!cloud)return;
       // Merge cloud entries into local (cloud wins for any date with data)
@@ -2313,25 +2315,38 @@ function App(){
   },[workerUrl]);
 
   function completeOnboarding(data){
-    setUserNameRaw(data.name);
+    const cleanName=(data.name||"").trim();
+    if(!cleanName){return;} // Never complete onboarding without a name
+    setUserNameRaw(cleanName);
     setGoalsRaw(data.goals);
     if(data.startWeight){
       const startEntry={date:todayISO(),weight:data.startWeight};
       setWlogRaw([startEntry]);
-      syncToCloud(workerUrl,"sync_log_weight",{date:startEntry.date,weight:startEntry.weight});
+      // Weight sync happens after profile is created
+      syncToCloud(workerUrl,"sync_profile",{
+        name:cleanName,
+        goalType:data.goals.goalType,
+        targetWeight:data.goals.targetWeight,
+        calories:data.goals.calories,
+        protein:data.goals.protein,
+        carbs:data.goals.carbs,
+        fat:data.goals.fat,
+      }).then(function(){
+        syncToCloud(workerUrl,"sync_log_weight",{date:startEntry.date,weight:startEntry.weight});
+      });
+    } else {
+      syncToCloud(workerUrl,"sync_profile",{
+        name:cleanName,
+        goalType:data.goals.goalType,
+        targetWeight:data.goals.targetWeight,
+        calories:data.goals.calories,
+        protein:data.goals.protein,
+        carbs:data.goals.carbs,
+        fat:data.goals.fat,
+      });
     }
     setOnboardedRaw(true);
-    // Sync profile to cloud
-    syncToCloud(workerUrl,"sync_profile",{
-      name:data.name,
-      goalType:data.goals.goalType,
-      targetWeight:data.goals.targetWeight,
-      calories:data.goals.calories,
-      protein:data.goals.protein,
-      carbs:data.goals.carbs,
-      fat:data.goals.fat,
-    });
-    showToast("Welcome to MacroTrack, "+data.name+"!");
+    showToast("Welcome to MacroTrack, "+cleanName+"!");
   }
 
   // Rate limiting — 20 AI messages per day per user
