@@ -1131,15 +1131,12 @@ function Onboarding({onComplete}){
   const [targetWeight, setTargetWeight] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [editCal, setEditCal] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
-  const [codeError, setCodeError] = useState("");
-  const [codeChecking, setCodeChecking] = useState(false);
-  const [codeValid, setCodeValid] = useState(false);
+
   const [editProt, setEditProt] = useState("");
   const [editCarb, setEditCarb] = useState("");
   const [editFat, setEditFat] = useState("");
 
-  const TOTAL_STEPS = 6;
+  const TOTAL_STEPS = 5;
   const pct = ((step) / TOTAL_STEPS) * 100;
 
   const heightCm = ftToCm(heightFt, heightIn);
@@ -1185,7 +1182,7 @@ function Onboarding({onComplete}){
     true,
     targetWeight.length > 0,
     true,
-    inviteCode.trim().length >= 4,  // step 5 invite code
+
   ][step];
 
   return (
@@ -1341,47 +1338,15 @@ function Onboarding({onComplete}){
             )}
           </div>
         )}
-        {step === 5 && (
-          <div>
-            <div className="ob-title">Enter <em>Invite Code</em></div>
-            <div className="ob-sub">MacroTrack is currently invite-only. Enter the code you received to get started.</div>
 
-            <div className="ob-field-label">Invite Code</div>
-            <input
-              className="ob-field"
-              placeholder="e.g. KYLE2024"
-              value={inviteCode}
-              onChange={function(e){setInviteCode(e.target.value.toUpperCase());setCodeError("");}}
-              style={{textAlign:"center",fontSize:22,letterSpacing:"4px",fontFamily:"'JetBrains Mono',monospace",textTransform:"uppercase"}}
-              maxLength={20}
-              autoCapitalize="characters"
-            />
-
-            {codeError&&(
-              <div style={{marginTop:12,padding:"12px 16px",background:"rgba(244,63,94,0.1)",border:"1px solid rgba(244,63,94,0.3)",borderRadius:12,fontSize:13,color:"var(--rosel)",lineHeight:1.6}}>
-                {codeError}
-              </div>
-            )}
-
-            {codeValid&&(
-              <div style={{marginTop:12,padding:"12px 16px",background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:12,fontSize:13,color:"var(--eml)",textAlign:"center"}}>
-                ✓ Code verified — welcome to MacroTrack!
-              </div>
-            )}
-
-            <div style={{marginTop:20,padding:"14px 16px",background:"rgba(255,255,255,0.03)",border:"1px solid var(--b1)",borderRadius:14,fontSize:13,color:"var(--mu)",lineHeight:1.7}}>
-              Don't have a code? MacroTrack is currently in private beta. Reach out to get access.
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="ob-footer">
-        <button className="ob-btn" disabled={!canNext||codeChecking} onClick={function(){
+        <button className="ob-btn" disabled={!canNext} onClick={function(){
           if(step < TOTAL_STEPS-1){setStep(step+1);}
-          else{validateAndFinish();}
+          else{finish();}
         }}>
-          {codeChecking?"VERIFYING...":(step < TOTAL_STEPS-1 ? "CONTINUE" : "START TRACKING")}
+          {step < TOTAL_STEPS-1 ? "CONTINUE" : "START TRACKING"}
         </button>
         {step > 0 && <button className="ob-back" onClick={function(){setStep(step-1);}}>← Back</button>}
       </div>
@@ -2267,23 +2232,12 @@ function App(){
   const [userName,setUserNameRaw]=useLocal("mt_name","");
   const [onboarded,setOnboardedRaw]=useLocal("mt_onboarded",false);
   const [aiUsage,setAiUsageRaw]=useLocal("mt_ai_usage",{});
-  const [accessDenied,setAccessDenied]=useState(false);
   const [accessChecked,setAccessChecked]=useState(false);
 
-  // Check access on every app open — silent background check
+  // Access is open — name required for sync, which is the control point
   useEffect(function(){
-    if(!onboarded){setAccessChecked(true);return;}
-    fetch(DEFAULT_WORKER_URL,{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({type:"check_access",deviceId:DEVICE_ID}),
-    }).then(function(r){return r.json();}).then(function(d){
-      if(d.allowed===false){setAccessDenied(true);}
-      setAccessChecked(true);
-    }).catch(function(){
-      // On network error, allow access — don't punish for bad connection
-      setAccessChecked(true);
-    });
-  },[onboarded]);
+    setAccessChecked(true);
+  },[]);
 
   // DEBUG: log device ID to console so it can be found easily
   useEffect(function(){
@@ -2505,21 +2459,7 @@ function App(){
     );
   }
 
-  // Show access denied if revoked
-  if(accessDenied){
-    return(
-      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--bg)",padding:"0 24px"}}>
-        <div style={{textAlign:"center",maxWidth:340}}>
-          <div style={{fontSize:52,marginBottom:16}}>🔒</div>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,letterSpacing:"2px",color:"var(--txt)",marginBottom:8}}>Access Revoked</div>
-          <div style={{fontSize:14,color:"var(--mu)",lineHeight:1.7,marginBottom:20}}>
-            Your access to MacroTrack has been removed. If you believe this is an error, please contact the administrator.
-          </div>
-          <div style={{fontSize:12,color:"var(--b2)",fontFamily:"'JetBrains Mono',monospace"}}>{DEVICE_ID}</div>
-        </div>
-      </div>
-    );
-  }
+
 
   return(
     <div className="app">
