@@ -1359,6 +1359,50 @@ function MealPlanTab({goals, workerUrl, entries, wlog}){
   const [planDate, setPlanDate] = useLocal("mt_mp_date", "");
   const [mpGenUsage, setMpGenUsage] = useLocal("mt_mp_usage", {});
 
+  // Convert kg/g shopping quantities to US measurements
+  function convertToUS(qty){
+    if(!qty)return qty;
+    const s=String(qty).trim();
+    // Match patterns like "1.5kg", "800g", "1 kg", "200 g"
+    const kgMatch=s.match(/^([\d.]+)\s*kg$/i);
+    const gMatch=s.match(/^([\d.]+)\s*g$/i);
+    if(kgMatch){
+      const lbs=parseFloat(kgMatch[1])*2.205;
+      return lbs>=1?lbs.toFixed(1)+" lbs":Math.round(lbs*16)+" oz";
+    }
+    if(gMatch){
+      const oz=parseFloat(gMatch[1])*0.03527;
+      return oz>=16?(oz/16).toFixed(1)+" lbs":oz.toFixed(1)+" oz";
+    }
+    return qty;
+  }
+
+  // Apply US conversion to entire shopping list
+  function convertPlanUnits(p){
+    if(!p||!p.shoppingList)return p;
+    const newList={};
+    Object.keys(p.shoppingList).forEach(function(cat){
+      newList[cat]=(p.shoppingList[cat]||[]).map(function(item){
+        return Object.assign({},item,{qty:convertToUS(item.qty)});
+      });
+    });
+    return Object.assign({},p,{shoppingList:newList});
+  }
+
+  // Convert existing plan on mount if it has kg values
+  useEffect(function(){
+    if(plan&&plan.shoppingList){
+      const needsConversion=Object.values(plan.shoppingList).some(function(arr){
+        return (arr||[]).some(function(item){
+          return item.qty&&/\d+\s*(kg|g)/i.test(String(item.qty));
+        });
+      });
+      if(needsConversion){
+        setPlan(convertPlanUnits(plan));
+      }
+    }
+  },[]);
+
   const MP_WEEKLY_LIMIT = 1;
 
   function getMpGenThisWeek(){
@@ -1487,7 +1531,7 @@ function MealPlanTab({goals, workerUrl, entries, wlog}){
       const d=await r.json();
       if(d.error)throw new Error(d.error);
       if(!d.days||!Array.isArray(d.days))throw new Error("Invalid response format");
-      setPlan(d);
+      setPlan(convertPlanUnits(d));
       setPlanDate(new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}));
       setOpenDays({0:true});
       setChecked({});
