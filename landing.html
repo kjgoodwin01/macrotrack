@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MacroTrack — AI Nutrition Coach</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&family=Barlow:wght@500&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -497,6 +497,10 @@
       .stats-inner { grid-template-columns: 1fr; gap: 30px; }
       .signup-card { padding: 24px 20px; }
     }
+
+    .wm-text{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;letter-spacing:0.05em;background:linear-gradient(90deg,#6366f1 0%,#a78bfa 35%,#c084fc 55%,#a78bfa 75%,#6366f1 100%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:sweep 4s linear infinite;line-height:1.1;}
+    .tg{font-family:'Barlow',sans-serif;font-weight:500;font-size:7px;text-transform:uppercase;letter-spacing:0.22em;margin-top:4px;color:rgba(167,139,250,0.5);}
+    @keyframes sweep{0%{background-position:100% 0}100%{background-position:-100% 0}}
   </style>
 </head>
 <body>
@@ -505,7 +509,25 @@
 
   <!-- NAV -->
   <nav>
-    <div class="nav-logo"><em>MACRO</em>TRACK</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:34px;height:34px;border-radius:8px;background:#161628;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="19" height="18" viewBox="0 0 68 62" fill="none">
+          <defs>
+            <linearGradient id="mGradL" x1="4" y1="56" x2="64" y2="4" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#6366f1"/>
+              <stop offset="50%" stop-color="#a78bfa"/>
+              <stop offset="100%" stop-color="#c084fc"/>
+            </linearGradient>
+          </defs>
+          <path d="M6 56 L6 8 L34 42 L62 8 L62 56" stroke="url(#mGradL)" stroke-width="5.5" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+        </svg>
+      </div>
+      <div>
+        <div class="wm-text">MACROTRACK</div>
+        <div style="height:1px;margin-top:3px;border-radius:1px;background:linear-gradient(90deg,#6366f1,#a78bfa 50%,transparent 100%);"></div>
+        <div class="tg">Your AI Nutrition Coach</div>
+      </div>
+    </div>
     <div class="nav-badge">Private Beta</div>
   </nav>
 
