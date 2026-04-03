@@ -522,6 +522,21 @@
 
     <!-- SIGNUP FORM -->
     <div class="signup-card">
+      <!-- Status check for returning users -->
+      <div id="statusCheck" style="margin-bottom:20px">
+        <div style="display:flex;gap:8px">
+          <input class="field" id="checkEmailInput" type="email" placeholder="Already signed up? Check your status" style="margin-bottom:0;flex:1;font-size:13px"/>
+          <button onclick="checkStatus()" style="padding:14px 16px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:12px;color:#a5b4fc;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif">Check</button>
+        </div>
+        <div id="statusResult" style="display:none;margin-top:12px"></div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></div>
+        <div style="font-size:11px;color:#5a5a7a;text-transform:uppercase;letter-spacing:1px">New? Sign up below</div>
+        <div style="flex:1;height:1px;background:rgba(255,255,255,0.06)"></div>
+      </div>
+
       <div class="signup-title">Join the Waitlist</div>
       <div class="signup-sub">Limited beta spots available. Be first to get access when we open up.</div>
 
@@ -531,13 +546,16 @@
         <textarea class="field" id="reasonInput" placeholder="Why do you want access? (optional)" maxlength="300"></textarea>
         <button class="btn-submit" id="submitBtn" onclick="submitWaitlist()">REQUEST EARLY ACCESS</button>
         <div class="err-msg" id="errMsg"></div>
-        <p class="form-note">No spam, ever. You'll only hear from us when your spot is ready.</p>
+        <p class="form-note">Once approved, come back to this page to get your access link. Approvals typically happen within 24 hours.</p>
       </div>
 
       <div class="success-state" id="successState">
         <div class="success-icon">✅</div>
         <div class="success-title">You're on the list!</div>
-        <div class="success-sub">We'll email you personally when your invite is ready. Keep an eye on your inbox — spots are limited and go fast.</div>
+        <div class="success-sub" style="margin-bottom:20px">Your application is being reviewed. Bookmark this page — once you're approved, come back here and you'll see a link to access the app.</div>
+        <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:14px 16px;font-size:12px;color:#a0a0c0;line-height:1.7;">
+          💡 <strong style="color:#f0f0fa">Pro tip:</strong> Add this page to your home screen so you can check back easily. Approvals typically happen within 24 hours.
+        </div>
       </div>
     </div>
   </section>
@@ -660,10 +678,10 @@
   <!-- FOOTER -->
   <footer>
     <p>MacroTrack — Private Beta © 2026<br/>
-    Questions? <a href="mailto:kjgoodwin01@gmail.com" style="color:var(--ind);text-decoration:none;">kjgoodwin01@gmail.com</a></p>
+    Questions? <a href="/cdn-cgi/l/email-protection#157e7f727a7a71627c7b2524557278747c793b767a78" style="color:var(--ind);text-decoration:none;"><span class="__cf_email__" data-cfemail="89e2e3eee6e6edfee0e7b9b8c9eee4e8e0e5a7eae6e4">[email&#160;protected]</span></a></p>
   </footer>
 
-  <script>
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
     const WORKER_URL = "https://macrotrack-ai.kjgoodwin01.workers.dev";
 
     async function submitWaitlist(){
@@ -713,11 +731,66 @@
       el.style.display = "block";
     }
 
-    // Allow Enter key on inputs
-    document.addEventListener("keydown", function(e){
-      if(e.key === "Enter" && (e.target.id === "nameInput" || e.target.id === "emailInput")){
-        submitWaitlist();
+        async function checkStatus(){
+      const email = document.getElementById("checkEmailInput").value.trim();
+      const resultEl = document.getElementById("statusResult");
+      if(!email || !email.includes("@")){
+        showStatusResult("error", "Please enter a valid email address.");
+        return;
       }
+      showStatusResult("loading", "Checking...");
+      try{
+        const r = await fetch(WORKER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "waitlist_status", email }),
+        });
+        const d = await r.json();
+        if(!d.found){
+          showStatusResult("error", "That email isn't on the waitlist. Sign up below to request access.");
+        } else if(d.status === "pending"){
+          showStatusResult("pending", "Your application is under review. Check back soon — approvals typically happen within 24 hours.");
+        } else if(d.status === "approved"){
+          showStatusResult("approved", d.appUrl);
+        } else if(d.status === "denied"){
+          showStatusResult("error", "Unfortunately your application wasn't approved at this time.");
+        }
+      } catch(e){
+        showStatusResult("error", "Connection error. Please try again.");
+      }
+    }
+
+    function showStatusResult(type, msg){
+      const el = document.getElementById("statusResult");
+      el.style.display = "block";
+      const styles = {
+        approved: "background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25)",
+        pending: "background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2)",
+        error: "background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.2)",
+        loading: "background:transparent;border:none"
+      };
+      const colors = { approved:"#34d399", pending:"#fbbf24", error:"#fb7185", loading:"#5a5a7a" };
+      const style = styles[type] || styles.error;
+      const color = colors[type] || colors.error;
+
+      if(type === "approved"){
+        el.innerHTML = '<div style="'+style+';border-radius:12px;padding:16px 18px;text-align:center">'
+          + '<div style="font-size:13px;font-weight:600;color:#34d399;margin-bottom:10px">You're approved!</div>'
+          + '<a href="'+msg+'" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;letter-spacing:0.5px">Open MacroTrack &rarr;</a>'
+          + '<div style="font-size:11px;color:#5a5a7a;margin-top:10px">Tap above to open the app. Add it to your home screen for the best experience.</div>'
+          + '</div>';
+      } else if(type === "loading"){
+        el.innerHTML = '<div style="font-size:13px;color:#5a5a7a;text-align:center;padding:8px">Checking...</div>';
+      } else {
+        el.innerHTML = '<div style="'+style+';border-radius:12px;padding:14px 16px">'
+          + '<div style="font-size:13px;color:'+color+';line-height:1.6">'+msg+'</div>'
+          + '</div>';
+      }
+    }
+
+    document.addEventListener("keydown", function(e){
+      if(e.key === "Enter" && (e.target.id === "nameInput" || e.target.id === "emailInput")) submitWaitlist();
+      if(e.key === "Enter" && e.target.id === "checkEmailInput") checkStatus();
     });
   </script>
 </body>
