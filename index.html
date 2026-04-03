@@ -1352,10 +1352,41 @@ function MealPlanTab({goals, workerUrl}){
   const [days, setDays] = useLocal("mt_mp_days", 5);
   const [plan, setPlan] = useLocal("mt_mp_plan", null);
   const [planDate, setPlanDate] = useLocal("mt_mp_date", "");
+  const [prefs, setPrefs] = useLocal("mt_mp_prefs", {
+    proteins: [],
+    carbs: [],
+    fats: [],
+    restrictions: [],
+    custom: "",
+  });
+  const [showPrefs, setShowPrefs] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [openDays, setOpenDays] = useState({});
   const [checked, setChecked] = useState({});
+
+  const PROTEIN_OPTS = ["Chicken","Turkey","Beef","Salmon","Tuna","Shrimp","Eggs","Greek Yogurt","Cottage Cheese","Tofu","Tempeh"];
+  const CARB_OPTS = ["White Rice","Brown Rice","Oats","Sweet Potato","Quinoa","Pasta","Bread","Fruits","Potatoes"];
+  const FAT_OPTS = ["Avocado","Olive Oil","Nuts","Nut Butter","Cheese","Whole Eggs","Salmon"];
+  const RESTRICTION_OPTS = ["Gluten Free","Dairy Free","Keto","Vegetarian","Vegan","No Pork","Nut Free","Low Sodium"];
+
+  function togglePref(key, val){
+    setPrefs(function(p){
+      const arr = p[key] || [];
+      const exists = arr.includes(val);
+      return Object.assign({}, p, {[key]: exists ? arr.filter(function(v){return v!==val;}) : arr.concat([val])});
+    });
+  }
+
+  function buildPrefsText(){
+    const parts = [];
+    if(prefs.proteins && prefs.proteins.length) parts.push("Preferred proteins: " + prefs.proteins.join(", "));
+    if(prefs.carbs && prefs.carbs.length) parts.push("Preferred carbs: " + prefs.carbs.join(", "));
+    if(prefs.fats && prefs.fats.length) parts.push("Preferred fats: " + prefs.fats.join(", "));
+    if(prefs.restrictions && prefs.restrictions.length) parts.push("Dietary restrictions: " + prefs.restrictions.join(", "));
+    if(prefs.custom && prefs.custom.trim()) parts.push("Additional notes: " + prefs.custom.trim());
+    return parts.length ? parts.join(". ") : "";
+  }
 
   function toggleDay(d){ setOpenDays(function(p){return Object.assign({},p,{[d]:!p[d]});}); }
   function toggleCheck(k){ setChecked(function(p){return Object.assign({},p,{[k]:!p[k]});}); }
@@ -1363,41 +1394,33 @@ function MealPlanTab({goals, workerUrl}){
   async function generatePlan(){
     if(!workerUrl){setErr("Worker URL not set.");return;}
     setLoading(true);setErr("");
-    const prompt = "Create a "+days+"-day meal prep plan for someone with these daily targets: "+
-      goals.calories+" kcal, "+goals.protein+"g protein, "+goals.carbs+"g carbs, "+goals.fat+"g fat. "+
-      "Goal: "+(goals.goalType==="cut"?"fat loss cutting phase":goals.goalType==="bulk"?"muscle building bulk":"body recomposition maintenance")+".\n\n"+
-      "Requirements:\n"+
-      "- Include Breakfast, Lunch, Dinner, and Snack for each day\n"+
-      "- Give EXACT gram weights for every single food item (e.g. '180g chicken breast', '150g cooked white rice')\n"+
-      "- Use simple whole foods that are easy to batch cook on Sunday\n"+
-      "- Each day must hit within 50 kcal of the calorie target\n"+
-      "- Vary the meals across the week — do not repeat the same meal every day\n\n"+
-      "Return ONLY valid JSON in this exact format, no markdown:\n"+
-      "{\"days\":[{\"day\":\"Monday\",\"totalCal\":0,\"totalProtein\":0,\"totalCarbs\":0,\"totalFat\":0,"+
-      "\"meals\":{\"Breakfast\":[{\"food\":\"Oats\",\"amount\":\"80g\",\"cal\":0,\"p\":0,\"c\":0,\"f\":0}],"+
-      "\"Lunch\":[],\"Dinner\":[],\"Snack\":[]}}],"+
-      "\"shoppingList\":{\"Proteins\":[{\"item\":\"Chicken Breast\",\"qty\":\"1.2kg\"}],"+
-      "\"Grains & Carbs\":[],\"Fruits & Vegetables\":[],\"Dairy & Eggs\":[],\"Other\":[]}}";
+
+    const goalLabel=goals.goalType==="cut"?"fat loss cutting phase":goals.goalType==="bulk"?"muscle building bulk":"body recomposition maintenance";
 
     try{
       const r=await fetch(workerUrl.replace(/\/$/,""),{
         method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({type:"coach_chat",context:"User needs a meal plan.",
-          messages:[{role:"user",content:prompt}]
+        body:JSON.stringify({
+          type:"meal_plan",
+          days:days,
+          calories:goals.calories,
+          protein:goals.protein,
+          carbs:goals.carbs,
+          fat:goals.fat,
+          goalType:goalLabel,
+          preferences:buildPrefsText(),
         })
       });
-      if(!r.ok)throw new Error("Worker error");
+      if(!r.ok)throw new Error("Worker returned "+r.status);
       const d=await r.json();
-      const raw=(d.text||"").replace(/```json|```/g,"").trim();
-      const parsed=JSON.parse(raw);
-      if(!parsed.days)throw new Error("Invalid plan format");
-      setPlan(parsed);
+      if(d.error)throw new Error(d.error);
+      if(!d.days||!Array.isArray(d.days))throw new Error("Invalid response format");
+      setPlan(d);
       setPlanDate(new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}));
-      // Auto-open first day
       setOpenDays({0:true});
       setChecked({});
     }catch(e){
-      setErr("Could not generate plan. Try again.");
+      setErr("Could not generate plan: "+e.message+". Please try again.");
     }
     setLoading(false);
   }
@@ -1421,6 +1444,68 @@ function MealPlanTab({goals, workerUrl}){
             );
           })}
         </div>
+        {/* Preferences toggle */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+          <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700}}>Food Preferences</div>
+          <button onClick={function(){setShowPrefs(function(p){return !p;});}}
+            style={{background:"none",border:"1px solid var(--b1)",borderRadius:8,color:"var(--txt2)",fontSize:12,padding:"4px 10px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>
+            {showPrefs?"Hide":"Customize"}
+          </button>
+        </div>
+
+        {showPrefs&&(
+          <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid var(--b1)",borderRadius:14,padding:14,marginBottom:14}}>
+
+            <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:8,fontWeight:600}}>Proteins I eat</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
+              {PROTEIN_OPTS.map(function(p){
+                const active=(prefs.proteins||[]).includes(p);
+                return <button key={p} onClick={function(){togglePref("proteins",p);}}
+                  style={{padding:"5px 10px",borderRadius:20,border:"1px solid "+(active?"var(--ind)":"var(--b1)"),
+                    background:active?"rgba(99,102,241,0.15)":"transparent",
+                    color:active?"var(--indll)":"var(--mu)",fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>{p}</button>;
+              })}
+            </div>
+
+            <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:8,fontWeight:600}}>Carbs I prefer</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
+              {CARB_OPTS.map(function(c){
+                const active=(prefs.carbs||[]).includes(c);
+                return <button key={c} onClick={function(){togglePref("carbs",c);}}
+                  style={{padding:"5px 10px",borderRadius:20,border:"1px solid "+(active?"var(--cyan)":"var(--b1)"),
+                    background:active?"rgba(6,182,212,0.12)":"transparent",
+                    color:active?"var(--cyanl)":"var(--mu)",fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>{c}</button>;
+              })}
+            </div>
+
+            <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:8,fontWeight:600}}>Dietary restrictions</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
+              {RESTRICTION_OPTS.map(function(r){
+                const active=(prefs.restrictions||[]).includes(r);
+                return <button key={r} onClick={function(){togglePref("restrictions",r);}}
+                  style={{padding:"5px 10px",borderRadius:20,border:"1px solid "+(active?"var(--rose)":"var(--b1)"),
+                    background:active?"rgba(244,63,94,0.12)":"transparent",
+                    color:active?"var(--rosel)":"var(--mu)",fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>{r}</button>;
+              })}
+            </div>
+
+            <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:6,fontWeight:600}}>Anything else?</div>
+            <textarea
+              placeholder="e.g. I hate broccoli, I love hot sauce, I need high volume meals..."
+              value={prefs.custom||""}
+              onChange={function(e){setPrefs(function(p){return Object.assign({},p,{custom:e.target.value});});}}
+              style={{width:"100%",padding:"10px 12px",background:"rgba(255,255,255,0.04)",border:"1px solid var(--b1)",
+                borderRadius:10,color:"var(--txt)",fontFamily:"'DM Sans',sans-serif",fontSize:13,
+                resize:"none",outline:"none",minHeight:70,lineHeight:1.5}}/>
+
+            {buildPrefsText()&&(
+              <div style={{marginTop:10,fontSize:11,color:"var(--em)",lineHeight:1.6}}>
+                ✓ Preferences saved — your next plan will be customized
+              </div>
+            )}
+          </div>
+        )}
+
         <button className="mp-generate" onClick={generatePlan} disabled={loading}>
           {loading?"GENERATING YOUR PLAN...":"✦ GENERATE MEAL PLAN"}
         </button>
