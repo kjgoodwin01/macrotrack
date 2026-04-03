@@ -12,7 +12,7 @@
   <title>MacroTrack</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&family=Barlow:wght@500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
 
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -390,6 +390,34 @@
     .mp-shop-check.checked{background:var(--em);border-color:var(--em)}
     .mp-shop-name{font-size:13px;color:var(--txt2);flex:1}
     .mp-shop-qty{font-size:11px;color:var(--indll);font-family:'JetBrains Mono',monospace;white-space:nowrap}
+
+    /* ── Logo sweep animation ── */
+    .wm-text{
+      font-family:'Barlow Condensed',sans-serif;
+      font-weight:900;
+      font-size:20px;
+      letter-spacing:0.05em;
+      background:linear-gradient(90deg,#6366f1 0%,#a78bfa 35%,#c084fc 55%,#a78bfa 75%,#6366f1 100%);
+      background-size:200% 100%;
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      background-clip:text;
+      animation:sweep 4s linear infinite;
+      line-height:1.1;
+    }
+    .tg{
+      font-family:'Barlow',sans-serif;
+      font-weight:500;
+      font-size:7px;
+      text-transform:uppercase;
+      letter-spacing:0.22em;
+      margin-top:4px;
+      color:rgba(167,139,250,0.5);
+    }
+    @keyframes sweep{
+      0%{background-position:100% 0}
+      100%{background-position:-100% 0}
+    }
   </style>
 </head>
 <body>
@@ -1195,7 +1223,25 @@ function Onboarding({onComplete}){
 
         {step === 0 && (
           <div>
-            <div className="ob-title"><em>MACRO</em>TRACK</div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+              <div style={{width:40,height:40,borderRadius:10,background:"#161628",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <svg width="22" height="21" viewBox="0 0 68 62" fill="none">
+                  <defs>
+                    <linearGradient id="mGrad2" x1="4" y1="56" x2="64" y2="4" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="#6366f1"/>
+                      <stop offset="50%" stopColor="#a78bfa"/>
+                      <stop offset="100%" stopColor="#c084fc"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M6 56 L6 8 L34 42 L62 8 L62 56" stroke="url(#mGrad2)" strokeWidth="5.5" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
+                </svg>
+              </div>
+              <div>
+                <div className="wm-text" style={{fontSize:24}}>MACROTRACK</div>
+                <div style={{height:1,marginTop:3,borderRadius:1,background:"linear-gradient(90deg,#6366f1,#a78bfa 50%,transparent 100%)"}}/>
+                <div className="tg">Your AI Nutrition Coach</div>
+              </div>
+            </div>
             <div className="ob-sub">Your personal nutrition coach. Let's set up your profile so we can calculate your exact calorie and macro targets.</div>
             <div className="ob-field-label">Your first name</div>
             <input className="ob-field" placeholder="e.g. Kyle" value={name} onChange={function(e){setName(e.target.value);}} autoFocus/>
@@ -2468,7 +2514,25 @@ function App(){
       {/* Header */}
       <div className="hdr">
         <div>
-          <div className="logo"><em>MACRO</em>TRACK</div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:36,height:36,borderRadius:8,background:"#161628",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <svg width="20" height="19" viewBox="0 0 68 62" fill="none">
+                <defs>
+                  <linearGradient id="mGrad" x1="4" y1="56" x2="64" y2="4" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#6366f1"/>
+                    <stop offset="50%" stopColor="#a78bfa"/>
+                    <stop offset="100%" stopColor="#c084fc"/>
+                  </linearGradient>
+                </defs>
+                <path d="M6 56 L6 8 L34 42 L62 8 L62 56" stroke="url(#mGrad)" strokeWidth="5.5" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
+              </svg>
+            </div>
+            <div>
+              <div className="wm-text">MACROTRACK</div>
+              <div style={{height:1,marginTop:3,borderRadius:1,background:"linear-gradient(90deg,#6366f1,#a78bfa 50%,transparent 100%)"}}/>
+              <div className="tg">Your AI Nutrition Coach</div>
+            </div>
+          </div>
           {userName&&<div style={{fontSize:10,color:"var(--mu)",fontFamily:"'DM Sans',sans-serif",marginTop:1}}>Hey, {userName} 👋</div>}
         </div>
         <div className="hdr-r" style={{display:"flex",alignItems:"center",gap:10}}>
