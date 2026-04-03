@@ -439,6 +439,25 @@
       cursor:pointer;flex-shrink:0;font-family:'DM Sans',sans-serif;white-space:nowrap;
     }
     .install-banner-dismiss:active{background:rgba(255,255,255,0.3)}
+
+    /* ── Enhanced Food Detail ── */
+    .det-name{font-size:17px;font-weight:700;color:var(--txt);margin-bottom:3px;line-height:1.3}
+    .det-brand{font-size:12px;color:var(--mu);margin-bottom:16px}
+    .det-macro-hero{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;background:var(--s2);border-radius:16px;padding:14px 10px}
+    .det-macro-col{text-align:center}
+    .det-macro-val{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:0.5px;line-height:1}
+    .det-macro-lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px;margin-top:3px}
+    .det-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--mu);margin-bottom:8px}
+    .serving-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+    .serving-pill{padding:7px 12px;border-radius:20px;border:1px solid var(--b1);background:var(--s2);color:var(--txt2);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;white-space:nowrap}
+    .serving-pill.active{background:rgba(99,102,241,0.18);border-color:var(--ind);color:var(--indll)}
+    .qty-row{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+    .qty-btn{width:40px;height:40px;border-radius:12px;border:1px solid var(--b1);background:var(--s2);color:var(--txt);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s}
+    .qty-btn:active{background:var(--s3)}
+    .qty-input{flex:1;text-align:center;font-size:20px;font-weight:700;font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:var(--txt)}
+    .qty-unit{font-size:12px;color:var(--mu);text-align:center;margin-top:-8px;margin-bottom:14px}
+    .custom-gram-row{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+    .custom-gram-row .field{flex:1;text-align:center;font-size:16px}
   </style>
 </head>
 <body>
@@ -697,22 +716,131 @@ function WeightChart({data}){
 
 /* ── FoodDetail ── */
 function FoodDetail({food,meal,onBack,onConfirm}){
-  const [si,setSi]=useState(0);const [qty,setQty]=useState("1");
-  const serv=food.servings[si];const m=scaleMacros(food,serv.grams,qty);
+  const [si,setSi]=useState(0);
+  const [qty,setQty]=useState(1);
+  const [customGrams,setCustomGrams]=useState("");
+  const [useCustom,setUseCustom]=useState(false);
+
+  const serv=food.servings[si];
+
+  // Effective grams — either from serving+qty or custom input
+  const effectiveGrams=useCustom
+    ?(parseFloat(customGrams)||0)
+    :(serv.grams*(qty||1));
+
+  const m=useCustom
+    ?scaleMacros(food,parseFloat(customGrams)||0,1)
+    :scaleMacros(food,serv.grams,qty);
+
+  function stepQty(delta){
+    setQty(function(prev){
+      const next=Math.round((prev+delta)*10)/10;
+      return Math.max(0.5,next);
+    });
+  }
+
+  function selectServing(idx){
+    setSi(idx);
+    setUseCustom(false);
+    setCustomGrams("");
+  }
+
+  function handleCustomGrams(val){
+    setCustomGrams(val);
+    setUseCustom(val.length>0);
+  }
+
+  const servingLabel=useCustom
+    ?customGrams+"g"
+    :qty+"x "+serv.label;
+
   return(
     <div className="detail-box">
+      {/* Food name and brand */}
       <div className="det-name">{food.name}</div>
-      <div className="det-sub">{food.brand||food.dataType}</div>
-      <div className="fg"><div className="fl">Serving Size</div><select className="field" value={si} onChange={e=>setSi(parseInt(e.target.value,10))} style={{appearance:"none"}}>{food.servings.map((s,i)=><option key={i} value={i}>{s.label}</option>)}</select></div>
-      <div className="fg"><div className="fl">Quantity</div><input className="field" type="number" step="0.5" min="0.5" value={qty} onChange={e=>setQty(e.target.value)}/></div>
-      <div className="m4">
-        <div className="m4c"><div className="m4v">{m.cal}</div><div className="m4l">kcal</div></div>
-        <div className="m4c"><div className="m4v" style={{color:"var(--rosel)"}}>{m.p}g</div><div className="m4l">Protein</div></div>
-        <div className="m4c"><div className="m4v" style={{color:"var(--cyanl)"}}>{m.c}g</div><div className="m4l">Carbs</div></div>
-        <div className="m4c"><div className="m4v" style={{color:"var(--ambl)"}}>{m.f}g</div><div className="m4l">Fat</div></div>
+      <div className="det-brand">{food.brand||food.dataType}</div>
+
+      {/* Macro hero — updates live */}
+      <div className="det-macro-hero">
+        <div className="det-macro-col">
+          <div className="det-macro-val" style={{color:"var(--indll)"}}>{m.cal}</div>
+          <div className="det-macro-lbl">kcal</div>
+        </div>
+        <div className="det-macro-col">
+          <div className="det-macro-val" style={{color:"var(--rosel)"}}>{m.p}g</div>
+          <div className="det-macro-lbl">Protein</div>
+        </div>
+        <div className="det-macro-col">
+          <div className="det-macro-val" style={{color:"var(--cyanl)"}}>{m.c}g</div>
+          <div className="det-macro-lbl">Carbs</div>
+        </div>
+        <div className="det-macro-col">
+          <div className="det-macro-val" style={{color:"var(--ambl)"}}>{m.f}g</div>
+          <div className="det-macro-lbl">Fat</div>
+        </div>
       </div>
-      <button className="btn" style={{marginTop:4}} onClick={()=>onConfirm({name:food.name,serving:qty+"x "+serv.label,meal,cal:m.cal,p:m.p,c:m.c,f:m.f})}>Add to {meal}</button>
-      <button className="btn-ghost" onClick={onBack}>← Back</button>
+
+      {/* Serving size pills */}
+      <div className="det-section-label">Serving Size</div>
+      <div className="serving-pills">
+        {food.servings.map(function(s,i){
+          return(
+            <button key={i}
+              className={"serving-pill"+(si===i&&!useCustom?" active":"")}
+              onClick={function(){selectServing(i);}}>
+              {s.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Quantity stepper — only show when not using custom grams */}
+      {!useCustom&&(
+        <div>
+          <div className="det-section-label">Quantity</div>
+          <div className="qty-row">
+            <button className="qty-btn" onClick={function(){stepQty(-0.5);}}>−</button>
+            <input
+              className="field qty-input"
+              type="number"
+              step="0.5"
+              min="0.5"
+              value={qty}
+              onChange={function(e){setQty(parseFloat(e.target.value)||1);}}
+            />
+            <button className="qty-btn" onClick={function(){stepQty(0.5);}}>+</button>
+          </div>
+          <div className="qty-unit">{Math.round(effectiveGrams)}g total</div>
+        </div>
+      )}
+
+      {/* Custom grams option */}
+      <div className="det-section-label">Or enter exact grams</div>
+      <div className="custom-gram-row">
+        <input
+          className="field"
+          type="number"
+          placeholder={"e.g. "+Math.round(serv.grams)}
+          value={customGrams}
+          onChange={function(e){handleCustomGrams(e.target.value);}}
+          style={{flex:1,textAlign:"center",fontSize:16}}
+        />
+        <div style={{fontSize:13,color:"var(--mu)",flexShrink:0}}>grams</div>
+        {useCustom&&(
+          <button onClick={function(){setUseCustom(false);setCustomGrams("");}}
+            style={{background:"none",border:"none",color:"var(--mu)",cursor:"pointer",fontSize:18,padding:"0 4px"}}>
+            ×
+          </button>
+        )}
+      </div>
+
+      <button className="btn" onClick={function(){
+        if(effectiveGrams<=0)return;
+        onConfirm({name:food.name,serving:servingLabel,meal,cal:m.cal,p:m.p,c:m.c,f:m.f});
+      }}>
+        Add to {meal}
+      </button>
+      <button className="btn-ghost" onClick={onBack}>← Back to search</button>
     </div>
   );
 }
@@ -911,15 +1039,28 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
   const fRef=useRef(null);const tRef=useRef(null);
 
   useEffect(()=>{
-    if(!query.trim()||query.length<2){setResults([]);setSErr("");return;}
+    const q=query.trim();
+    // Fire search after just 2 chars — catch partial queries like "fair", "eggs"
+    if(!q||q.length<2){setResults([]);setSErr("");return;}
     if(!workerUrl){setSErr("Add your Worker URL in Goals to enable food search.");return;}
     clearTimeout(tRef.current);
+    // 350ms debounce — fast enough to feel responsive
     tRef.current=setTimeout(async()=>{
       setSearching(true);setSErr("");
-      try{const r=await fetch(workerUrl.replace(/\/$/,""),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"usda_search",query:query,pageSize:10})});if(!r.ok)throw new Error();const d=await r.json();setResults((d.foods||[]).map(parseFood));}
-      catch(e){setSErr("Search failed — check your USDA API key in Goals.");}
+      try{
+        const r=await fetch(workerUrl.replace(/\/$/,""),{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({type:"usda_search",query:q,pageSize:20})
+        });
+        if(!r.ok)throw new Error("Search error "+r.status);
+        const d=await r.json();
+        if(d.error&&d.error!=="No results found")throw new Error(d.error);
+        setResults((d.foods||[]).map(parseFood));
+        if((d.foods||[]).length===0)setSErr("No results found for \""+q+"\"");
+      }
+      catch(e){setSErr("Search failed — please try again.");}
       finally{setSearching(false);}
-    },500);
+    },350);
     return()=>clearTimeout(tRef.current);
   },[query,workerUrl]);
 
