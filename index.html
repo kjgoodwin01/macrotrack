@@ -1394,10 +1394,16 @@ function MealPlanTab({goals, workerUrl, entries, wlog}){
     return Object.assign({},p,{shoppingList:newList});
   }
 
-    // Convert existing stored plan to US measurements on mount
+    // Clear old plans with kg values — new system calculates shopping list correctly
   useEffect(function(){
     if(plan&&plan.shoppingList){
-      setPlan(convertPlanUnits(plan));
+      const planStr=JSON.stringify(plan.shoppingList).toLowerCase();
+      if(planStr.indexOf("kg")!==-1||planStr.indexOf('" g"')!==-1){
+        setPlan(null);
+        setPlanDate("");
+        const k=getWeekKey();
+        setMpGenUsage(function(prev){const n=Object.assign({},prev);n[k]=0;return n;});
+      }
     }
   },[]);
 
