@@ -1760,28 +1760,63 @@ function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit,re
       "WEIGHT HISTORY:\n"+wLines+wTrend;
   }
 
+  // Returns true if today is Sunday (day 0)
+  function isSunday(){return new Date().getDay()===0;}
+
+  // Days until next Sunday
+  function daysUntilSunday(){
+    const day=new Date().getDay();
+    return day===0?0:7-day;
+  }
+
+  // Which Sunday does this week's report belong to
+  function thisReportKey(){
+    const d=new Date();
+    const daysAhead=7-d.getDay();
+    const sun=new Date(d);
+    sun.setDate(d.getDate()+(d.getDay()===0?0:daysAhead));
+    return isoDate(sun);
+  }
+
+  // How the week is tracking so far (preview stats)
+  function weekPreview(){
+    const last7=Array.from({length:7},function(_,i){
+      const d=new Date();d.setDate(d.getDate()-i);
+      const k=isoDate(d);
+      const dayE=entries[k]||[];
+      return dayE.reduce(function(a,e){return{cal:a.cal+e.cal,p:a.p+e.p};},{cal:0,p:0});
+    });
+    const logged=last7.filter(function(d){return d.cal>0;}).length;
+    const avgCal=logged?Math.round(last7.filter(function(d){return d.cal>0;}).reduce(function(a,d){return a+d.cal;},0)/logged):0;
+    return {logged,avgCal};
+  }
+
   async function generateReport(force){
-    const thisWeek=isoDate(new Date());
-    if(!force&&report&&reportDate===thisWeek)return;
+    const key=thisReportKey();
+    if(!force&&report&&reportDate===key)return;
     if(!workerUrl)return;
     setReportLoading(true);
     try{
       const r=await fetch(workerUrl.replace(/\/$/,""),{
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({type:"coach_report",context:buildContext(),
-          prompt:"Write a concise weekly coaching check-in as 3-4 bullet points tailored to their specific goal (cut/bulk/maintain). Cover: 1) Weight trend and whether it aligns with their goal rate and target weight 2) Calorie adherence to their targets 3) Protein performance 4) One specific actionable adjustment for next week. Be direct, use their real numbers, start each bullet with a relevant emoji."
+          prompt:"Write a weekly coaching check-in as 3-4 bullet points tailored to their specific goal (cut/bulk/maintain). Cover: 1) Weight trend vs goal rate and target weight 2) Calorie adherence across the week 3) Protein consistency 4) One specific actionable focus for next week. Be direct, reference their real numbers, start each bullet with an emoji."
         })
       });
       if(!r.ok)throw new Error("Worker error");
       const d=await r.json();
       setReport(d.text||d.message||"");
-      setReportDate(thisWeek);
+      setReportDate(key);
     }catch(e){setReport("Could not generate report. Check your Worker URL in Goals.");}
     finally{setReportLoading(false);}
   }
 
   useEffect(function(){
-    if(workerUrl){const w=isoDate(new Date());if(!report||reportDate!==w)generateReport(false);}
+    // Only auto-generate on Sundays when report hasn't been generated yet this week
+    if(workerUrl&&isSunday()){
+      const key=thisReportKey();
+      if(!report||reportDate!==key)generateReport(false);
+    }
   },[workerUrl]);
 
   useEffect(function(){
@@ -1849,41 +1884,97 @@ function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit,re
 
   return (
     <div>
-      <div className="coach-hero">
-        <div className="coach-hero-head">
-          <div>
-            <div className="coach-hero-title">Weekly Check-in</div>
-            <div className="coach-hero-sub">{reportDate?"Generated "+reportDate:"Generating..."}</div>
+      {isSunday()?(
+        <div className="coach-hero">
+          <div className="coach-hero-head">
+            <div>
+              <div className="coach-hero-title">Weekly Check-in</div>
+              <div className="coach-hero-sub">{reportDate?"Last generated "+reportDate:"Ready to generate"}</div>
+            </div>
+            <button className="coach-regen" onClick={function(){generateReport(true);}} disabled={reportLoading}>
+              {reportLoading?"...":"Generate"}
+            </button>
           </div>
-          <button className="coach-regen" onClick={function(){generateReport(true);}} disabled={reportLoading}>
-            {reportLoading?"...":"Refresh"}
-          </button>
+          {reportLoading&&(
+            <div className="report-loading">
+              <div className="spin"/>
+              <span>Analyzing your week...</span>
+            </div>
+          )}
+          {!reportLoading&&report&&reportDate===thisReportKey()&&(
+            <div className="report-body">
+              {report.split("\n").filter(function(l){return l.trim();}).map(function(line,i){
+                return (
+                  <div key={i} className="bullet">
+                    <div className="bullet-dot"/>
+                    <span>{line.replace(/^[•\-\*]\s*/,"")}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {!reportLoading&&(!report||reportDate!==thisReportKey())&&(
+            <div className="report-no-data">
+              <div className="report-no-data-icon">📋</div>
+              <div style={{fontSize:14,color:"var(--txt2)",fontWeight:500,marginBottom:4}}>Your weekly report is ready.</div>
+              <div style={{fontSize:13,color:"var(--mu)"}}>Tap Generate to receive your personalized coaching check-in based on this week's data.</div>
+            </div>
+          )}
         </div>
-        {reportLoading&&(
-          <div className="report-loading">
-            <div className="spin"/>
-            <span>Analyzing your data...</span>
+      ):(
+        <div className="coach-hero">
+          <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16}}>
+            <div style={{fontSize:36}}>📅</div>
+            <div>
+              <div className="coach-hero-title">Weekly Check-in</div>
+              <div className="coach-hero-sub">Available every Sunday</div>
+            </div>
           </div>
-        )}
-        {!reportLoading&&report&&(
-          <div className="report-body">
-            {report.split("\n").filter(function(l){return l.trim();}).map(function(line,i){
-              return (
-                <div key={i} className="bullet">
-                  <div className="bullet-dot"/>
-                  <span>{line.replace(/^[•\-\*]\s*/,"")}</span>
-                </div>
-              );
-            })}
+          <div style={{background:"rgba(255,255,255,0.04)",borderRadius:14,padding:"14px 16px",marginBottom:14}}>
+            <div style={{fontSize:13,color:"var(--txt2)",lineHeight:1.7}}>
+              Your weekly coaching report unlocks on <strong style={{color:"var(--indll)"}}>Sunday</strong> — giving your coach a full week of data to work with for the most accurate, actionable analysis.
+            </div>
           </div>
-        )}
-        {!reportLoading&&!report&&(
-          <div className="report-no-data">
-            <div className="report-no-data-icon">📊</div>
-            <div style={{fontSize:13,color:"var(--mu)"}}>Log food and weight for a few days to get your first coaching report.</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div>
+              <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>Next report in</div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:42,color:"var(--indll)",lineHeight:1}}>
+                {daysUntilSunday()} <span style={{fontSize:18,color:"var(--mu)",fontFamily:"'DM Sans',sans-serif",fontWeight:300}}>days</span>
+              </div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              {(function(){
+                const prev=weekPreview();
+                return prev.logged>0?(
+                  <div>
+                    <div style={{fontSize:11,color:"var(--mu)",marginBottom:4}}>This week so far</div>
+                    <div style={{fontSize:13,color:"var(--txt2)"}}>{prev.logged}/7 days logged</div>
+                    <div style={{fontSize:13,color:"var(--txt2)"}}>Avg {prev.avgCal} kcal/day</div>
+                  </div>
+                ):(
+                  <div style={{fontSize:12,color:"var(--mu)"}}>Start logging to<br/>build your report</div>
+                );
+              })()}
+            </div>
           </div>
-        )}
-      </div>
+          {report&&reportDate&&(
+            <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--b1)"}}>
+              <div style={{fontSize:11,color:"var(--mu)",marginBottom:10,textTransform:"uppercase",letterSpacing:"1px"}}>Last week's report</div>
+              <div className="report-body" style={{opacity:0.7}}>
+                {report.split("\n").filter(function(l){return l.trim();}).slice(0,2).map(function(line,i){
+                  return (
+                    <div key={i} className="bullet">
+                      <div className="bullet-dot"/>
+                      <span>{line.replace(/^[•\-\*]\s*/,"")}</span>
+                    </div>
+                  );
+                })}
+                <div style={{fontSize:11,color:"var(--mu)",marginTop:6}}>From {reportDate} — full report available Sunday</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700,marginBottom:8}}>Quick Questions</div>
       <div className="quick-btns">
