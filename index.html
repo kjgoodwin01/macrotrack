@@ -277,11 +277,12 @@
     .chat-fullscreen{
       position:fixed;
       top:0;left:0;right:0;bottom:0;
-      z-index:1000;
+      z-index:9999;
       background:var(--bg);
       display:flex;flex-direction:column;
       width:100%;
-      max-width:430px;margin:0 auto;
+      max-width:430px;
+      left:50%;transform:translateX(-50%);
       overflow:hidden;
       animation:slideUp 0.3s cubic-bezier(0.4,0,0.2,1);
     }
@@ -327,13 +328,11 @@
     /* ── Input row ── */
     .chat-input-row{
       display:flex;align-items:flex-end;gap:8px;
-      padding:10px 14px 14px;
-      padding-bottom:max(14px, env(safe-area-inset-bottom, 14px));
+      padding:10px 14px;
+      padding-bottom:max(20px, env(safe-area-inset-bottom, 20px));
       border-top:1px solid var(--b1);
       background:var(--s1);
       flex-shrink:0;
-      position:relative;
-      z-index:1;
     }
     .chat-input{
       flex:1;padding:11px 16px;
@@ -2167,7 +2166,7 @@ function computeAdapt(wlog,goals){
 
 
 /* ── Coach Tab ── */
-function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit,resetMessage}){
+function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit,resetMessage,onChatOpen}){
   const [report,setReport]=useLocal("mt_coach_report",null);
   const [reportDate,setReportDate]=useLocal("mt_coach_date","");
   const [reportLoading,setReportLoading]=useState(false);
@@ -2175,6 +2174,9 @@ function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit,re
   const [input,setInput]=useState("");
   const [aiTyping,setAiTyping]=useState(false);
   const [chatOpen,setChatOpen]=useState(false);
+
+  function openChat(){setChatOpen(true);if(onChatOpen)onChatOpen(true);}
+  function closeChat(){setChatOpen(false);if(onChatOpen)onChatOpen(false);}
   const msgsEndRef=useRef(null);
   const inputRef=useRef(null);
 
@@ -2511,7 +2513,7 @@ function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit,re
       )}
       <div className="chat-wrap" style={{position:"relative"}}>
         {/* Preview tap target — opens full screen */}
-        <div className="chat-preview" onClick={function(){setChatOpen(true);}}>
+        <div className="chat-preview" onClick={function(){openChat();}}>
           <div className="chat-preview-left">
             <div className="chat-preview-avatar">🧠</div>
             <div>
@@ -2532,7 +2534,7 @@ function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit,re
         <div className="chat-fullscreen">
           {/* Header */}
           <div className="chat-fs-header">
-            <button className="chat-fs-back" onClick={function(){setChatOpen(false);}}>‹</button>
+            <button className="chat-fs-back" onClick={function(){closeChat();}}>‹</button>
             <div style={{flex:1}}>
               <div className="chat-fs-title">AI Coach</div>
               <div className="chat-fs-sub">Full access to your data</div>
@@ -2654,6 +2656,7 @@ function App(){
     setInstallDismissedRaw(true);
   }
   const [accessChecked,setAccessChecked]=useState(false);
+  const [chatFullscreen,setChatFullscreen]=useState(false);
 
   // Access is open — name required for sync, which is the control point
   useEffect(function(){
@@ -3012,7 +3015,7 @@ function App(){
       {/* COACH TAB */}
       {tab==="coach"&&<div className="page">
         <div style={{height:12}}/>
-        <CoachTab goals={goals} entries={entries} wlog={wlog} workerUrl={workerUrl} selectedDate={selectedDate} aiUsageToday={getAiUsageThisWeek()} onAiCall={incrementAiUsage} aiLimit={AI_WEEKLY_LIMIT} resetMessage={getResetMessage()}/>
+        <CoachTab goals={goals} entries={entries} wlog={wlog} workerUrl={workerUrl} selectedDate={selectedDate} aiUsageToday={getAiUsageThisWeek()} onAiCall={incrementAiUsage} aiLimit={AI_WEEKLY_LIMIT} resetMessage={getResetMessage()} onChatOpen={setChatFullscreen}/>
       </div>}
 
       {/* MEALS TAB */}
@@ -3098,7 +3101,7 @@ function App(){
       </div>}
 
       {/* Nav */}
-      <div className="nav">
+      <div className="nav" style={{display:chatFullscreen?"none":"flex"}}>
         {[{id:"log",icon:"📋",label:"Log"},{id:"weight",icon:"⚖️",label:"Weight"},{id:"coach",icon:"🧠",label:"Coach"},{id:"meals",icon:"🥗",label:"Meals"},{id:"goals",icon:"🎯",label:"Goals"}].map(n=>(
           <button key={n.id} className={"nav-btn"+(tab===n.id?" active":"")} onClick={()=>{setTab(n.id);try{navigator.vibrate&&navigator.vibrate(8);}catch(e){}}}>
             <span className="nav-icon">{n.icon}</span>
