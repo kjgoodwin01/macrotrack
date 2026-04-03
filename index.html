@@ -658,23 +658,64 @@ function useLocal(k,init){
 
 /* ── USDA helpers ── */
 function getNutrient(arr,id){const n=(arr||[]).find(x=>x.nutrientId===id||x.nutrientNumber===String(id));return Math.round((n&&n.value)?n.value:0);}
+function getSmartServings(foodName){
+  const n=(foodName||"").toLowerCase();
+  if(n.includes("egg")&&!n.includes("eggplant")&&!n.includes("egg noodle"))
+    return [{label:"1 large egg (50g)",grams:50},{label:"2 large eggs (100g)",grams:100},{label:"100g",grams:100}];
+  if(n.includes("chicken breast"))return [{label:"4 oz (113g)",grams:113},{label:"6 oz (170g)",grams:170},{label:"100g",grams:100}];
+  if(n.includes("chicken thigh"))return [{label:"1 thigh (109g)",grams:109},{label:"100g",grams:100}];
+  if(n.includes("chicken"))return [{label:"4 oz (113g)",grams:113},{label:"100g",grams:100}];
+  if(n.includes("ground beef")||n.includes("ground turkey")||n.includes("ground bison"))
+    return [{label:"4 oz raw (113g)",grams:113},{label:"3 oz cooked (85g)",grams:85},{label:"100g",grams:100}];
+  if(n.includes("steak")||n.includes("sirloin")||n.includes("ribeye")||n.includes("filet"))
+    return [{label:"6 oz (170g)",grams:170},{label:"4 oz (113g)",grams:113},{label:"100g",grams:100}];
+  if(n.includes("salmon")||n.includes("tilapia")||n.includes("tuna")||n.includes("cod")||n.includes("halibut"))
+    return [{label:"4 oz (113g)",grams:113},{label:"6 oz (170g)",grams:170},{label:"100g",grams:100}];
+  if(n.includes("shrimp"))return [{label:"3 oz (85g)",grams:85},{label:"100g",grams:100}];
+  if(n.includes("white rice")||n.includes("brown rice")||n.includes("cooked rice"))
+    return [{label:"1 cup cooked (186g)",grams:186},{label:"1/2 cup (93g)",grams:93},{label:"100g",grams:100}];
+  if(n.includes("oat"))return [{label:"1/2 cup dry (40g)",grams:40},{label:"1 cup dry (80g)",grams:80},{label:"100g",grams:100}];
+  if(n.includes("sweet potato"))return [{label:"1 medium (130g)",grams:130},{label:"100g",grams:100}];
+  if(n.includes("potato")&&!n.includes("sweet"))return [{label:"1 medium (173g)",grams:173},{label:"100g",grams:100}];
+  if(n.includes("pasta")||n.includes("spaghetti")||n.includes("penne"))
+    return [{label:"2 oz dry (56g)",grams:56},{label:"1 cup cooked (140g)",grams:140},{label:"100g",grams:100}];
+  if(n.includes("bread"))return [{label:"1 slice (30g)",grams:30},{label:"2 slices (60g)",grams:60},{label:"100g",grams:100}];
+  if(n.includes("banana"))return [{label:"1 medium (118g)",grams:118},{label:"100g",grams:100}];
+  if(n.includes("apple"))return [{label:"1 medium (182g)",grams:182},{label:"100g",grams:100}];
+  if(n.includes("avocado"))return [{label:"1/2 avocado (68g)",grams:68},{label:"1 whole (136g)",grams:136},{label:"100g",grams:100}];
+  if(n.includes("almond"))return [{label:"1 oz (28g)",grams:28},{label:"1/4 cup (35g)",grams:35},{label:"100g",grams:100}];
+  if(n.includes("walnut")||n.includes("cashew")||n.includes("pecan"))
+    return [{label:"1 oz (28g)",grams:28},{label:"100g",grams:100}];
+  if(n.includes("peanut butter")||n.includes("almond butter"))
+    return [{label:"2 tbsp (32g)",grams:32},{label:"1 tbsp (16g)",grams:16},{label:"100g",grams:100}];
+  if(n.includes("cheese"))return [{label:"1 oz (28g)",grams:28},{label:"100g",grams:100}];
+  if(n.includes("milk")&&!n.includes("chocolate milk"))
+    return [{label:"1 cup (244ml)",grams:244},{label:"1/2 cup (122ml)",grams:122},{label:"100g",grams:100}];
+  if(n.includes("yogurt"))return [{label:"3/4 cup (170g)",grams:170},{label:"1 cup (227g)",grams:227},{label:"100g",grams:100}];
+  if(n.includes("cottage cheese"))return [{label:"1/2 cup (113g)",grams:113},{label:"1 cup (226g)",grams:226},{label:"100g",grams:100}];
+  if(n.includes(" oil"))return [{label:"1 tbsp (14g)",grams:14},{label:"1 tsp (4g)",grams:4},{label:"100g",grams:100}];
+  if(n.includes("butter")&&!n.includes("peanut")&&!n.includes("almond"))
+    return [{label:"1 tbsp (14g)",grams:14},{label:"100g",grams:100}];
+  if(n.includes("broccoli")||n.includes("spinach")||n.includes("kale"))
+    return [{label:"1 cup (91g)",grams:91},{label:"2 cups (182g)",grams:182},{label:"100g",grams:100}];
+  if(n.includes("lettuce")||n.includes("arugula"))return [{label:"2 cups (85g)",grams:85},{label:"100g",grams:100}];
+  if(n.includes("strawberr")||n.includes("blueberr")||n.includes("raspberr"))
+    return [{label:"1 cup (150g)",grams:150},{label:"1/2 cup (75g)",grams:75},{label:"100g",grams:100}];
+  return null;
+}
+
 function parseFood(item){
   const n=item.foodNutrients||[];
   const servings=[];
 
-  // Helper: clean up messy serving labels from the database
-  function cleanLabel(raw, grams){
+  function cleanLabel(raw,grams){
     if(!raw)return grams+"g";
-    // Remove duplicate gram info like "1 bar (60g) (60g)"
     const deduped=raw.replace(/\s*\(\d+\.?\d*\s*g\)\s*\(\d+\.?\d*\s*g\)/gi,"");
-    // If label is just a number or "1.0 serving" with no useful info, use grams
     if(/^[\d\.]+\s*(serving|servings|unit|units)?$/i.test(deduped.trim()))return grams+"g";
-    // If label doesn't already have grams, append it
-    if(grams&&!/\d+\s*g/i.test(deduped))return deduped.trim()+" ("+Math.round(grams)+"g)";
+    if(grams&&!/\d+\s*g\b/i.test(deduped))return deduped.trim()+" ("+Math.round(grams)+"g)";
     return deduped.trim();
   }
 
-  // Primary serving size from the item
   if(item.servingSize&&item.servingSize>0){
     const unit=item.servingSizeUnit||"g";
     const grams=unit.toLowerCase()==="g"?item.servingSize:unit.toLowerCase()==="oz"?item.servingSize*28.35:item.servingSize;
@@ -682,34 +723,38 @@ function parseFood(item){
     servings.push({label:label,grams:Math.round(grams)});
   }
 
-  // Additional portions from the database
   (item.foodPortions||[]).forEach(function(p){
     if(!p.gramWeight||p.gramWeight<=0)return;
     const raw=p.portionDescription||(p.measureUnit&&p.measureUnit.name)||"serving";
     const label=cleanLabel(raw,p.gramWeight);
-    // Don't add duplicate gram weights
     if(!servings.find(function(s){return Math.abs(s.grams-p.gramWeight)<2;})){
       servings.push({label:label,grams:Math.round(p.gramWeight)});
     }
   });
 
-  // Always offer 100g as a fallback option
-  if(!servings.find(function(s){return s.grams===100;})){
-    servings.push({label:"100g",grams:100});
+  // If no real serving sizes found (only 100g default), use smart defaults
+  const hasRealServing=servings.some(function(s){return s.grams!==100;});
+  if(!hasRealServing){
+    const smart=getSmartServings(item.description||"");
+    if(smart){
+      return{
+        fdcId:item.fdcId,name:item.description||"",
+        brand:item.brandOwner||item.brandName||"",dataType:item.dataType||"",
+        cal100:getNutrient(n,1008),p100:getNutrient(n,1003),
+        c100:getNutrient(n,1005),f100:getNutrient(n,1004),
+        servings:smart,
+      };
+    }
   }
 
-  // If we still have nothing useful, just use 100g
+  if(!servings.find(function(s){return s.grams===100;}))servings.push({label:"100g",grams:100});
   if(servings.length===0)servings.push({label:"100g",grams:100});
 
   return{
-    fdcId:item.fdcId,
-    name:item.description||"",
-    brand:item.brandOwner||item.brandName||"",
-    dataType:item.dataType||"",
-    cal100:getNutrient(n,1008),
-    p100:getNutrient(n,1003),
-    c100:getNutrient(n,1005),
-    f100:getNutrient(n,1004),
+    fdcId:item.fdcId,name:item.description||"",
+    brand:item.brandOwner||item.brandName||"",dataType:item.dataType||"",
+    cal100:getNutrient(n,1008),p100:getNutrient(n,1003),
+    c100:getNutrient(n,1005),f100:getNutrient(n,1004),
     servings:servings,
   };
 }
@@ -1208,6 +1253,8 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
   return(
     <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div className="sheet">
+        {/* Hidden input absorbs iOS auto-focus so keyboard doesn't pop on open */}
+        <input style={{position:"absolute",opacity:0,height:0,width:0,pointerEvents:"none"}} readOnly tabIndex={-1}/>
         <div className="sheet-handle"/>
         <div className="sheet-title">Add Food</div>
         <div style={{marginBottom:14}}>
