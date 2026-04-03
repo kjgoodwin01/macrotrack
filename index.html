@@ -1362,17 +1362,22 @@ function MealPlanTab({goals, workerUrl, entries, wlog}){
   // Convert kg/g shopping quantities to US measurements
   function convertToUS(qty){
     if(!qty)return qty;
-    const s=String(qty).trim();
-    // Match patterns like "1.5kg", "800g", "1 kg", "200 g"
-    const kgMatch=s.match(/^([\d.]+)\s*kg$/i);
-    const gMatch=s.match(/^([\d.]+)\s*g$/i);
-    if(kgMatch){
-      const lbs=parseFloat(kgMatch[1])*2.205;
-      return lbs>=1?lbs.toFixed(1)+" lbs":Math.round(lbs*16)+" oz";
+    const s=String(qty).trim().toLowerCase();
+    // Check for kg pattern: "1.5kg", "1.5 kg"
+    if(s.indexOf("kg")!==-1){
+      const num=parseFloat(s);
+      if(!isNaN(num)){
+        const lbs=num*2.205;
+        return lbs>=1?lbs.toFixed(1)+" lbs":Math.round(lbs*16)+" oz";
+      }
     }
-    if(gMatch){
-      const oz=parseFloat(gMatch[1])*0.03527;
-      return oz>=16?(oz/16).toFixed(1)+" lbs":oz.toFixed(1)+" oz";
+    // Check for standalone g pattern: "800g", "800 g" — but not "bag" or other words
+    if(s.indexOf(" g")!==-1||(s.length>1&&s[s.length-1]==="g"&&!isNaN(parseFloat(s)))){
+      const num=parseFloat(s);
+      if(!isNaN(num)){
+        const oz=num*0.03527;
+        return oz>=16?(oz/16).toFixed(1)+" lbs":oz.toFixed(1)+" oz";
+      }
     }
     return qty;
   }
@@ -1389,17 +1394,10 @@ function MealPlanTab({goals, workerUrl, entries, wlog}){
     return Object.assign({},p,{shoppingList:newList});
   }
 
-  // Convert existing plan on mount if it has kg values
+    // Convert existing stored plan to US measurements on mount
   useEffect(function(){
     if(plan&&plan.shoppingList){
-      const needsConversion=Object.values(plan.shoppingList).some(function(arr){
-        return (arr||[]).some(function(item){
-          return item.qty&&/\d+\s*(kg|g)/i.test(String(item.qty));
-        });
-      });
-      if(needsConversion){
-        setPlan(convertPlanUnits(plan));
-      }
+      setPlan(convertPlanUnits(plan));
     }
   },[]);
 
