@@ -1352,6 +1352,36 @@ function MealPlanTab({goals, workerUrl}){
   const [days, setDays] = useLocal("mt_mp_days", 5);
   const [plan, setPlan] = useLocal("mt_mp_plan", null);
   const [planDate, setPlanDate] = useLocal("mt_mp_date", "");
+  const [mpGenUsage, setMpGenUsage] = useLocal("mt_mp_usage", {});
+
+  const MP_WEEKLY_LIMIT = 1;
+
+  function getMpGenThisWeek(){
+    const k=getWeekKey();
+    return (mpGenUsage[k]||0);
+  }
+
+  function incrementMpGen(){
+    const k=getWeekKey();
+    setMpGenUsage(function(prev){
+      const n=Object.assign({},prev);
+      n[k]=(n[k]||0)+1;
+      const keys=Object.keys(n).sort();
+      if(keys.length>4)keys.slice(0,keys.length-4).forEach(function(old){delete n[old];});
+      return n;
+    });
+  }
+
+  function getMpResetMessage(){
+    const today=new Date();
+    const mon=getMondayOfWeek(new Date());
+    const nextMon=new Date(mon);
+    nextMon.setDate(nextMon.getDate()+7);
+    const days=Math.ceil((nextMon-today)/(1000*60*60*24));
+    const resetDate=nextMon.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+    if(days===1)return "Your next generation unlocks tomorrow, "+resetDate+".";
+    return "Your next generation unlocks in "+days+" days, on "+resetDate+".";
+  }
   const [prefs, setPrefs] = useLocal("mt_mp_prefs", {
     proteins: [],
     carbs: [],
@@ -1393,6 +1423,7 @@ function MealPlanTab({goals, workerUrl}){
 
   async function generatePlan(){
     if(!workerUrl){setErr("Worker URL not set.");return;}
+    if(getMpGenThisWeek()>=MP_WEEKLY_LIMIT){setErr("LIMIT_REACHED");return;}
     setLoading(true);setErr("");
 
     const goalLabel=goals.goalType==="cut"?"fat loss cutting phase":goals.goalType==="bulk"?"muscle building bulk":"body recomposition maintenance";
@@ -1419,6 +1450,7 @@ function MealPlanTab({goals, workerUrl}){
       setPlanDate(new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}));
       setOpenDays({0:true});
       setChecked({});
+      incrementMpGen();
     }catch(e){
       setErr("Could not generate plan: "+e.message+". Please try again.");
     }
@@ -1506,15 +1538,39 @@ function MealPlanTab({goals, workerUrl}){
           </div>
         )}
 
-        <button className="mp-generate" onClick={generatePlan} disabled={loading}>
-          {loading?"GENERATING YOUR PLAN...":"✦ GENERATE MEAL PLAN"}
-        </button>
-        {loading&&<div style={{display:"flex",alignItems:"center",gap:10,marginTop:14,color:"var(--mu)",fontSize:13}}>
-          <div className="spin"/>
-          <span>Building your {days}-day plan with exact weights...</span>
-        </div>}
-        {err&&<div className="err" style={{marginTop:10}}>{err}</div>}
-        {planDate&&!loading&&<div style={{fontSize:11,color:"var(--mu)",marginTop:10,textAlign:"center"}}>Last generated {planDate} — tap Generate to refresh</div>}
+        {getMpGenThisWeek()>=MP_WEEKLY_LIMIT?(
+          <div style={{background:"linear-gradient(145deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08))",border:"1px solid rgba(99,102,241,0.3)",borderRadius:18,padding:"20px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+              <div style={{fontSize:28}}>🔒</div>
+              <div>
+                <div style={{fontSize:15,fontWeight:700,color:"var(--txt)",marginBottom:2}}>Weekly Limit Reached</div>
+                <div style={{fontSize:12,color:"var(--mu)"}}>Free plan — 1 meal plan per week</div>
+              </div>
+            </div>
+            <div style={{fontSize:13,color:"var(--txt2)",lineHeight:1.65,marginBottom:14}}>
+              You have used your free meal plan generation for this week. {getMpResetMessage()}
+            </div>
+            <div style={{background:"rgba(255,255,255,0.05)",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
+              <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8,fontWeight:700}}>Upgrade to Pro</div>
+              <div style={{fontSize:13,color:"var(--txt2)",lineHeight:1.7}}>
+                Unlock <strong style={{color:"var(--indll)"}}>unlimited meal plan generations</strong>, new plans whenever your preferences change, and priority AI processing.
+              </div>
+            </div>
+            <div style={{fontSize:11,color:"var(--mu)",textAlign:"center"}}>Coming soon — stay tuned for MacroTrack Pro</div>
+          </div>
+        ):(
+          <div>
+            <button className="mp-generate" onClick={generatePlan} disabled={loading}>
+              {loading?"GENERATING YOUR PLAN...":"✦ GENERATE MEAL PLAN"}
+            </button>
+            {loading&&<div style={{display:"flex",alignItems:"center",gap:10,marginTop:14,color:"var(--mu)",fontSize:13}}>
+              <div className="spin"/>
+              <span>Building your {days}-day plan with exact weights...</span>
+            </div>}
+            {err&&err!=="LIMIT_REACHED"&&<div className="err" style={{marginTop:10}}>{err}</div>}
+            {planDate&&!loading&&<div style={{fontSize:11,color:"var(--mu)",marginTop:10,textAlign:"center"}}>Last generated {planDate}</div>}
+          </div>
+        )}
       </div>
 
       {/* Meal Plan */}
