@@ -263,28 +263,92 @@
     .quick-btns{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
     .quick-btn{padding:8px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:22px;font-size:12px;font-weight:500;color:var(--txt2);cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;white-space:nowrap}
     .quick-btn:active{background:rgba(99,102,241,0.15);border-color:var(--ind);color:var(--indll)}
-    .chat-wrap{background:var(--s1);border:1px solid var(--b1);border-radius:20px;overflow:hidden;margin-bottom:14px;display:flex;flex-direction:column}
-    .chat-msgs{padding:16px;display:flex;flex-direction:column;gap:12px;min-height:80px;max-height:420px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    /* ── Chat compact preview ── */
+    .chat-wrap{background:var(--s1);border:1px solid var(--b1);border-radius:20px;overflow:hidden;margin-bottom:14px}
+    .chat-preview{padding:16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:background 0.15s}
+    .chat-preview:active{background:var(--s2)}
+    .chat-preview-left{display:flex;align-items:center;gap:12px}
+    .chat-preview-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--ind),var(--vio));display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .chat-preview-text{font-size:13px;color:var(--txt2);line-height:1.5}
+    .chat-preview-title{font-size:14px;font-weight:600;color:var(--txt);margin-bottom:2px}
+    .chat-preview-arrow{color:var(--mu);font-size:18px;flex-shrink:0}
+
+    /* ── Chat fullscreen overlay ── */
+    .chat-fullscreen{
+      position:fixed;inset:0;z-index:400;
+      background:var(--bg);
+      display:flex;flex-direction:column;
+      max-width:430px;margin:0 auto;
+      animation:slideUp 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .chat-fs-header{
+      display:flex;align-items:center;gap:12px;
+      padding:calc(var(--st) + 8px) 16px 12px;
+      border-bottom:1px solid var(--b1);
+      background:var(--s1);flex-shrink:0;
+    }
+    .chat-fs-back{
+      width:36px;height:36px;border-radius:50%;
+      background:var(--s2);border:none;
+      color:var(--txt);font-size:18px;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    }
+    .chat-fs-title{font-size:16px;font-weight:600;color:var(--txt);flex:1}
+    .chat-fs-sub{font-size:11px;color:var(--mu)}
+    .chat-fs-usage{font-size:11px;color:var(--mu);text-align:right;flex-shrink:0}
+
+    /* ── Messages ── */
+    .chat-msgs{
+      flex:1;overflow-y:auto;padding:16px;
+      display:flex;flex-direction:column;gap:12px;
+      -webkit-overflow-scrolling:touch;
+    }
     .chat-msgs::-webkit-scrollbar{display:none}
     .msg{display:flex;flex-direction:column;gap:3px}
     .msg.user{align-items:flex-end}
     .msg.ai{align-items:flex-start}
-    .msg-bubble{padding:10px 14px;border-radius:18px;max-width:86%;font-size:13px;line-height:1.6}
+    .msg-bubble{padding:11px 15px;border-radius:18px;max-width:88%;font-size:14px;line-height:1.65;word-break:break-word}
     .msg.user .msg-bubble{background:var(--ind);color:#fff;border-radius:18px 18px 4px 18px}
-    .msg.ai .msg-bubble{background:var(--s2);color:var(--txt2);border-radius:18px 18px 18px 4px;border:1px solid var(--b1)}
+    .msg.ai .msg-bubble{background:var(--s1);color:var(--txt2);border-radius:18px 18px 18px 4px;border:1px solid var(--b1)}
     .msg.ai .msg-bubble strong{color:var(--txt)}
     .msg-time{font-size:10px;color:var(--mu);padding:0 4px}
-    .chat-input-row{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--b1);background:var(--s1)}
-    .chat-input{flex:1;padding:10px 14px;background:rgba(255,255,255,0.05);border:1px solid var(--b1);border-radius:24px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s;resize:none;max-height:100px;line-height:1.4}
-    .chat-input:focus{border-color:var(--ind)}
-    .chat-send{width:40px;height:40px;border-radius:50%;background:var(--ind);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform 0.15s,background 0.15s;align-self:flex-end}
-    .chat-send:active{transform:scale(0.92);background:var(--vio)}
-    .chat-send:disabled{opacity:0.35;cursor:not-allowed;transform:none}
-    .typing-bubble{display:flex;align-items:center;gap:4px;padding:10px 14px}
+
+    /* ── Input row ── */
+    .chat-input-row{
+      display:flex;align-items:flex-end;gap:8px;
+      padding:10px 14px calc(var(--sb) + 12px);
+      border-top:1px solid var(--b1);
+      background:var(--s1);flex-shrink:0;
+    }
+    .chat-input{
+      flex:1;padding:11px 16px;
+      background:var(--s2);
+      border:1px solid var(--b1);
+      border-radius:22px;color:var(--txt);
+      font-family:'DM Sans',sans-serif;font-size:15px;
+      outline:none;transition:border-color 0.2s;
+      resize:none;max-height:120px;line-height:1.5;
+    }
+    .chat-input:focus{border-color:rgba(99,102,241,0.5)}
+    .chat-send{
+      width:38px;height:38px;border-radius:50%;
+      background:var(--ind);border:none;color:#fff;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;transition:transform 0.15s,opacity 0.15s;
+      margin-bottom:1px;
+    }
+    .chat-send svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+    .chat-send:active{transform:scale(0.9)}
+    .chat-send:disabled{opacity:0.3;cursor:not-allowed;transform:none}
+
+    /* ── Typing indicator ── */
+    .typing-bubble{display:flex;align-items:center;gap:4px;padding:11px 15px}
     .typing-dot{width:7px;height:7px;border-radius:50%;background:var(--mu);animation:tdot 1.2s ease-in-out infinite}
     .typing-dot:nth-child(2){animation-delay:0.2s}
     .typing-dot:nth-child(3){animation-delay:0.4s}
     @keyframes tdot{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}
+
     .no-worker-coach{background:linear-gradient(145deg,#0d0d24,#111130);border:1px solid rgba(99,102,241,0.25);border-radius:20px;padding:24px;text-align:center;margin-bottom:14px}
     .no-worker-icon{font-size:44px;margin-bottom:12px}
     .no-worker-title{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--indll);letter-spacing:1px;margin-bottom:8px}
@@ -2096,7 +2160,19 @@ function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit,re
   const [msgs,setMsgs]=useLocal("mt_coach_msgs",[]);
   const [input,setInput]=useState("");
   const [aiTyping,setAiTyping]=useState(false);
+  const [chatOpen,setChatOpen]=useState(false);
   const msgsEndRef=useRef(null);
+  const inputRef=useRef(null);
+
+  // When chat opens, scroll to bottom and focus input
+  useEffect(function(){
+    if(chatOpen){
+      setTimeout(function(){
+        if(msgsEndRef.current)msgsEndRef.current.scrollIntoView({behavior:"smooth"});
+        if(inputRef.current)inputRef.current.focus();
+      },300);
+    }
+  },[chatOpen]);
 
   function buildContext(){
     const today=todayISO();
@@ -2394,47 +2470,92 @@ function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit,re
         </div>
       )}
       <div className="chat-wrap">
-        <div className="chat-msgs">
-          {msgs.length===0&&(
-            <div style={{textAlign:"center",padding:"16px 0"}}>
-              <div style={{fontSize:28,marginBottom:8}}>👋</div>
-              <div style={{fontSize:13,color:"var(--mu)",lineHeight:1.6}}>Ask me anything about your nutrition, progress, or training. I have full access to your data.</div>
-            </div>
-          )}
-          {msgs.map(function(m,i){
-            return (
-              <div key={i} className={"msg "+(m.role==="user"?"user":"ai")}>
-                <div className="msg-bubble">{m.text}</div>
-                {m.time&&<div className="msg-time">{m.time}</div>}
-              </div>
-            );
-          })}
-          {aiTyping&&(
-            <div className="msg ai">
-              <div className="msg-bubble" style={{padding:"10px 16px"}}>
-                <div className="typing-bubble">
-                  <div className="typing-dot"/>
-                  <div className="typing-dot"/>
-                  <div className="typing-dot"/>
-                </div>
+        {/* Preview tap target — opens full screen */}
+        <div className="chat-preview" onClick={function(){setChatOpen(true);}}>
+          <div className="chat-preview-left">
+            <div className="chat-preview-avatar">🧠</div>
+            <div>
+              <div className="chat-preview-title">AI Coach</div>
+              <div className="chat-preview-text">
+                {msgs.length>0
+                  ?msgs[msgs.length-1].text.slice(0,60)+(msgs[msgs.length-1].text.length>60?"...":"")
+                  :"Ask me anything about your nutrition, goals, or progress"}
               </div>
             </div>
-          )}
-          <div ref={msgsEndRef}/>
-        </div>
-        <div style={{display:"flex",justifyContent:"flex-end",padding:"4px 14px 0",background:"var(--s1)"}}>
-        <span style={{fontSize:10,color:aiUsageToday>=aiLimit*0.8?"var(--rosel)":"var(--mu)",fontFamily:"'JetBrains Mono',monospace"}}>
-          {aiUsageToday}/{aiLimit} this week
-        </span>
-      </div>
-      <div className="chat-input-row">
-          <textarea className="chat-input" placeholder="Ask your coach..." value={input} onChange={function(e){setInput(e.target.value);}} onKeyDown={handleKey} rows={1}/>
-          <button className="chat-send" onClick={function(){sendMessage(input);}} disabled={!input.trim()||aiTyping||aiUsageToday>=aiLimit}>Send</button>
+          </div>
+          <div className="chat-preview-arrow">›</div>
         </div>
       </div>
 
-      {msgs.length>0&&(
-        <button className="btn-ghost" style={{fontSize:12,color:"var(--mu)"}} onClick={function(){if(window.confirm("Clear chat history?"))setMsgs([]);}}>
+      {/* Full-screen chat overlay */}
+      {chatOpen&&(
+        <div className="chat-fullscreen">
+          {/* Header */}
+          <div className="chat-fs-header">
+            <button className="chat-fs-back" onClick={function(){setChatOpen(false);}}>‹</button>
+            <div style={{flex:1}}>
+              <div className="chat-fs-title">AI Coach</div>
+              <div className="chat-fs-sub">Full access to your data</div>
+            </div>
+            <div className="chat-fs-usage" style={{color:aiUsageToday>=aiLimit*0.8?"var(--rosel)":"var(--mu)"}}>
+              {aiUsageToday}/{aiLimit} this week
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="chat-msgs">
+            {msgs.length===0&&(
+              <div style={{textAlign:"center",padding:"40px 20px"}}>
+                <div style={{fontSize:44,marginBottom:14}}>🧠</div>
+                <div style={{fontSize:16,fontWeight:600,color:"var(--txt)",marginBottom:8}}>Your AI Nutrition Coach</div>
+                <div style={{fontSize:14,color:"var(--mu)",lineHeight:1.7}}>I have full access to your logs, weight history, and goals. Ask me anything.</div>
+              </div>
+            )}
+            {msgs.map(function(m,i){
+              return(
+                <div key={i} className={"msg "+(m.role==="user"?"user":"ai")}>
+                  <div className="msg-bubble">{m.text}</div>
+                  {m.time&&<div className="msg-time">{m.time}</div>}
+                </div>
+              );
+            })}
+            {aiTyping&&(
+              <div className="msg ai">
+                <div className="msg-bubble" style={{padding:"11px 16px"}}>
+                  <div className="typing-bubble">
+                    <div className="typing-dot"/>
+                    <div className="typing-dot"/>
+                    <div className="typing-dot"/>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={msgsEndRef}/>
+          </div>
+
+          {/* Input row */}
+          <div className="chat-input-row">
+            <textarea
+              ref={inputRef}
+              className="chat-input"
+              placeholder="Ask your coach..."
+              value={input}
+              onChange={function(e){setInput(e.target.value);}}
+              onKeyDown={handleKey}
+              rows={1}/>
+            <button
+              className="chat-send"
+              onClick={function(){sendMessage(input);}}
+              disabled={!input.trim()||aiTyping||aiUsageToday>=aiLimit}>
+              <svg viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Clear conversation — only show outside full screen */}
+      {msgs.length>0&&!chatOpen&&(
+        <button className="btn-ghost" style={{fontSize:12,color:"var(--mu)",marginBottom:8}} onClick={function(){if(window.confirm("Clear chat history?"))setMsgs([]);}}>
           Clear conversation
         </button>
       )}
