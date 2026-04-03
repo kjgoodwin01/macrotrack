@@ -131,9 +131,14 @@
     .nav-btn.active .nav-icon{transform:translateY(-2px)}
 
     /* Modal */
-    .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fdin 0.2s ease}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding-bottom:env(keyboard-inset-height,0px);animation:fdin 0.2s ease}
     @keyframes fdin{from{opacity:0}to{opacity:1}}
-    .sheet{background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;width:100%;max-width:430px;max-height:94vh;overflow-y:auto;padding:20px 18px calc(var(--sb) + 30px);-webkit-overflow-scrolling:touch;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    .sheet{background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;width:100%;max-width:430px;
+      max-height:92dvh;max-height:92vh;
+      overflow-y:auto;overflow-x:hidden;
+      padding:20px 18px calc(var(--sb) + 30px);
+      -webkit-overflow-scrolling:touch;
+      animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
     @keyframes sup{from{transform:translateY(100%)}to{transform:translateY(0)}}
     .sheet-handle{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 20px}
     .sheet-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;margin-bottom:18px}
@@ -458,6 +463,15 @@
     .qty-unit{font-size:12px;color:var(--mu);text-align:center;margin-top:-8px;margin-bottom:14px}
     .custom-gram-row{display:flex;align-items:center;gap:8px;margin-bottom:16px}
     .custom-gram-row .field{flex:1;text-align:center;font-size:16px}
+
+    /* iOS keyboard handling */
+    @supports (height: 100dvh) {
+      .sheet { max-height: 92dvh; }
+    }
+    /* When virtual keyboard is shown, sheet should scroll */
+    .sheet:focus-within {
+      max-height: 60vh;
+    }
   </style>
 </head>
 <body>
