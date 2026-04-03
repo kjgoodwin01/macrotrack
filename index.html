@@ -2270,10 +2270,19 @@ function App(){
   const [accessDenied,setAccessDenied]=useState(false);
   const [accessChecked,setAccessChecked]=useState(false);
 
-  // Check access on every app open — logs device ID for debugging
+  // Check access on every app open — silent background check
   useEffect(function(){
-    console.log("MacroTrack Device ID:", DEVICE_ID);
-    setAccessChecked(true); // Temporarily bypassed while fixing device ID mapping
+    if(!onboarded){setAccessChecked(true);return;}
+    fetch(DEFAULT_WORKER_URL,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({type:"check_access",deviceId:DEVICE_ID}),
+    }).then(function(r){return r.json();}).then(function(d){
+      if(d.allowed===false){setAccessDenied(true);}
+      setAccessChecked(true);
+    }).catch(function(){
+      // On network error, allow access — don't punish for bad connection
+      setAccessChecked(true);
+    });
   },[onboarded]);
 
   // DEBUG: log device ID to console so it can be found easily
