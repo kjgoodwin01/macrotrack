@@ -465,6 +465,11 @@ function getWeekDates(monday){
 function fmtDate(d){return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});}
 function fmtShort(d){return d.toLocaleDateString("en-US",{month:"short",day:"numeric"});}
 
+/* ── Week key helper — global so all components can access it ── */
+function getWeekKey(){
+  return isoDate(getMondayOfWeek(new Date()));
+}
+
 /* ── localStorage persistence ── */
 // Robust save with verification and retry
 function lsSave(key,val){
@@ -1348,7 +1353,7 @@ function Onboarding({onComplete}){
 
 
 /* ── Meal Plan Tab ── */
-function MealPlanTab({goals, workerUrl}){
+function MealPlanTab({goals, workerUrl, entries, wlog}){
   const [days, setDays] = useLocal("mt_mp_days", 5);
   const [plan, setPlan] = useLocal("mt_mp_plan", null);
   const [planDate, setPlanDate] = useLocal("mt_mp_date", "");
@@ -1387,6 +1392,7 @@ function MealPlanTab({goals, workerUrl}){
     carbs: [],
     fats: [],
     restrictions: [],
+    cookingSkill: "intermediate",
     custom: "",
   });
   const [showPrefs, setShowPrefs] = useState(false);
@@ -1410,12 +1416,46 @@ function MealPlanTab({goals, workerUrl}){
 
   function buildPrefsText(){
     const parts = [];
+    // Cooking skill
+    const skillMap = {
+      beginner: "beginner cook — keep recipes very simple, minimal ingredients, basic techniques only (boiling, grilling, microwave)",
+      intermediate: "intermediate cook — comfortable with standard meal prep techniques",
+      advanced: "advanced cook — enjoys complex recipes, varied cooking methods, bold flavors"
+    };
+    parts.push("Cooking skill: " + (skillMap[prefs.cookingSkill||"intermediate"]));
+
     if(prefs.proteins && prefs.proteins.length) parts.push("Preferred proteins: " + prefs.proteins.join(", "));
     if(prefs.carbs && prefs.carbs.length) parts.push("Preferred carbs: " + prefs.carbs.join(", "));
     if(prefs.fats && prefs.fats.length) parts.push("Preferred fats: " + prefs.fats.join(", "));
     if(prefs.restrictions && prefs.restrictions.length) parts.push("Dietary restrictions: " + prefs.restrictions.join(", "));
     if(prefs.custom && prefs.custom.trim()) parts.push("Additional notes: " + prefs.custom.trim());
-    return parts.length ? parts.join(". ") : "";
+    return parts.join(". ");
+  }
+
+  function buildMealPlanContext(){
+    // Build rich context from user data — same approach as CoachTab
+    const today = todayISO();
+    const sortedW = (wlog||[]).slice().sort(function(a,b){return a.date.localeCompare(b.date);});
+    const latestWeight = sortedW.length > 0 ? sortedW[sortedW.length-1].weight : null;
+    const toGo = latestWeight && goals.targetWeight
+      ? Math.abs(latestWeight - goals.targetWeight).toFixed(1) + " lbs " + (goals.goalType==="cut"?"to lose":"to gain")
+      : "unknown";
+
+    // Last 7 days of food logs to avoid repetition
+    const recentFoods = [];
+    for(let i=0;i<7;i++){
+      const d = new Date(); d.setDate(d.getDate()-i);
+      const k = isoDate(d);
+      const dayE = (entries||{})[k]||[];
+      dayE.forEach(function(e){ if(recentFoods.indexOf(e.name)===-1) recentFoods.push(e.name); });
+    }
+
+    return "USER CONTEXT FOR MEAL PLANNING:\n" +
+      "Goal: " + (goals.goalType==="cut"?"Fat loss cut":goals.goalType==="bulk"?"Muscle building bulk":"Body recomposition") + "\n" +
+      "Current weight: " + (latestWeight ? latestWeight + " lbs" : "unknown") + "\n" +
+      "Target weight: " + (goals.targetWeight ? goals.targetWeight + " lbs (" + toGo + ")" : "not set") + "\n" +
+      "Daily targets: " + goals.calories + " kcal | " + goals.protein + "g protein | " + goals.carbs + "g carbs | " + goals.fat + "g fat\n" +
+      "Foods eaten recently (avoid repeating these too often): " + (recentFoods.length ? recentFoods.slice(0,20).join(", ") : "none logged yet") + "\n";
   }
 
   function toggleDay(d){ setOpenDays(function(p){return Object.assign({},p,{[d]:!p[d]});}); }
@@ -1440,6 +1480,7 @@ function MealPlanTab({goals, workerUrl}){
           fat:goals.fat,
           goalType:goalLabel,
           preferences:buildPrefsText(),
+          context:buildMealPlanContext(),
         })
       });
       if(!r.ok)throw new Error("Worker returned "+r.status);
@@ -1518,6 +1559,23 @@ function MealPlanTab({goals, workerUrl}){
                   style={{padding:"5px 10px",borderRadius:20,border:"1px solid "+(active?"var(--rose)":"var(--b1)"),
                     background:active?"rgba(244,63,94,0.12)":"transparent",
                     color:active?"var(--rosel)":"var(--mu)",fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>{r}</button>;
+              })}
+            </div>
+
+            <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:8,fontWeight:600}}>Cooking Skill Level</div>
+            <div style={{display:"flex",gap:6,marginBottom:14}}>
+              {[["beginner","Beginner","Simple & quick"],["intermediate","Intermediate","Standard prep"],["advanced","Advanced","Complex & varied"]].map(function(opt){
+                const active=(prefs.cookingSkill||"intermediate")===opt[0];
+                return(
+                  <button key={opt[0]} onClick={function(){setPrefs(function(p){return Object.assign({},p,{cookingSkill:opt[0]});});}}
+                    style={{flex:1,padding:"10px 6px",borderRadius:12,
+                      border:"1px solid "+(active?"var(--indl)":"var(--b1)"),
+                      background:active?"rgba(99,102,241,0.15)":"transparent",
+                      cursor:"pointer",fontFamily:"'DM Sans',sans-serif",textAlign:"center"}}>
+                    <div style={{fontSize:13,fontWeight:600,color:active?"var(--indll)":"var(--txt2)",marginBottom:2}}>{opt[1]}</div>
+                    <div style={{fontSize:10,color:"var(--mu)"}}>{opt[2]}</div>
+                  </button>
+                );
               })}
             </div>
 
@@ -2231,11 +2289,7 @@ function App(){
   // Rate limiting — 20 AI messages per day per user
   const AI_WEEKLY_LIMIT = 20;
 
-  // Get the Monday of the current week as the week key
-  function getWeekKey(){
-    const mon=getMondayOfWeek(new Date());
-    return isoDate(mon);
-  }
+  // getWeekKey() is defined globally
 
   function getAiUsageThisWeek(){
     const k=getWeekKey();
@@ -2421,7 +2475,7 @@ function App(){
       {/* MEALS TAB */}
       {tab==="meals"&&<div className="page">
         <div style={{height:12}}/>
-        <MealPlanTab goals={goals} workerUrl={workerUrl}/>
+        <MealPlanTab goals={goals} workerUrl={workerUrl} entries={entries} wlog={wlog}/>
       </div>}
 
       {/* GOALS TAB */}
