@@ -2270,20 +2270,16 @@ function App(){
   const [accessDenied,setAccessDenied]=useState(false);
   const [accessChecked,setAccessChecked]=useState(false);
 
-  // Check access on every app open — silent background check
+  // Check access on every app open — logs device ID for debugging
   useEffect(function(){
-    if(!onboarded){setAccessChecked(true);return;}
-    fetch(DEFAULT_WORKER_URL,{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({type:"check_access",deviceId:DEVICE_ID}),
-    }).then(function(r){return r.json();}).then(function(d){
-      if(d.allowed===false){setAccessDenied(true);}
-      setAccessChecked(true);
-    }).catch(function(){
-      // On network error, allow access — don't punish for bad connection
-      setAccessChecked(true);
-    });
+    console.log("MacroTrack Device ID:", DEVICE_ID);
+    setAccessChecked(true); // Temporarily bypassed while fixing device ID mapping
   },[onboarded]);
+
+  // DEBUG: log device ID to console so it can be found easily
+  useEffect(function(){
+    console.log("MacroTrack Device ID:", DEVICE_ID);
+  },[]);
   const [theme,setThemeRaw]=useLocal("mt_theme","dark");
   const [settingsOpen,setSettingsOpen]=useState(false);
 
@@ -2696,6 +2692,7 @@ function App(){
         <div className="scard">
           <div className="stitle">About</div>
           <div className="muted-t">MacroTrack uses the Claude API for AI photo scanning and the USDA FoodData Central API for food search — both called directly from your device. Built as a free alternative to MacroFactor.</div>
+          <div style={{marginTop:10,fontSize:11,color:"var(--mu)",fontFamily:"'JetBrains Mono',monospace",wordBreak:"break-all"}}>Device ID: {DEVICE_ID}</div>
         </div>
       </div>}
 
