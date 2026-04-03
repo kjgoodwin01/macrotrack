@@ -277,9 +277,10 @@
     .chat-fullscreen{
       position:fixed;
       top:0;left:0;right:0;bottom:0;
-      z-index:400;
+      z-index:1000;
       background:var(--bg);
       display:flex;flex-direction:column;
+      width:100%;
       max-width:430px;margin:0 auto;
       overflow:hidden;
       animation:slideUp 0.3s cubic-bezier(0.4,0,0.2,1);
@@ -2508,7 +2509,7 @@ function CoachTab({goals,entries,wlog,workerUrl,aiUsageToday,onAiCall,aiLimit,re
           </div>
         </div>
       )}
-      <div className="chat-wrap">
+      <div className="chat-wrap" style={{position:"relative"}}>
         {/* Preview tap target — opens full screen */}
         <div className="chat-preview" onClick={function(){setChatOpen(true);}}>
           <div className="chat-preview-left">
