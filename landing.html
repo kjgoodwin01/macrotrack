@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MacroTrack — AI Nutrition Coach</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #08080f;
+      --s1: #0d0d1a;
+      --s2: #111128;
+      --ind: #6366f1;
+      --vio: #8b5cf6;
+      --em: #10b981;
+      --rose: #f43f5e;
+      --txt: #f0f0fa;
+      --txt2: #a0a0c0;
+      --mu: #5a5a7a;
+      --glow: rgba(99,102,241,0.25);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--txt);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── NOISE TEXTURE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* ── AMBIENT GLOWS ── */
+    .glow-1 {
+      position: fixed;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
+      top: -200px; left: -200px;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .glow-2 {
+      position: fixed;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%);
+      bottom: -100px; right: -100px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(8,8,15,0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .nav-logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 24px;
+      letter-spacing: 3px;
+      color: var(--txt);
+    }
+    .nav-logo em { color: var(--ind); font-style: normal; }
+
+    .nav-badge {
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 11px;
+      color: var(--ind);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.25);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 12px;
+      color: var(--em);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 32px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .hero-eyebrow::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--em);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .hero-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(64px, 12vw, 140px);
+      line-height: 0.9;
+      letter-spacing: 4px;
+      margin-bottom: 28px;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .hero-title .line1 { display: block; color: var(--txt); }
+    .hero-title .line2 {
+      display: block;
+      background: linear-gradient(135deg, var(--ind), var(--vio));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: clamp(16px, 2.5vw, 20px);
+      color: var(--txt2);
+      max-width: 560px;
+      line-height: 1.7;
+      font-weight: 300;
+      margin-bottom: 48px;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    .hero-sub strong { color: var(--txt); font-weight: 500; }
+
+    /* ── SIGNUP FORM ── */
+    .signup-card {
+      background: var(--s1);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 24px;
+      padding: 36px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 0 80px rgba(99,102,241,0.08);
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .signup-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px;
+      letter-spacing: 2px;
+      color: var(--txt);
+      margin-bottom: 6px;
+    }
+    .signup-sub {
+      font-size: 13px;
+      color: var(--mu);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .field {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 14px 16px;
+      color: var(--txt);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      outline: none;
+      margin-bottom: 12px;
+      transition: border-color 0.2s;
+    }
+    .field:focus { border-color: rgba(99,102,241,0.5); }
+    .field::placeholder { color: var(--mu); }
+
+    textarea.field {
+      resize: none;
+      min-height: 80px;
+      line-height: 1.5;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--ind), var(--vio));
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 18px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      box-shadow: 0 4px 30px var(--glow);
+      transition: transform 0.15s, box-shadow 0.15s;
+      margin-top: 4px;
+    }
+    .btn-submit:hover { transform: translateY(-1px); box-shadow: 0 8px 40px var(--glow); }
+    .btn-submit:active { transform: translateY(0); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .form-note {
+      font-size: 11px;
+      color: var(--mu);
+      text-align: center;
+      margin-top: 12px;
+      line-height: 1.6;
+    }
+
+    .success-state {
+      text-align: center;
+      padding: 20px 0;
+      display: none;
+    }
+    .success-icon { font-size: 48px; margin-bottom: 14px; }
+    .success-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 26px;
+      letter-spacing: 2px;
+      color: var(--em);
+      margin-bottom: 8px;
+    }
+    .success-sub { font-size: 14px; color: var(--txt2); line-height: 1.7; }
+
+    .err-msg {
+      background: rgba(244,63,94,0.1);
+      border: 1px solid rgba(244,63,94,0.25);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #fb7185;
+      margin-top: 10px;
+      display: none;
+    }
+
+    /* ── FEATURES ── */
+    .features {
+      position: relative;
+      z-index: 1;
+      padding: 100px 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 11px;
+      color: var(--ind);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(36px, 6vw, 64px);
+      letter-spacing: 2px;
+      text-align: center;
+      margin-bottom: 60px;
+      line-height: 1;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: var(--s1);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px;
+      padding: 28px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .feature-card:hover {
+      border-color: rgba(99,102,241,0.3);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon {
+      font-size: 32px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .feature-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      letter-spacing: 1px;
+      color: var(--txt);
+      margin-bottom: 8px;
+    }
+
+    .feature-desc {
+      font-size: 14px;
+      color: var(--txt2);
+      line-height: 1.7;
+      font-weight: 300;
+    }
+
+    /* ── STATS ── */
+    .stats {
+      position: relative;
+      z-index: 1;
+      background: var(--s1);
+      border-top: 1px solid rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding: 60px 24px;
+    }
+
+    .stats-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 40px;
+      text-align: center;
+    }
+
+    .stat-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 56px;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, var(--ind), var(--vio));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: var(--mu);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .how {
+      position: relative;
+      z-index: 1;
+      padding: 100px 24px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .step {
+      display: flex;
+      gap: 24px;
+      position: relative;
+    }
+
+    .step-left {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .step-num {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--ind), var(--vio));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      color: #fff;
+      flex-shrink: 0;
+      box-shadow: 0 4px 20px var(--glow);
+    }
+
+    .step-line {
+      width: 2px;
+      flex: 1;
+      background: linear-gradient(to bottom, rgba(99,102,241,0.4), transparent);
+      margin: 8px 0;
+      min-height: 40px;
+    }
+
+    .step:last-child .step-line { display: none; }
+
+    .step-content {
+      padding: 4px 0 40px;
+    }
+
+    .step-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px;
+      letter-spacing: 1px;
+      color: var(--txt);
+      margin-bottom: 6px;
+    }
+
+    .step-desc {
+      font-size: 14px;
+      color: var(--txt2);
+      line-height: 1.7;
+      font-weight: 300;
+    }
+
+    /* ── CTA BOTTOM ── */
+    .cta-bottom {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 100px 24px;
+      background: linear-gradient(to bottom, transparent, rgba(99,102,241,0.05), transparent);
+    }
+
+    .cta-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(40px, 8vw, 80px);
+      letter-spacing: 3px;
+      margin-bottom: 16px;
+      line-height: 1;
+    }
+
+    .cta-sub {
+      font-size: 16px;
+      color: var(--txt2);
+      margin-bottom: 36px;
+      font-weight: 300;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative;
+      z-index: 1;
+      padding: 40px 24px;
+      text-align: center;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    footer p {
+      font-size: 12px;
+      color: var(--mu);
+      line-height: 1.8;
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      nav { padding: 16px 20px; }
+      .stats-inner { grid-template-columns: 1fr; gap: 30px; }
+      .signup-card { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-1"></div>
+  <div class="glow-2"></div>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo"><em>MACRO</em>TRACK</div>
+    <div class="nav-badge">Private Beta</div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-eyebrow">Now accepting beta applications</div>
+    <h1 class="hero-title">
+      <span class="line1">Your Personal</span>
+      <span class="line2">Nutrition Coach</span>
+    </h1>
+    <p class="hero-sub">
+      MacroTrack is the only nutrition app with an AI coach that <strong>actually reads your data</strong> — your weight trend, your food logs, your goals — and gives you real, specific advice. Not generic tips. Your numbers.
+    </p>
+
+    <!-- SIGNUP FORM -->
+    <div class="signup-card">
+      <div class="signup-title">Join the Waitlist</div>
+      <div class="signup-sub">Limited beta spots available. Be first to get access when we open up.</div>
+
+      <div id="formState">
+        <input class="field" id="nameInput" type="text" placeholder="Your first name" maxlength="50"/>
+        <input class="field" id="emailInput" type="email" placeholder="Your email address"/>
+        <textarea class="field" id="reasonInput" placeholder="Why do you want access? (optional)" maxlength="300"></textarea>
+        <button class="btn-submit" id="submitBtn" onclick="submitWaitlist()">REQUEST EARLY ACCESS</button>
+        <div class="err-msg" id="errMsg"></div>
+        <p class="form-note">No spam, ever. You'll only hear from us when your spot is ready.</p>
+      </div>
+
+      <div class="success-state" id="successState">
+        <div class="success-icon">✅</div>
+        <div class="success-title">You're on the list!</div>
+        <div class="success-sub">We'll email you personally when your invite is ready. Keep an eye on your inbox — spots are limited and go fast.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="stats">
+    <div class="stats-inner">
+      <div>
+        <div class="stat-num">600K+</div>
+        <div class="stat-label">Foods in Database</div>
+      </div>
+      <div>
+        <div class="stat-num">AI</div>
+        <div class="stat-label">Powered by Claude</div>
+      </div>
+      <div>
+        <div class="stat-num">Free</div>
+        <div class="stat-label">Beta Access</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features">
+    <div class="section-label">What makes it different</div>
+    <h2 class="section-title">Built for people who are serious</h2>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <span class="feature-icon">🧠</span>
+        <div class="feature-title">AI Coach That Knows You</div>
+        <div class="feature-desc">Every week your coach analyzes your actual logs, weight trend, and adherence. It tells you exactly what to change and why — with your real numbers, not generic advice.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📊</span>
+        <div class="feature-title">Adaptive Calorie Engine</div>
+        <div class="feature-desc">Track your weight for a week and the engine figures out your real metabolism — then adjusts your targets automatically to keep you on track toward your goal.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📷</span>
+        <div class="feature-title">Photo Logging</div>
+        <div class="feature-desc">Take a photo of your meal and AI identifies the dish and estimates the macros instantly. No searching, no manual entry for everyday meals.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🥗</span>
+        <div class="feature-title">Personalized Meal Plans</div>
+        <div class="feature-desc">Get a full week of meals with exact gram weights for every ingredient — built around your targets, your food preferences, and your cooking skill level.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🛒</span>
+        <div class="feature-title">Auto Shopping List</div>
+        <div class="feature-desc">Every meal plan comes with a complete shopping list calculated from the actual gram totals in your plan — in US measurements, organized by category.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">⚡</span>
+        <div class="feature-title">Instant Barcode Scan</div>
+        <div class="feature-desc">Point your camera at any barcode and the food logs instantly. Works on 600,000+ products including all major US brands.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="how">
+    <div class="section-label">How it works</div>
+    <h2 class="section-title" style="text-align:center;margin-bottom:60px;">Simple by design</h2>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">1</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Tell us your goal</div>
+          <div class="step-desc">Enter your stats and goal — cut, bulk, or maintain. We calculate your exact calorie and macro targets using your body weight, height, age, activity level, and goal rate.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">2</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Log your food daily</div>
+          <div class="step-desc">Search 600K+ foods, scan barcodes, take photos, or enter manually. Takes under 30 seconds per meal once you're in the habit.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">3</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Your coach analyzes the week</div>
+          <div class="step-desc">Every Sunday your AI coach reviews your entire week — weight trend, calorie adherence, protein consistency — and tells you exactly what to adjust going into next week.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-left">
+          <div class="step-num">4</div>
+          <div class="step-line"></div>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Get your meal prep plan</div>
+          <div class="step-desc">Generate a personalized meal plan with exact weights for every ingredient. Print the shopping list, batch cook on Sunday, and your whole week is handled.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA BOTTOM -->
+  <section class="cta-bottom">
+    <h2 class="cta-title">Ready to actually<br/>hit your goals?</h2>
+    <p class="cta-sub">Join the waitlist. Limited beta spots available.</p>
+    <button class="btn-submit" style="max-width:280px;margin:0 auto;display:block;" onclick="document.querySelector('.signup-card').scrollIntoView({behavior:'smooth'})">
+      GET EARLY ACCESS
+    </button>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>MacroTrack — Private Beta © 2026<br/>
+    Questions? <a href="mailto:kjgoodwin01@gmail.com" style="color:var(--ind);text-decoration:none;">kjgoodwin01@gmail.com</a></p>
+  </footer>
+
+  <script>
+    const WORKER_URL = "https://macrotrack-ai.kjgoodwin01.workers.dev";
+
+    async function submitWaitlist(){
+      const name = document.getElementById("nameInput").value.trim();
+      const email = document.getElementById("emailInput").value.trim();
+      const reason = document.getElementById("reasonInput").value.trim();
+      const errMsg = document.getElementById("errMsg");
+      const btn = document.getElementById("submitBtn");
+
+      errMsg.style.display = "none";
+
+      if(!name){ showErr("Please enter your first name."); return; }
+      if(!email || !email.includes("@")){ showErr("Please enter a valid email address."); return; }
+
+      btn.disabled = true;
+      btn.textContent = "SUBMITTING...";
+
+      try{
+        const r = await fetch(WORKER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "waitlist_join", name, email, reason }),
+        });
+        const d = await r.json();
+        if(d.ok){
+          document.getElementById("formState").style.display = "none";
+          document.getElementById("successState").style.display = "block";
+        } else if(d.error === "already_exists"){
+          showErr("That email is already on the waitlist. We'll be in touch soon!");
+          btn.disabled = false;
+          btn.textContent = "REQUEST EARLY ACCESS";
+        } else {
+          showErr("Something went wrong. Please try again.");
+          btn.disabled = false;
+          btn.textContent = "REQUEST EARLY ACCESS";
+        }
+      } catch(e){
+        showErr("Connection error. Please try again.");
+        btn.disabled = false;
+        btn.textContent = "REQUEST EARLY ACCESS";
+      }
+    }
+
+    function showErr(msg){
+      const el = document.getElementById("errMsg");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    // Allow Enter key on inputs
+    document.addEventListener("keydown", function(e){
+      if(e.key === "Enter" && (e.target.id === "nameInput" || e.target.id === "emailInput")){
+        submitWaitlist();
+      }
+    });
+  </script>
+</body>
+</html>
