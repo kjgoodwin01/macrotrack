@@ -356,6 +356,40 @@
     .theme-btn.active .theme-btn-label{color:var(--ind)}
     .settings-gear{background:none;border:none;cursor:pointer;padding:4px;color:var(--mu);font-size:20px;transition:color 0.15s;line-height:1}
     .settings-gear:active{color:var(--indl)}
+
+    /* Meal Plan tab */
+    .mp-hero{background:linear-gradient(145deg,#0d0d24,#111130);border:1px solid rgba(99,102,241,0.3);border-radius:24px;padding:22px;margin-bottom:14px;position:relative;overflow:hidden}
+    .mp-hero::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(139,92,246,0.12) 0%,transparent 65%);pointer-events:none}
+    .mp-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1.5px;color:var(--indll);margin-bottom:4px}
+    .mp-sub{font-size:13px;color:var(--mu);margin-bottom:18px;line-height:1.5}
+    .day-selector{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+    .day-btn{width:44px;height:44px;border-radius:12px;border:1px solid var(--b1);background:var(--s2);color:var(--mu);font-size:14px;font-weight:700;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.15s;display:flex;align-items:center;justify-content:center}
+    .day-btn.active{background:var(--ind);color:#fff;border-color:var(--ind)}
+    .mp-generate{width:100%;padding:15px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 20px var(--glow);transition:transform 0.15s}
+    .mp-generate:active{transform:scale(0.98)}
+    .mp-generate:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+    .mp-day-card{background:var(--s1);border:1px solid var(--b1);border-radius:20px;margin-bottom:10px;overflow:hidden}
+    .mp-day-header{padding:14px 16px;background:rgba(99,102,241,0.08);border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+    .mp-day-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;color:var(--indll)}
+    .mp-day-macros{font-size:11px;color:var(--mu);font-family:'JetBrains Mono',monospace}
+    .mp-meal-section{padding:14px 16px;border-bottom:1px solid var(--b1)}
+    .mp-meal-section:last-child{border-bottom:none}
+    .mp-meal-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--mu);margin-bottom:10px}
+    .mp-food-item{display:flex;align-items:flex-start;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+    .mp-food-item:last-child{border-bottom:none}
+    .mp-food-name{font-size:13px;font-weight:500;color:var(--txt);flex:1;margin-right:10px}
+    .mp-food-weight{font-size:11px;color:var(--indll);font-family:'JetBrains Mono',monospace;white-space:nowrap;text-align:right}
+    .mp-food-macros{font-size:10px;color:var(--mu);font-family:'JetBrains Mono',monospace;margin-top:2px}
+    .mp-shopping-card{background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:20px;margin-bottom:14px}
+    .mp-shop-category{margin-bottom:14px}
+    .mp-shop-category:last-child{margin-bottom:0}
+    .mp-shop-cat-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--mu);margin-bottom:8px}
+    .mp-shop-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+    .mp-shop-item:last-child{border-bottom:none}
+    .mp-shop-check{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--b2);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+    .mp-shop-check.checked{background:var(--em);border-color:var(--em)}
+    .mp-shop-name{font-size:13px;color:var(--txt2);flex:1}
+    .mp-shop-qty{font-size:11px;color:var(--indll);font-family:'JetBrains Mono',monospace;white-space:nowrap}
   </style>
 </head>
 <body>
@@ -1312,6 +1346,183 @@ function Onboarding({onComplete}){
   );
 }
 
+
+/* ── Meal Plan Tab ── */
+function MealPlanTab({goals, workerUrl}){
+  const [days, setDays] = useLocal("mt_mp_days", 5);
+  const [plan, setPlan] = useLocal("mt_mp_plan", null);
+  const [planDate, setPlanDate] = useLocal("mt_mp_date", "");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [openDays, setOpenDays] = useState({});
+  const [checked, setChecked] = useState({});
+
+  function toggleDay(d){ setOpenDays(function(p){return Object.assign({},p,{[d]:!p[d]});}); }
+  function toggleCheck(k){ setChecked(function(p){return Object.assign({},p,{[k]:!p[k]});}); }
+
+  async function generatePlan(){
+    if(!workerUrl){setErr("Worker URL not set.");return;}
+    setLoading(true);setErr("");
+    const prompt = "Create a "+days+"-day meal prep plan for someone with these daily targets: "+
+      goals.calories+" kcal, "+goals.protein+"g protein, "+goals.carbs+"g carbs, "+goals.fat+"g fat. "+
+      "Goal: "+(goals.goalType==="cut"?"fat loss cutting phase":goals.goalType==="bulk"?"muscle building bulk":"body recomposition maintenance")+".\n\n"+
+      "Requirements:\n"+
+      "- Include Breakfast, Lunch, Dinner, and Snack for each day\n"+
+      "- Give EXACT gram weights for every single food item (e.g. '180g chicken breast', '150g cooked white rice')\n"+
+      "- Use simple whole foods that are easy to batch cook on Sunday\n"+
+      "- Each day must hit within 50 kcal of the calorie target\n"+
+      "- Vary the meals across the week — do not repeat the same meal every day\n\n"+
+      "Return ONLY valid JSON in this exact format, no markdown:\n"+
+      "{\"days\":[{\"day\":\"Monday\",\"totalCal\":0,\"totalProtein\":0,\"totalCarbs\":0,\"totalFat\":0,"+
+      "\"meals\":{\"Breakfast\":[{\"food\":\"Oats\",\"amount\":\"80g\",\"cal\":0,\"p\":0,\"c\":0,\"f\":0}],"+
+      "\"Lunch\":[],\"Dinner\":[],\"Snack\":[]}}],"+
+      "\"shoppingList\":{\"Proteins\":[{\"item\":\"Chicken Breast\",\"qty\":\"1.2kg\"}],"+
+      "\"Grains & Carbs\":[],\"Fruits & Vegetables\":[],\"Dairy & Eggs\":[],\"Other\":[]}}";
+
+    try{
+      const r=await fetch(workerUrl.replace(/\/$/,""),{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({type:"coach_chat",context:"User needs a meal plan.",
+          messages:[{role:"user",content:prompt}]
+        })
+      });
+      if(!r.ok)throw new Error("Worker error");
+      const d=await r.json();
+      const raw=(d.text||"").replace(/```json|```/g,"").trim();
+      const parsed=JSON.parse(raw);
+      if(!parsed.days)throw new Error("Invalid plan format");
+      setPlan(parsed);
+      setPlanDate(new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}));
+      // Auto-open first day
+      setOpenDays({0:true});
+      setChecked({});
+    }catch(e){
+      setErr("Could not generate plan. Try again.");
+    }
+    setLoading(false);
+  }
+
+  const MEAL_EMOJIS={"Breakfast":"🌅","Lunch":"☀️","Dinner":"🌙","Snack":"🍎"};
+
+  return(
+    <div>
+      {/* Generator card */}
+      <div className="mp-hero">
+        <div className="mp-title">Meal Planner</div>
+        <div className="mp-sub">Get a personalized meal plan with exact weights, built around your macro targets. Perfect for Sunday batch cooking.</div>
+        <div style={{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",marginBottom:8,fontWeight:700}}>How many days?</div>
+        <div className="day-selector">
+          {[1,2,3,4,5,6,7].map(function(d){
+            return(
+              <button key={d} className={"day-btn"+(days===d?" active":"")}
+                onClick={function(){setDays(d);}}>
+                {d}
+              </button>
+            );
+          })}
+        </div>
+        <button className="mp-generate" onClick={generatePlan} disabled={loading}>
+          {loading?"GENERATING YOUR PLAN...":"✦ GENERATE MEAL PLAN"}
+        </button>
+        {loading&&<div style={{display:"flex",alignItems:"center",gap:10,marginTop:14,color:"var(--mu)",fontSize:13}}>
+          <div className="spin"/>
+          <span>Building your {days}-day plan with exact weights...</span>
+        </div>}
+        {err&&<div className="err" style={{marginTop:10}}>{err}</div>}
+        {planDate&&!loading&&<div style={{fontSize:11,color:"var(--mu)",marginTop:10,textAlign:"center"}}>Last generated {planDate} — tap Generate to refresh</div>}
+      </div>
+
+      {/* Meal Plan */}
+      {plan&&plan.days&&plan.days.map(function(day,di){
+        const isOpen=openDays[di]!==false;
+        return(
+          <div className="mp-day-card" key={di}>
+            <div className="mp-day-header" onClick={function(){toggleDay(di);}}>
+              <div className="mp-day-title">{day.day}</div>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div className="mp-day-macros">{day.totalCal} kcal · {day.totalProtein}P · {day.totalCarbs}C · {day.totalFat}F</div>
+                <div style={{color:"var(--mu)",fontSize:14}}>{isOpen?"▲":"▼"}</div>
+              </div>
+            </div>
+            {isOpen&&(
+              <div>
+                {["Breakfast","Lunch","Dinner","Snack"].map(function(meal){
+                  const items=day.meals[meal];
+                  if(!items||items.length===0)return null;
+                  return(
+                    <div className="mp-meal-section" key={meal}>
+                      <div className="mp-meal-label">{MEAL_EMOJIS[meal]||"🍽"} {meal}</div>
+                      {items.map(function(item,ii){
+                        return(
+                          <div className="mp-food-item" key={ii}>
+                            <div style={{flex:1}}>
+                              <div className="mp-food-name">{item.food}</div>
+                              <div className="mp-food-macros">{item.p}P · {item.c}C · {item.f}F</div>
+                            </div>
+                            <div style={{textAlign:"right"}}>
+                              <div className="mp-food-weight">{item.amount}</div>
+                              <div style={{fontSize:10,color:"var(--mu)"}}>{item.cal} kcal</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Shopping List */}
+      {plan&&plan.shoppingList&&(
+        <div className="mp-shopping-card">
+          <div className="stitle">🛒 Shopping List</div>
+          <div style={{fontSize:12,color:"var(--mu)",marginBottom:14}}>
+            Everything you need for your {days}-day plan. Tap items to check them off.
+          </div>
+          {Object.keys(plan.shoppingList).map(function(cat){
+            const items=plan.shoppingList[cat];
+            if(!items||items.length===0)return null;
+            return(
+              <div className="mp-shop-category" key={cat}>
+                <div className="mp-shop-cat-title">{cat}</div>
+                {items.map(function(item,ii){
+                  const k=cat+"-"+ii;
+                  const isChecked=checked[k];
+                  return(
+                    <div className="mp-shop-item" key={ii} onClick={function(){toggleCheck(k);}}>
+                      <div className={"mp-shop-check"+(isChecked?" checked":"")}>
+                        {isChecked&&<span style={{color:"#fff",fontSize:11,fontWeight:700}}>✓</span>}
+                      </div>
+                      <div className="mp-shop-name" style={{textDecoration:isChecked?"line-through":"none",opacity:isChecked?0.5:1}}>
+                        {item.item}
+                      </div>
+                      <div className="mp-shop-qty">{item.qty}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+          <button className="btn-ghost" style={{marginTop:12,fontSize:12}} onClick={function(){setChecked({});}}>
+            Clear all checks
+          </button>
+        </div>
+      )}
+
+      {!plan&&!loading&&(
+        <div style={{textAlign:"center",padding:"30px 20px",color:"var(--mu)"}}>
+          <div style={{fontSize:44,marginBottom:12}}>🥗</div>
+          <div style={{fontSize:14,color:"var(--txt2)",fontWeight:500,marginBottom:6}}>No plan generated yet</div>
+          <div style={{fontSize:13,lineHeight:1.65}}>Choose how many days above and tap Generate. Your plan will include exact gram weights for every food and a complete shopping list.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── DataBackup ── */
 function DataBackup({entries,wlog,goals,onImport}){
   const [importing,setImporting]=useState(false);
@@ -1975,6 +2186,12 @@ function App(){
         <CoachTab goals={goals} entries={entries} wlog={wlog} workerUrl={workerUrl} selectedDate={selectedDate} aiUsageToday={getAiUsageThisWeek()} onAiCall={incrementAiUsage} aiLimit={AI_WEEKLY_LIMIT} resetMessage={getResetMessage()}/>
       </div>}
 
+      {/* MEALS TAB */}
+      {tab==="meals"&&<div className="page">
+        <div style={{height:12}}/>
+        <MealPlanTab goals={goals} workerUrl={workerUrl}/>
+      </div>}
+
       {/* GOALS TAB */}
       {tab==="goals"&&<div className="page">
         <div style={{height:12}}/>
@@ -2052,7 +2269,7 @@ function App(){
 
       {/* Nav */}
       <div className="nav">
-        {[{id:"log",icon:"📋",label:"Log"},{id:"weight",icon:"⚖️",label:"Weight"},{id:"coach",icon:"🧠",label:"Coach"},{id:"goals",icon:"🎯",label:"Goals"}].map(n=>(
+        {[{id:"log",icon:"📋",label:"Log"},{id:"weight",icon:"⚖️",label:"Weight"},{id:"coach",icon:"🧠",label:"Coach"},{id:"meals",icon:"🥗",label:"Meals"},{id:"goals",icon:"🎯",label:"Goals"}].map(n=>(
           <button key={n.id} className={"nav-btn"+(tab===n.id?" active":"")} onClick={()=>{setTab(n.id);try{navigator.vibrate&&navigator.vibrate(8);}catch(e){}}}>
             <span className="nav-icon">{n.icon}</span>
             <span className="nav-lbl">{n.label}</span>
