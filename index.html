@@ -44,7 +44,7 @@
     .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
     /* Page */
-    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px 80px;-webkit-overflow-scrolling:touch}
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px 160px;-webkit-overflow-scrolling:touch}
     .page::-webkit-scrollbar{display:none}
 
     /* Week selector */
@@ -117,7 +117,7 @@
     .food-del:active{color:var(--rose)}
 
     /* FAB */
-    .fab{position:fixed;bottom:calc(var(--sb) + 76px);left:50%;transform:translateX(-50%);width:calc(min(430px,100vw) - 32px);max-width:398px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 76px);left:50%;transform:translateX(-50%);width:calc(min(430px,100vw) - 32px);max-width:398px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:translateX(-50%) scale(0.97)}
 
     /* Nav */
@@ -3299,7 +3299,7 @@ if("serviceWorker" in navigator){
       style.id = "dynamic-nav-style";
       var navStyle = ".nav { padding-bottom: " + safeArea + "px !important; }";
       var afterStyle = ".nav::after { height: " + safeArea + "px !important; bottom: -" + safeArea + "px !important; }";
-      var pageStyle = ".page { padding-bottom: " + (safeArea + 62) + "px !important; }";
+      var pageStyle = ".page { padding-bottom: " + (safeArea + 140) + "px !important; }";
       style.textContent = navStyle + " " + afterStyle + " " + pageStyle;
       if (!document.getElementById("dynamic-nav-style")) {
         document.head.appendChild(style);
