@@ -44,7 +44,8 @@
     .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
     /* Page */
-    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(var(--sb) + 88px);-webkit-overflow-scrolling:touch}
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(var(--sb) + var(--nav-h,62px) + 16px);-webkit-overflow-scrolling:touch}
+    .page.has-fab{padding-bottom:calc(var(--sb) + var(--nav-h,62px) + 72px)}
     .page::-webkit-scrollbar{display:none}
 
     /* Week selector */
@@ -117,17 +118,17 @@
     .food-del:active{color:var(--rose)}
 
     /* FAB */
-    .fab{position:fixed;bottom:calc(var(--sb) + 28px);left:16px;right:16px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
-    .fab:active{transform:translateX(-50%) scale(0.97)}
+    .fab{position:fixed;bottom:calc(var(--sb) + var(--nav-h,62px) + 10px);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab:active{transform:scale(0.97)}
 
     /* Nav */
-    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:flex-start;justify-content:space-around;padding-top:6px;padding-bottom:0;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50}
+    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:flex-start;justify-content:space-around;padding:8px 0 calc(var(--sb) + 4px);background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50}
     
     
-    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:2px 0}
+    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;cursor:pointer;padding:0}
     .nav-icon{font-size:20px;transition:transform 0.2s;display:block}
     .nav-lbl{font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s}
-    .nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ind);opacity:0;transition:opacity 0.2s;margin-top:2px}
+    .nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ind);opacity:0;transition:opacity 0.2s;margin-top:1px}
     .nav-btn.active .nav-lbl{color:var(--indl)}
     .nav-btn.active .nav-dot{opacity:1}
     .nav-btn.active .nav-icon{transform:translateY(-2px)}
@@ -2703,6 +2704,22 @@ function App(){
     }
   },[]);
 
+  /* Measure nav height and set CSS var so fab + page padding stay in sync */
+  useEffect(function(){
+    function measure(){
+      var nav=document.querySelector('.nav');
+      if(nav){
+        var h=nav.getBoundingClientRect().height;
+        document.documentElement.style.setProperty('--nav-h',h+'px');
+      }
+    }
+    measure();
+    window.addEventListener('resize',measure);
+    /* Re-measure after fonts/layout settle */
+    var t=setTimeout(measure,500);
+    return function(){window.removeEventListener('resize',measure);clearTimeout(t);};
+  },[tab]);
+
   function getBrowserInstructions(){
     const ua=navigator.userAgent;
     const isIOS=/iPad|iPhone|iPod/.test(ua)&&!window.MSStream;
@@ -3007,7 +3024,7 @@ function App(){
       </div>
 
       {/* LOG TAB */}
-      {tab==="log"&&<div className="page">
+      {tab==="log"&&<div className={"page"+(isToday?" has-fab":"")}>
         <div style={{height:12}}/>
         <WeekSelector selectedDate={selectedDate} onSelect={setSelectedDate} weekOffset={weekOffset} onOffsetChange={handleOffsetChange} entries={entries}/>
         <CalHero logged={logged} goals={goals}/>
