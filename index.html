@@ -3254,7 +3254,44 @@ if("serviceWorker" in navigator){
   });
 }
 
-// Layout handled by CSS only
+// DEBUG — prints every measurement needed
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    var nav = document.querySelector('.nav');
+    var fab = document.querySelector('.fab');
+    var page = document.querySelector('.page');
+
+    var probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);pointer-events:none;opacity:0';
+    document.body.appendChild(probe);
+    var sb = probe.getBoundingClientRect().height;
+    document.body.removeChild(probe);
+
+    var navH = nav ? nav.getBoundingClientRect().height : 0;
+    var fabH = fab ? fab.getBoundingClientRect().height : 0;
+    var fabBottom = fab ? (window.innerHeight - fab.getBoundingClientRect().bottom) : 0;
+    var fabTop = fab ? (window.innerHeight - fab.getBoundingClientRect().top) : 0;
+    var navTop = nav ? (window.innerHeight - nav.getBoundingClientRect().top) : 0;
+    var winH = window.innerHeight;
+
+    var msg = [
+      'winH=' + winH,
+      'sb=' + sb,
+      'navH=' + Math.round(navH),
+      'fabH=' + Math.round(fabH),
+      'fabBottom=' + Math.round(fabBottom),
+      'fabTop=' + Math.round(fabTop),
+      'navTop=' + Math.round(navTop),
+      'gapFabNav=' + Math.round(fabBottom - navTop),
+    ].join(' | ');
+
+    var el = document.createElement('div');
+    el.style.cssText = 'position:fixed;top:80px;left:8px;right:8px;background:rgba(0,0,0,0.92);color:#fff;font-size:11px;padding:10px;border-radius:10px;z-index:99999;font-family:monospace;line-height:1.8;border:1px solid #6366f1';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(function(){ document.body.removeChild(el); }, 15000);
+  }, 1500);
+});
 </script>
 </body>
 </html>
