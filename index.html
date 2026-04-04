@@ -117,7 +117,7 @@
     .food-del:active{color:var(--rose)}
 
     /* FAB */
-    .fab{position:fixed;bottom:calc(var(--sb) + 58px);left:50%;transform:translateX(-50%);width:calc(min(430px,100vw) - 32px);max-width:398px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab{position:fixed;bottom:calc(var(--sb) + 64px);left:50%;transform:translateX(-50%);width:calc(min(430px,100vw) - 32px);max-width:398px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:translateX(-50%) scale(0.97)}
 
     /* Nav */
@@ -3253,22 +3253,7 @@ if("serviceWorker" in navigator){
   });
 }
 
-// Debug: show actual --sb value on screen
-window.addEventListener('load', function() {
-  setTimeout(function() {
-    var el = document.createElement('div');
-    el.style.cssText = 'position:fixed;bottom:0;left:0;width:1px;height:var(--sb);pointer-events:none;opacity:0;';
-    document.body.appendChild(el);
-    var sbPx = getComputedStyle(el).height;
-    document.body.removeChild(el);
-    
-    var label = document.createElement('div');
-    label.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:red;color:white;font-size:20px;font-weight:bold;padding:20px;z-index:99999;border-radius:12px;';
-    label.textContent = '--sb = ' + sbPx + ' | innerH = ' + window.innerHeight + 'px';
-    document.body.appendChild(label);
-    setTimeout(function(){ document.body.removeChild(label); }, 8000);
-  }, 1000);
-});
+// Layout handled by CSS only
 </script>
 </body>
 </html>
