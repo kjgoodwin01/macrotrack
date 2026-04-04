@@ -3269,6 +3269,65 @@ if("serviceWorker" in navigator){
     });
   });
 }
+
+// ── Dynamic safe area detection ───────────────────────────────────────────
+// Reads the actual rendered safe-area-inset-bottom from the device
+// and applies it precisely to the nav so there's zero gap
+(function() {
+  function applyNavHeight() {
+    // Create a probe element that uses env(safe-area-inset-bottom)
+    const probe = document.createElement("div");
+    probe.style.cssText = [
+      "position:fixed",
+      "bottom:0",
+      "left:0",
+      "width:1px",
+      "height:env(safe-area-inset-bottom, 0px)",
+      "pointer-events:none",
+      "opacity:0",
+      "z-index:-1",
+    ].join(";");
+    document.body.appendChild(probe);
+
+    // Let the browser compute it, then read the value
+    requestAnimationFrame(function() {
+      const safeArea = probe.getBoundingClientRect().height || 0;
+      document.body.removeChild(probe);
+
+      // Inject a style rule with the exact measured value
+      const style = document.getElementById("dynamic-nav-style") || document.createElement("style");
+      style.id = "dynamic-nav-style";
+      style.textContent = [
+        ".nav {",
+        "  padding-bottom: " + safeArea + "px !important;",
+        "}",
+        ".nav::after {",
+        "  height: " + safeArea + "px !important;",
+        "  bottom: -" + safeArea + "px !important;",
+        "}",
+        ".page {",
+        "  padding-bottom: " + (safeArea + 62) + "px !important;",
+        "}",
+      ].join("
+");
+      if (!document.getElementById("dynamic-nav-style")) {
+        document.head.appendChild(style);
+      }
+    });
+  }
+
+  // Run on load
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", applyNavHeight);
+  } else {
+    applyNavHeight();
+  }
+
+  // Re-run if orientation changes
+  window.addEventListener("orientationchange", function() {
+    setTimeout(applyNavHeight, 300);
+  });
+})();
 </script>
 </body>
 </html>
