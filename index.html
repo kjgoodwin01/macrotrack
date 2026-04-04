@@ -121,8 +121,25 @@
     .fab:active{transform:translateX(-50%) scale(0.97)}
 
     /* Nav */
-    .nav{position:fixed;bottom:0;left:0;right:0;padding-top:10px;padding-bottom:env(safe-area-inset-bottom,0px);display:flex;align-items:flex-start;justify-content:space-around;background:rgba(6,6,15,0.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--b1);z-index:50}
-    .nav::after{content:'';position:absolute;bottom:calc(-1 * env(safe-area-inset-bottom,0px));left:0;right:0;height:env(safe-area-inset-bottom,0px);background:rgba(6,6,15,0.97)}
+    .nav{
+      position:fixed;
+      bottom:0;left:0;right:0;
+      padding-top:10px;
+      padding-bottom:max(env(safe-area-inset-bottom,0px),4px);
+      display:flex;align-items:flex-start;justify-content:space-around;
+      background:rgba(6,6,15,0.97);
+      backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+      border-top:1px solid var(--b1);
+      z-index:50;
+    }
+    .nav::after{
+      content:'';
+      position:fixed;
+      bottom:0;left:0;right:0;
+      height:env(safe-area-inset-bottom,0px);
+      background:rgba(6,6,15,0.97);
+      z-index:49;
+    }
     .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:2px 0}
     .nav-icon{font-size:20px;transition:transform 0.2s;display:block}
     .nav-lbl{font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s}
