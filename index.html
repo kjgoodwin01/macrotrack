@@ -44,7 +44,7 @@
     .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
     /* Page */
-    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 160px);-webkit-overflow-scrolling:touch}
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px 210px;-webkit-overflow-scrolling:touch}
     .page::-webkit-scrollbar{display:none}
 
     /* Week selector */
@@ -117,29 +117,12 @@
     .food-del:active{color:var(--rose)}
 
     /* FAB */
-    .fab{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);left:50%;transform:translateX(-50%);width:calc(min(430px,100vw) - 32px);max-width:398px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);width:calc(min(430px,100vw) - 32px);max-width:398px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:translateX(-50%) scale(0.97)}
 
     /* Nav */
-    .nav{
-      position:fixed;
-      bottom:0;left:0;right:0;
-      padding-top:10px;
-      padding-bottom:max(env(safe-area-inset-bottom,0px),4px);
-      display:flex;align-items:flex-start;justify-content:space-around;
-      background:rgba(6,6,15,0.97);
-      backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-      border-top:1px solid var(--b1);
-      z-index:50;
-    }
-    .nav::after{
-      content:'';
-      position:fixed;
-      bottom:0;left:0;right:0;
-      height:env(safe-area-inset-bottom,0px);
-      background:rgba(6,6,15,0.97);
-      z-index:49;
-    }
+    .nav{position:fixed;bottom:0;left:0;right:0;padding-top:6px;padding-bottom:0;display:flex;align-items:flex-start;justify-content:space-around;background:rgba(6,6,15,0.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--b1);z-index:50}
+    .nav::after{content:'';position:fixed;bottom:0;left:0;right:0;height:34px;background:rgba(6,6,15,0.97);z-index:49}
     .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:2px 0}
     .nav-icon{font-size:20px;transition:transform 0.2s;display:block}
     .nav-lbl{font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s}
@@ -3270,49 +3253,7 @@ if("serviceWorker" in navigator){
   });
 }
 
-// Device layout measurement — runs after React renders
-function applyExactLayout() {
-  var nav = document.querySelector('.nav');
-  var fab = document.querySelector('.fab');
-  if (!nav || !fab) {
-    // React hasn't rendered yet — retry
-    setTimeout(applyExactLayout, 100);
-    return;
-  }
-
-  var navH = nav.getBoundingClientRect().height;
-  var fabH = fab.getBoundingClientRect().height;
-
-  // Measure actual safe area via probe element
-  var probe = document.createElement('div');
-  probe.style.cssText = 'position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);pointer-events:none;opacity:0;z-index:-1';
-  document.body.appendChild(probe);
-  var safeArea = probe.getBoundingClientRect().height;
-  document.body.removeChild(probe);
-
-  // FAB bottom = nav height + 8px gap
-  var fabBottom = navH + 8;
-  // Page bottom padding = nav + FAB + 20px breathing room
-  var pagePad = navH + fabH + 20;
-  // Nav after fills the safe area gap
-  var afterH = Math.max(safeArea, 0);
-
-  var style = document.getElementById('exact-layout') || document.createElement('style');
-  style.id = 'exact-layout';
-  style.textContent =
-    '.fab{bottom:' + fabBottom + 'px!important}' +
-    '.page{padding-bottom:' + pagePad + 'px!important}' +
-    '.nav::after{height:' + afterH + 'px!important;bottom:-' + afterH + 'px!important}';
-
-  if (!document.getElementById('exact-layout')) {
-    document.head.appendChild(style);
-  }
-}
-
-// Start trying after a short delay to let React mount
-setTimeout(applyExactLayout, 300);
-window.addEventListener('resize', applyExactLayout);
-window.addEventListener('orientationchange', function(){ setTimeout(applyExactLayout, 400); });
+// Layout handled by CSS only
 </script>
 </body>
 </html>
