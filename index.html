@@ -44,7 +44,7 @@
     .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
     /* Page */
-    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(var(--sb) + 116px);-webkit-overflow-scrolling:touch}
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(var(--sb) + 124px);-webkit-overflow-scrolling:touch}
     .page::-webkit-scrollbar{display:none}
 
     /* Week selector */
@@ -117,7 +117,7 @@
     .food-del:active{color:var(--rose)}
 
     /* FAB */
-    .fab{position:fixed;bottom:calc(var(--sb) + 54px);left:16px;right:16px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab{position:fixed;bottom:calc(var(--sb) + 64px);left:16px;right:16px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:translateX(-50%) scale(0.97)}
 
     /* Nav */
@@ -3254,44 +3254,7 @@ if("serviceWorker" in navigator){
   });
 }
 
-// DEBUG — prints every measurement needed
-window.addEventListener('load', function() {
-  setTimeout(function() {
-    var nav = document.querySelector('.nav');
-    var fab = document.querySelector('.fab');
-    var page = document.querySelector('.page');
-
-    var probe = document.createElement('div');
-    probe.style.cssText = 'position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);pointer-events:none;opacity:0';
-    document.body.appendChild(probe);
-    var sb = probe.getBoundingClientRect().height;
-    document.body.removeChild(probe);
-
-    var navH = nav ? nav.getBoundingClientRect().height : 0;
-    var fabH = fab ? fab.getBoundingClientRect().height : 0;
-    var fabBottom = fab ? (window.innerHeight - fab.getBoundingClientRect().bottom) : 0;
-    var fabTop = fab ? (window.innerHeight - fab.getBoundingClientRect().top) : 0;
-    var navTop = nav ? (window.innerHeight - nav.getBoundingClientRect().top) : 0;
-    var winH = window.innerHeight;
-
-    var msg = [
-      'winH=' + winH,
-      'sb=' + sb,
-      'navH=' + Math.round(navH),
-      'fabH=' + Math.round(fabH),
-      'fabBottom=' + Math.round(fabBottom),
-      'fabTop=' + Math.round(fabTop),
-      'navTop=' + Math.round(navTop),
-      'gapFabNav=' + Math.round(fabBottom - navTop),
-    ].join(' | ');
-
-    var el = document.createElement('div');
-    el.style.cssText = 'position:fixed;top:80px;left:8px;right:8px;background:rgba(0,0,0,0.92);color:#fff;font-size:11px;padding:10px;border-radius:10px;z-index:99999;font-family:monospace;line-height:1.8;border:1px solid #6366f1';
-    el.textContent = msg;
-    document.body.appendChild(el);
-    setTimeout(function(){ document.body.removeChild(el); }, 15000);
-  }, 1500);
-});
+// Layout handled by CSS only
 </script>
 </body>
 </html>
