@@ -3297,19 +3297,10 @@ if("serviceWorker" in navigator){
       // Inject a style rule with the exact measured value
       const style = document.getElementById("dynamic-nav-style") || document.createElement("style");
       style.id = "dynamic-nav-style";
-      style.textContent = [
-        ".nav {",
-        "  padding-bottom: " + safeArea + "px !important;",
-        "}",
-        ".nav::after {",
-        "  height: " + safeArea + "px !important;",
-        "  bottom: -" + safeArea + "px !important;",
-        "}",
-        ".page {",
-        "  padding-bottom: " + (safeArea + 62) + "px !important;",
-        "}",
-      ].join("
-");
+      var navStyle = ".nav { padding-bottom: " + safeArea + "px !important; }";
+      var afterStyle = ".nav::after { height: " + safeArea + "px !important; bottom: -" + safeArea + "px !important; }";
+      var pageStyle = ".page { padding-bottom: " + (safeArea + 62) + "px !important; }";
+      style.textContent = navStyle + " " + afterStyle + " " + pageStyle;
       if (!document.getElementById("dynamic-nav-style")) {
         document.head.appendChild(style);
       }
