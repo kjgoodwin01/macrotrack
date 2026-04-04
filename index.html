@@ -122,8 +122,19 @@
     .fab:active{transform:scale(0.97)}
 
     /* Nav */
-    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:flex-end;justify-content:space-around;padding:4px 0 8px;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50}
-
+    .nav{
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-around;
+  padding:6px 0 calc(env(safe-area-inset-bottom, 0px) + 4px);
+  background:rgba(6,6,15,0.97);
+  border-top:1px solid var(--b1);
+  z-index:50;
+}
 
     .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;cursor:pointer;padding:0}
     .nav-icon{font-size:20px;transition:transform 0.2s;display:block}
