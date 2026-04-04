@@ -44,7 +44,7 @@
     .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
     /* Page */
-    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 124px);-webkit-overflow-scrolling:touch}
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 148px);-webkit-overflow-scrolling:touch}
     .page::-webkit-scrollbar{display:none}
 
     /* Week selector */
@@ -117,7 +117,7 @@
     .food-del:active{color:var(--rose)}
 
     /* FAB */
-    .fab{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 62px);bottom:calc(env(safe-area-inset-bottom,0px) + 62px);left:50%;transform:translateX(-50%);width:calc(min(430px,100vw) - 32px);max-width:398px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);left:50%;transform:translateX(-50%);width:calc(min(430px,100vw) - 32px);max-width:398px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:translateX(-50%) scale(0.97)}
 
     /* Nav */
@@ -3270,7 +3270,44 @@ if("serviceWorker" in navigator){
   });
 }
 
-// Nav safe area handled by CSS env() only
+// One-time device measurement — sets nav/FAB/page to exact pixel values
+window.addEventListener('load', function() {
+  requestAnimationFrame(function() {
+    var nav = document.querySelector('.nav');
+    if (!nav) return;
+    var navH = nav.getBoundingClientRect().height;
+    var winH = window.innerHeight;
+    var screenH = window.screen.height;
+    
+    // Measure actual safe area
+    var probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);pointer-events:none;opacity:0';
+    document.body.appendChild(probe);
+    var safeArea = probe.getBoundingClientRect().height;
+    document.body.removeChild(probe);
+
+    // FAB height
+    var fab = document.querySelector('.fab');
+    var fabH = fab ? fab.getBoundingClientRect().height : 54;
+
+    // Apply exact values
+    var style = document.createElement('style');
+    style.id = 'exact-layout';
+    // FAB sits directly on top of nav with 8px gap
+    var fabBottom = navH + 8;
+    // Page padding clears FAB fully with 16px breathing room
+    var pagePad = navH + fabH + 24;
+
+    style.textContent = 
+      '.fab { bottom: ' + fabBottom + 'px !important; }' +
+      '.page { padding-bottom: ' + pagePad + 'px !important; }' +
+      '.nav::after { height: ' + safeArea + 'px !important; bottom: -' + safeArea + 'px !important; }';
+    
+    var existing = document.getElementById('exact-layout');
+    if (existing) existing.remove();
+    document.head.appendChild(style);
+  });
+});
 </script>
 </body>
 </html>
