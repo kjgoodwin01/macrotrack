@@ -131,14 +131,9 @@
     .nav-btn.active .nav-icon{transform:translateY(-2px)}
 
     /* Modal */
-    .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding-bottom:env(keyboard-inset-height,0px);animation:fdin 0.2s ease}
+    .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fdin 0.2s ease}
     @keyframes fdin{from{opacity:0}to{opacity:1}}
-    .sheet{background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;width:100%;max-width:430px;
-      max-height:92dvh;max-height:92vh;
-      overflow-y:auto;overflow-x:hidden;
-      padding:20px 18px calc(var(--sb) + 30px);
-      -webkit-overflow-scrolling:touch;
-      animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    .sheet{background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;width:100%;max-width:430px;max-height:85vh;overflow-y:auto;overflow-x:hidden;padding:20px 18px calc(var(--sb) + 30px);-webkit-overflow-scrolling:touch;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
     @keyframes sup{from{transform:translateY(100%)}to{transform:translateY(0)}}
     .sheet-handle{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 20px}
     .sheet-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;margin-bottom:18px}
@@ -548,10 +543,7 @@
     @supports (height: 100dvh) {
       .sheet { max-height: 92dvh; }
     }
-    /* When virtual keyboard is shown, sheet should scroll */
-    .sheet:focus-within {
-      max-height: 60vh;
-    }
+
   </style>
 </head>
 <body>
@@ -1170,6 +1162,36 @@ function compressImage(dataUrl,maxWidth,quality){
 }
 
 function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
+  const sheetRef=useRef(null);
+
+  // iOS PWA keyboard fix
+  // When the keyboard opens, visualViewport shrinks.
+  // We translate the sheet UP by the difference so it stays visible.
+  useEffect(function(){
+    if(!window.visualViewport) return;
+    const vv=window.visualViewport;
+    const initialHeight=vv.height;
+
+    function onVVResize(){
+      const sheet=sheetRef.current;
+      if(!sheet) return;
+      const diff=initialHeight - vv.height;
+      if(diff > 100){
+        // Keyboard is open — move sheet up
+        sheet.style.transform='translateY(-'+diff+'px)';
+        sheet.style.transition='transform 0.25s ease';
+      } else {
+        sheet.style.transform='';
+      }
+    }
+
+    vv.addEventListener('resize', onVVResize);
+    return function(){
+      vv.removeEventListener('resize', onVVResize);
+      const sheet=sheetRef.current;
+      if(sheet) sheet.style.transform='';
+    };
+  },[]);
   const [tab,setTab]=useState("search");const [meal,setMeal]=useState(targetMeal||"Breakfast");
   const [query,setQuery]=useState("");const [results,setResults]=useState([]);const [searching,setSearching]=useState(false);const [sErr,setSErr]=useState("");const [selected,setSelected]=useState(null);
   const [barcode,setBarcode]=useState("");const [bLoad,setBLoad]=useState(false);const [bErr,setBErr]=useState("");const [bFood,setBFood]=useState(null);
@@ -1252,7 +1274,7 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
 
   return(
     <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div className="sheet">
+      <div className="sheet" ref={sheetRef}>
         {/* Hidden input absorbs iOS auto-focus so keyboard doesn't pop on open */}
         <input style={{position:"absolute",opacity:0,height:0,width:0,pointerEvents:"none"}} readOnly tabIndex={-1}/>
         <div className="sheet-handle"/>
