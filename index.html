@@ -3192,6 +3192,7 @@ function App(){
 
       {/* Nav */}
       <div className="nav" style={{display:chatFullscreen?"none":"flex"}}>
+        <div id="safeAreaDebug" style={{position:"absolute",top:-20,left:0,right:0,textAlign:"center",fontSize:10,color:"red",zIndex:9999}}/>
         {[{id:"log",icon:"📋",label:"Log"},{id:"weight",icon:"⚖️",label:"Weight"},{id:"coach",icon:"🧠",label:"Coach"},{id:"meals",icon:"🥗",label:"Meals"},{id:"goals",icon:"🎯",label:"Goals"}].map(n=>(
           <button key={n.id} className={"nav-btn"+(tab===n.id?" active":"")} onClick={()=>{setTab(n.id);try{navigator.vibrate&&navigator.vibrate(8);}catch(e){}}}>
             <span className="nav-icon">{n.icon}</span>
@@ -3244,6 +3245,19 @@ try{localStorage.setItem("mt_keepalive",Date.now());}catch(e){}
 
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
 if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("./sw.js").catch(e=>console.log("SW:",e));});}
+
+// Debug: read actual safe area inset
+window.addEventListener('load', function() {
+  const el = document.getElementById('safeAreaDebug');
+  if (!el) return;
+  // Use a temporary div to compute env()
+  const tmp = document.createElement('div');
+  tmp.style.cssText = 'position:fixed;bottom:0;left:0;height:env(safe-area-inset-bottom,0px);width:1px;pointer-events:none;visibility:hidden';
+  document.body.appendChild(tmp);
+  const h = tmp.getBoundingClientRect().height;
+  document.body.removeChild(tmp);
+  el.textContent = 'safe-area-bottom=' + h + 'px | nav-h=' + document.querySelector('.nav').getBoundingClientRect().height + 'px | win-h=' + window.innerHeight + 'px';
+});
 </script>
 </body>
 </html>
