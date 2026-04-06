@@ -44,7 +44,7 @@
     .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
     /* Page */
-    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(var(--sb) + 88px);-webkit-overflow-scrolling:touch}
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(var(--sb) + 130px);-webkit-overflow-scrolling:touch}
     .page::-webkit-scrollbar{display:none}
 
     /* Week selector */
@@ -117,11 +117,11 @@
     .food-del:active{color:var(--rose)}
 
     /* FAB */
-    .fab{position:fixed;bottom:calc(var(--sb) + 28px);left:16px;right:16px;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab{position:fixed;bottom:calc(var(--sb) + 62px);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:translateX(-50%) scale(0.97)}
 
     /* Nav */
-    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:flex-start;justify-content:space-around;padding-top:6px;padding-bottom:0;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50}
+    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:flex-start;justify-content:space-around;padding-top:6px;padding-bottom:calc(var(--sb) + 4px);background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50}
     
     
     .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:2px 0}
@@ -135,7 +135,10 @@
     /* Modal */
     .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fdin 0.2s ease}
     @keyframes fdin{from{opacity:0}to{opacity:1}}
-    .sheet{background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;width:100%;max-width:430px;max-height:85vh;overflow-y:auto;overflow-x:hidden;padding:20px 18px calc(var(--sb) + 30px);-webkit-overflow-scrolling:touch;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    .sheet{background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;width:100%;max-width:430px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:calc(var(--sb) + 30px);-webkit-overflow-scrolling:touch;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    .sheet-fixed{flex-shrink:0;padding:20px 18px 0}
+    .sheet-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 18px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+    .sheet-scroll::-webkit-scrollbar{display:none}
     @keyframes sup{from{transform:translateY(100%)}to{transform:translateY(0)}}
     .sheet-handle{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 20px}
     .sheet-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;margin-bottom:18px}
@@ -545,6 +548,9 @@
     @supports (height: 100dvh) {
       .sheet { max-height: 92dvh; }
     }
+
+    /* Sticky search inside the modal */
+    .search-sticky{position:sticky;top:0;z-index:10;background:var(--s1);padding-bottom:8px}
 
   </style>
 </head>
@@ -1165,33 +1171,29 @@ function compressImage(dataUrl,maxWidth,quality){
 
 function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
   const sheetRef=useRef(null);
+  const searchRef=useRef(null);
+  const scrollRef=useRef(null);
 
-  // iOS PWA keyboard fix
-  // When the keyboard opens, visualViewport shrinks.
-  // We translate the sheet UP by the difference so it stays visible.
+  // iOS PWA keyboard fix — shrink sheet to visible viewport height
+  // instead of translating it (which pushes the top off-screen)
   useEffect(function(){
     if(!window.visualViewport) return;
     const vv=window.visualViewport;
-    const initialHeight=vv.height;
 
     function onVVResize(){
       const sheet=sheetRef.current;
       if(!sheet) return;
-      const diff=initialHeight - vv.height;
-      if(diff > 100){
-        // Keyboard is open — move sheet up
-        sheet.style.transform='translateY(-'+diff+'px)';
-        sheet.style.transition='transform 0.25s ease';
-      } else {
-        sheet.style.transform='';
-      }
+      // Set max-height to actual visible viewport so sheet fits above keyboard
+      sheet.style.maxHeight=vv.height+'px';
     }
 
     vv.addEventListener('resize', onVVResize);
+    vv.addEventListener('scroll', onVVResize);
     return function(){
       vv.removeEventListener('resize', onVVResize);
+      vv.removeEventListener('scroll', onVVResize);
       const sheet=sheetRef.current;
-      if(sheet) sheet.style.transform='';
+      if(sheet) sheet.style.maxHeight='';
     };
   },[]);
   const [tab,setTab]=useState("search");const [meal,setMeal]=useState(targetMeal||"Breakfast");
@@ -1279,19 +1281,29 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
       <div className="sheet" ref={sheetRef}>
         {/* Hidden input absorbs iOS auto-focus so keyboard doesn't pop on open */}
         <input style={{position:"absolute",opacity:0,height:0,width:0,pointerEvents:"none"}} readOnly tabIndex={-1}/>
-        <div className="sheet-handle"/>
-        <div className="sheet-title">Add Food</div>
-        <div style={{marginBottom:14}}>
-          <div className="fl" style={{marginBottom:8}}>Meal</div>
-          <div className="chips">{MEALS.map(m=><div key={m.id} className={"chip"+(meal===m.id?" active":"")} onClick={()=>setMeal(m.id)}>{m.emoji} {m.id}</div>)}</div>
+
+        {/* ── Fixed header: handle, title, meal chips, tabs ── */}
+        <div className="sheet-fixed">
+          <div className="sheet-handle"/>
+          <div className="sheet-title">Add Food</div>
+          <div style={{marginBottom:14}}>
+            <div className="fl" style={{marginBottom:8}}>Meal</div>
+            <div className="chips">{MEALS.map(m=><div key={m.id} className={"chip"+(meal===m.id?" active":"")} onClick={()=>setMeal(m.id)}>{m.emoji} {m.id}</div>)}</div>
+          </div>
+          <div className="tabs">
+            {[["search","🔍 Search"],["barcode","📦 Scan"],["photo","📷 AI"],["custom","✏️ Manual"]].map(t=><button key={t[0]} className={"tab-btn"+(tab===t[0]?" active":"")} onClick={()=>switchTab(t[0])}>{t[1]}</button>)}
+          </div>
         </div>
-        <div className="tabs">
-          {[["search","🔍 Search"],["barcode","📦 Scan"],["photo","📷 AI"],["custom","✏️ Manual"]].map(t=><button key={t[0]} className={"tab-btn"+(tab===t[0]?" active":"")} onClick={()=>switchTab(t[0])}>{t[1]}</button>)}
-        </div>
+
+        {/* ── Scrollable body ── */}
+        <div className="sheet-scroll" ref={scrollRef}>
 
         {tab==="search"&&<div>
           {!selected?<div>
-            <div className="search-wrap"><span className="search-ico">🔍</span><input className="search-field" placeholder="Search 600k+ foods…" value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);}} autoFocus/></div>
+            {/* Sticky search field — always visible while scrolling results */}
+            <div className="search-sticky">
+              <div className="search-wrap" style={{marginBottom:0}}><span className="search-ico">🔍</span><input ref={searchRef} className="search-field" placeholder="Search 600k+ foods…" value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);if(scrollRef.current)scrollRef.current.scrollTop=0;}} autoFocus/></div>
+            </div>
             
             {searching&&<div className="loading-row"><div className="spin"/><span>Searching USDA…</span></div>}
             {sErr&&<div className="err">{sErr}</div>}
@@ -1352,7 +1364,10 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
           <button className="btn" disabled={!mN||!mC} onClick={()=>confirm({name:mN,serving:"custom",meal,cal:parseInt(mC,10),p:parseInt(mP,10)||0,c:parseInt(mCa,10)||0,f:parseInt(mF,10)||0})}>Add to {meal}</button>
         </div>}
 
-        <button className="btn-ghost" onClick={onClose}>Cancel</button>
+        <button className="btn-ghost" onClick={onClose} style={{marginTop:8}}>Cancel</button>
+        <div style={{height:16}}/>
+
+        </div>{/* end sheet-scroll */}
       </div>
     </div>
   );
@@ -1364,11 +1379,16 @@ function WeightModal({onClose,onLog}){
   return(
     <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div className="sheet">
-        <div className="sheet-handle"/>
-        <div className="sheet-title">Log Weight</div>
-        <div className="fg"><div className="fl">Weight (lbs)</div><input className="field" type="number" step="0.1" placeholder="e.g. 215.4" value={v} onChange={e=>setV(e.target.value)} autoFocus/></div>
-        <button className="btn" disabled={!v} onClick={()=>{onLog(parseFloat(v));onClose();}}>Save Weight</button>
-        <button className="btn-ghost" onClick={onClose}>Cancel</button>
+        <div className="sheet-fixed">
+          <div className="sheet-handle"/>
+          <div className="sheet-title">Log Weight</div>
+        </div>
+        <div className="sheet-scroll">
+          <div className="fg"><div className="fl">Weight (lbs)</div><input className="field" type="number" step="0.1" placeholder="e.g. 215.4" value={v} onChange={e=>setV(e.target.value)} autoFocus/></div>
+          <button className="btn" disabled={!v} onClick={()=>{onLog(parseFloat(v));onClose();}}>Save Weight</button>
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <div style={{height:16}}/>
+        </div>
       </div>
     </div>
   );
@@ -1385,8 +1405,11 @@ function GoalsModal({goals,onClose,onSave}){
   return(
     <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div className="sheet">
-        <div className="sheet-handle"/>
-        <div className="sheet-title">Edit Goals</div>
+        <div className="sheet-fixed">
+          <div className="sheet-handle"/>
+          <div className="sheet-title">Edit Goals</div>
+        </div>
+        <div className="sheet-scroll">
 
         <div className="fg">
           <div className="fl">I am currently...</div>
@@ -1421,12 +1444,12 @@ function GoalsModal({goals,onClose,onSave}){
           onClose();
         }}>Save Goals</button>
         <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <div style={{height:16}}/>
+        </div>{/* end sheet-scroll */}
       </div>
     </div>
   );
 }
-
-/* ── WorkerUrlInput ── */
 function WorkerUrlInput({onSave}){
   const [v,setV]=useState("");
   const valid=v.trim().startsWith("https://")&&v.includes("workers.dev");
