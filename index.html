@@ -44,7 +44,7 @@
     .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
     /* Page */
-    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(var(--sb) + 120px);-webkit-overflow-scrolling:touch}
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 125px);-webkit-overflow-scrolling:touch}
     .page::-webkit-scrollbar{display:none}
 
     /* Week selector */
@@ -117,20 +117,19 @@
     .food-del:active{color:var(--rose)}
 
     /* FAB */
-    .fab{position:fixed;bottom:calc(var(--sb) + 50px);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 55px);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:translateX(-50%) scale(0.97)}
 
-    /* Nav — native iOS-style: content sits just above the safe area, background extends behind home indicator */
-    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:space-around;padding:6px 0 calc(var(--sb));background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50}
+    /* Nav — native iOS tab bar: icons+labels in compact row, background extends behind home indicator */
+    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:stretch;justify-content:space-around;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50;padding-bottom:env(safe-area-inset-bottom,0px)}
     
     
-    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:none;cursor:pointer;padding:0;position:relative}
-    .nav-icon{font-size:22px;transition:transform 0.2s;display:block;line-height:1}
+    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;padding:8px 0 6px;position:relative;-webkit-tap-highlight-color:transparent}
+    .nav-icon{font-size:22px;display:block;line-height:1}
     .nav-lbl{font-size:9px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s;line-height:1}
-    .nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ind);opacity:0;transition:opacity 0.2s;position:absolute;top:-2px;left:50%;transform:translateX(-50%)}
+    .nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ind);opacity:0;transition:opacity 0.2s;position:absolute;top:3px;left:50%;transform:translateX(-50%)}
     .nav-btn.active .nav-lbl{color:var(--indl)}
     .nav-btn.active .nav-dot{opacity:1}
-    .nav-btn.active .nav-icon{transform:translateY(-1px)}
 
     /* Modal */
     .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fdin 0.2s ease}
@@ -551,6 +550,37 @@
 
     /* Sticky search inside the modal */
     .search-sticky{position:sticky;top:0;z-index:10;background:var(--s1);padding-bottom:8px}
+
+    /* ── Full-screen Add Food overlay ── */
+    .addfood-fs{
+      position:fixed;top:0;left:0;right:0;bottom:0;
+      width:100vw;height:100vh;height:100dvh;
+      z-index:9999;background:var(--bg);
+      display:flex;flex-direction:column;overflow:hidden;
+      animation:slideUp 0.25s ease-out;
+    }
+    .addfood-fs-header{
+      flex-shrink:0;
+      padding-top:max(calc(var(--st) + 8px), 52px);
+      padding-left:16px;padding-right:16px;padding-bottom:10px;
+      background:var(--s1);border-bottom:1px solid var(--b1);
+    }
+    .addfood-fs-toprow{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+    .addfood-fs-back{
+      width:36px;height:36px;border-radius:50%;
+      background:var(--s2);border:1px solid var(--b1);
+      color:var(--txt);font-size:20px;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;font-weight:300;-webkit-tap-highlight-color:transparent;
+    }
+    .addfood-fs-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;flex:1}
+    .addfood-fs-body{
+      flex:1;overflow-y:auto;overflow-x:hidden;
+      padding:12px 16px;
+      -webkit-overflow-scrolling:touch;
+      overscroll-behavior:contain;
+    }
+    .addfood-fs-body::-webkit-scrollbar{display:none}
 
   </style>
 </head>
@@ -1170,47 +1200,7 @@ function compressImage(dataUrl,maxWidth,quality){
 }
 
 function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
-  const sheetRef=useRef(null);
-  const searchRef=useRef(null);
   const scrollRef=useRef(null);
-  const [kbOpen,setKbOpen]=useState(false);
-
-  // iOS PWA keyboard fix — detect keyboard open/close via visualViewport
-  // When open: shrink sheet to visible area AND collapse the header
-  useEffect(function(){
-    if(!window.visualViewport) return;
-    const vv=window.visualViewport;
-    var initialH=vv.height;
-    // Only capture initial on first call — avoids stale value from orientation change
-    var timer=null;
-
-    function onVVChange(){
-      var sheet=sheetRef.current;
-      if(!sheet) return;
-      var diff=initialH - vv.height;
-      if(diff > 120){
-        // Keyboard is open
-        sheet.style.maxHeight=vv.height+'px';
-        sheet.style.borderRadius='0';
-        setKbOpen(true);
-      } else {
-        // Keyboard is closed
-        sheet.style.maxHeight='';
-        sheet.style.borderRadius='';
-        setKbOpen(false);
-      }
-    }
-
-    vv.addEventListener('resize', onVVChange);
-    vv.addEventListener('scroll', onVVChange);
-    return function(){
-      vv.removeEventListener('resize', onVVChange);
-      vv.removeEventListener('scroll', onVVChange);
-      if(timer)clearTimeout(timer);
-      var sheet=sheetRef.current;
-      if(sheet){sheet.style.maxHeight='';sheet.style.borderRadius='';}
-    };
-  },[]);
   const [tab,setTab]=useState("search");const [meal,setMeal]=useState(targetMeal||"Breakfast");
   const [query,setQuery]=useState("");const [results,setResults]=useState([]);const [searching,setSearching]=useState(false);const [sErr,setSErr]=useState("");const [selected,setSelected]=useState(null);
   const [barcode,setBarcode]=useState("");const [bLoad,setBLoad]=useState(false);const [bErr,setBErr]=useState("");const [bFood,setBFood]=useState(null);
@@ -1292,44 +1282,29 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
   function switchTab(t){setTab(t);setSelected(null);setBFood(null);}
 
   return(
-    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div className="sheet" ref={sheetRef}>
-        {/* Hidden input absorbs iOS auto-focus so keyboard doesn't pop on open */}
-        <input style={{position:"absolute",opacity:0,height:0,width:0,pointerEvents:"none"}} readOnly tabIndex={-1}/>
-
-        {/* ── Fixed header — collapses when keyboard is open ── */}
-        <div className="sheet-fixed">
-          {!kbOpen&&<div className="sheet-handle"/>}
-          {!kbOpen&&<div className="sheet-title" style={{marginBottom:10}}>Add Food</div>}
-          {!kbOpen&&<div style={{marginBottom:10}}>
-            <div className="fl" style={{marginBottom:8}}>Meal</div>
-            <div className="chips">{MEALS.map(m=><div key={m.id} className={"chip"+(meal===m.id?" active":"")} onClick={()=>setMeal(m.id)}>{m.emoji} {m.id}</div>)}</div>
-          </div>}
-          {kbOpen&&<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,paddingTop:4}}>
-            <button onClick={onClose} style={{background:"none",border:"none",color:"var(--mu)",fontSize:22,cursor:"pointer",padding:"4px",lineHeight:1,flexShrink:0}}>✕</button>
-            <div style={{fontSize:13,color:"var(--txt2)",fontWeight:600,flex:1}}>Adding to {meal}</div>
-          </div>}
-          <div className="tabs" style={{marginBottom:kbOpen?8:18}}>
-            {[["search","🔍 Search"],["barcode","📦 Scan"],["photo","📷 AI"],["custom","✏️ Manual"]].map(t=><button key={t[0]} className={"tab-btn"+(tab===t[0]?" active":"")} onClick={()=>switchTab(t[0])}>{t[1]}</button>)}
-          </div>
-          {/* When keyboard is open on search tab, pin the search field in the fixed header */}
-          {kbOpen&&tab==="search"&&!selected&&(
-            <div className="search-wrap" style={{marginBottom:6}}>
-              <span className="search-ico">🔍</span>
-              <input ref={searchRef} className="search-field" placeholder="Search 600k+ foods…" value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);if(scrollRef.current)scrollRef.current.scrollTop=0;}}/>
-            </div>
-          )}
+    <div className="addfood-fs">
+      {/* ── Fixed header ── */}
+      <div className="addfood-fs-header">
+        <div className="addfood-fs-toprow">
+          <button className="addfood-fs-back" onClick={onClose}>‹</button>
+          <div className="addfood-fs-title">Add Food</div>
         </div>
+        <div style={{marginBottom:10}}>
+          <div className="chips" style={{marginBottom:0}}>{MEALS.map(m=><div key={m.id} className={"chip"+(meal===m.id?" active":"")} onClick={()=>setMeal(m.id)}>{m.emoji} {m.id}</div>)}</div>
+        </div>
+        <div className="tabs" style={{marginBottom:0}}>
+          {[["search","🔍 Search"],["barcode","📦 Scan"],["photo","📷 AI"],["custom","✏️ Manual"]].map(t=><button key={t[0]} className={"tab-btn"+(tab===t[0]?" active":"")} onClick={()=>switchTab(t[0])}>{t[1]}</button>)}
+        </div>
+      </div>
 
-        {/* ── Scrollable body ── */}
-        <div className="sheet-scroll" ref={scrollRef}>
+      {/* ── Scrollable body ── */}
+      <div className="addfood-fs-body" ref={scrollRef}>
 
         {tab==="search"&&<div>
           {!selected?<div>
-            {/* Search field — only show here when keyboard is NOT open (otherwise it's in fixed header above) */}
-            {!kbOpen&&<div className="search-sticky">
-              <div className="search-wrap" style={{marginBottom:0}}><span className="search-ico">🔍</span><input ref={searchRef} className="search-field" placeholder="Search 600k+ foods…" value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);if(scrollRef.current)scrollRef.current.scrollTop=0;}} autoFocus/></div>
-            </div>}
+            <div className="search-sticky" style={{background:"var(--bg)"}}>
+              <div className="search-wrap" style={{marginBottom:0}}><span className="search-ico">🔍</span><input className="search-field" placeholder="Search 600k+ foods…" value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);if(scrollRef.current)scrollRef.current.scrollTop=0;}} autoFocus/></div>
+            </div>
             
             {searching&&<div className="loading-row"><div className="spin"/><span>Searching USDA…</span></div>}
             {sErr&&<div className="err">{sErr}</div>}
@@ -1390,10 +1365,7 @@ function AddFoodModal({onClose,onAdd,targetMeal,usdaKey,workerUrl}){
           <button className="btn" disabled={!mN||!mC} onClick={()=>confirm({name:mN,serving:"custom",meal,cal:parseInt(mC,10),p:parseInt(mP,10)||0,c:parseInt(mCa,10)||0,f:parseInt(mF,10)||0})}>Add to {meal}</button>
         </div>}
 
-        {!kbOpen&&<button className="btn-ghost" onClick={onClose} style={{marginTop:8}}>Cancel</button>}
-        <div style={{height:16}}/>
-
-        </div>{/* end sheet-scroll */}
+        <div style={{height:40}}/>
       </div>
     </div>
   );
