@@ -430,6 +430,8 @@
     .light .msg.ai .msg-bubble{background:var(--s3);border-color:var(--b2)}
     .light .ob-wrap{background:var(--bg)}
     .light .ob-result{background:linear-gradient(145deg,#eaeaf5,#e4e4f0)}
+    .light .nav{background:rgba(244,244,248,0.97);border-top-color:rgba(0,0,0,0.1)}
+    .light .nav::after{background:rgba(244,244,248,0.97)}
 
     /* Settings panel */
     .settings-panel{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:300;background:var(--s1);border-bottom:1px solid var(--b2);padding:calc(var(--st) + 56px) 20px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.25);animation:slideDown 0.25s cubic-bezier(0.4,0,0.2,1)}
@@ -4923,6 +4925,9 @@ function App() {
     showToast("✓ Weight saved");
   }
   function clearDay() {
+    // Delete each entry from cloud before clearing local
+    var dayItems = entries[selectedDate] || [];
+    dayItems.forEach(function(e){ if(e.id) syncToCloud(workerUrl, "sync_delete_entry", {entryId: e.id}); });
     setEntriesRaw(prev => {
       const n = {
         ...prev
@@ -5149,7 +5154,7 @@ function App() {
       className: "meal-hd-r"
     }, /*#__PURE__*/React.createElement("span", {
       className: "meal-kcal"
-    }, mCals(meal.id), " kcal"), isToday && /*#__PURE__*/React.createElement("button", {
+    }, mCals(meal.id), " kcal"), /*#__PURE__*/React.createElement("button", {
       className: "meal-add",
       onClick: e => {
         e.stopPropagation();
@@ -5160,7 +5165,7 @@ function App() {
       className: "meal-items"
     }, items.length === 0 ? /*#__PURE__*/React.createElement("div", {
       className: "meal-empty"
-    }, isToday ? "Nothing logged yet — tap + to add" : "Nothing logged") : items.map(item => /*#__PURE__*/React.createElement("div", {
+    }, isToday ? "Nothing logged yet — tap + to add" : "Nothing logged — tap + to add") : items.map(item => /*#__PURE__*/React.createElement("div", {
       className: "food-row",
       key: item.id
     }, /*#__PURE__*/React.createElement("div", {
@@ -5175,11 +5180,11 @@ function App() {
       className: "food-cal"
     }, item.cal), /*#__PURE__*/React.createElement("div", {
       className: "food-mpw"
-    }, item.p, "P\xB7", item.c, "C\xB7", item.f, "F")), isToday && /*#__PURE__*/React.createElement("button", {
+    }, item.p, "P\xB7", item.c, "C\xB7", item.f, "F")), /*#__PURE__*/React.createElement("button", {
       className: "food-del",
       onClick: () => delEntry(item.id)
     }, "\xD7")))));
-  }), isToday && /*#__PURE__*/React.createElement("button", {
+  }), /*#__PURE__*/React.createElement("button", {
     className: "fab",
     onClick: () => {
       setTargetMeal("Breakfast");
@@ -5193,7 +5198,7 @@ function App() {
       marginTop: 20,
       paddingBottom: 8
     }
-  }, "Viewing ", fmtShort(new Date(selectedDate + "T12:00:00")), " \u2014 tap today to log food")), tab === "weight" && /*#__PURE__*/React.createElement("div", {
+  }, "Logging for ", fmtShort(new Date(selectedDate + "T12:00:00")))), tab === "weight" && /*#__PURE__*/React.createElement("div", {
     className: "page"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
