@@ -1849,6 +1849,38 @@ function AddFoodModal({
   const [searching, setSearching] = useState(false);
   const [sErr, setSErr] = useState("");
   const [selected, setSelected] = useState(null);
+
+  // ── Recents: pull from localStorage, dedupe by name, sort by most recent ──
+  const recents = useState(function(){
+    try {
+      var entries = JSON.parse(localStorage.getItem("mt_entries") || "{}");
+      var seen = {};
+      var list = [];
+      // Iterate dates in reverse chronological order
+      var dates = Object.keys(entries).sort().reverse();
+      for(var di=0; di<dates.length; di++){
+        var dayItems = entries[dates[di]] || [];
+        for(var fi=0; fi<dayItems.length; fi++){
+          var item = dayItems[fi];
+          var key = (item.name||"").toLowerCase().trim();
+          if(!key || seen[key]) continue;
+          seen[key] = true;
+          list.push({
+            name: item.name,
+            serving: item.serving || "1 serving",
+            cal: item.cal || 0,
+            p: item.p || 0,
+            c: item.c || 0,
+            f: item.f || 0,
+            date: dates[di]
+          });
+          if(list.length >= 30) break;
+        }
+        if(list.length >= 30) break;
+      }
+      return list;
+    } catch(e){ return []; }
+  })[0];
   const [barcode, setBarcode] = useState("");
   const [bLoad, setBLoad] = useState(false);
   const [bErr, setBErr] = useState("");
@@ -2045,7 +2077,19 @@ function AddFoodModal({
       setSelected(null);
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
     }
-  }))), searching && /*#__PURE__*/React.createElement("div", {
+  }))), query.length < 2 && !searching && recents.length > 0 && /*#__PURE__*/React.createElement("div", null,
+    /*#__PURE__*/React.createElement("div", {
+      style: {fontSize:11, color:"var(--mu)", textTransform:"uppercase", letterSpacing:"1px", fontWeight:700, marginTop:12, marginBottom:8}
+    }, "\uD83D\uDD52 Recents"),
+    recents.map(function(r, i){ return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      className: "sres",
+      onClick: function(){ confirm({name:r.name, serving:r.serving, meal:meal, cal:r.cal, p:r.p, c:r.c, f:r.f}); }
+    }, /*#__PURE__*/React.createElement("div", {style:{minWidth:0}},
+      /*#__PURE__*/React.createElement("div", {className:"sr-name"}, r.name),
+      /*#__PURE__*/React.createElement("div", {className:"sr-sub"}, r.serving, " \xB7 ", r.p, "P/", r.c, "C/", r.f, "F")
+    ), /*#__PURE__*/React.createElement("div", {className:"sr-cal"}, r.cal)); })
+  ), searching && /*#__PURE__*/React.createElement("div", {
     className: "loading-row"
   }, /*#__PURE__*/React.createElement("div", {
     className: "spin"
