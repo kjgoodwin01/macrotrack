@@ -557,6 +557,29 @@
     /* Sticky search inside the modal */
     .search-sticky{position:sticky;top:0;z-index:10;background:var(--s1);padding-bottom:8px}
 
+    /* ── Course Correction Card ── */
+    .cc-card{border-radius:20px;padding:18px 20px;margin-bottom:14px;position:relative;overflow:hidden;animation:ccSlide 0.4s ease}
+    @keyframes ccSlide{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    .cc-card.gap{background:linear-gradient(145deg,#1a0d1e,#160d24);border:1px solid rgba(244,63,94,0.2)}
+    .cc-card.gap::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;background:radial-gradient(circle,rgba(244,63,94,0.1) 0%,transparent 65%);pointer-events:none}
+    .cc-card.close{background:linear-gradient(145deg,#0d1a18,#0d1620);border:1px solid rgba(245,158,11,0.2)}
+    .cc-card.close::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;background:radial-gradient(circle,rgba(245,158,11,0.08) 0%,transparent 65%);pointer-events:none}
+    .cc-card.ontrack{background:linear-gradient(145deg,#0a1a14,#0d1e18);border:1px solid rgba(16,185,129,0.25)}
+    .cc-card.ontrack::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;background:radial-gradient(circle,rgba(16,185,129,0.08) 0%,transparent 65%);pointer-events:none}
+    .cc-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+    .cc-icon{font-size:22px}
+    .cc-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px}
+    .cc-card.gap .cc-title{color:var(--rosel)}
+    .cc-card.close .cc-title{color:var(--ambl)}
+    .cc-card.ontrack .cc-title{color:var(--eml)}
+    .cc-body{font-size:13px;color:var(--txt2);line-height:1.65}
+    .cc-body strong{color:var(--txt);font-weight:600}
+    .cc-suggestion{margin-top:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--indll);line-height:1.6}
+    .cc-suggestion .cc-sug-label{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-weight:700}
+    .light .cc-card.gap{background:linear-gradient(145deg,#fef2f2,#fef2f8);border-color:rgba(244,63,94,0.2)}
+    .light .cc-card.close{background:linear-gradient(145deg,#fefce8,#fffbeb);border-color:rgba(245,158,11,0.2)}
+    .light .cc-card.ontrack{background:linear-gradient(145deg,#ecfdf5,#f0fdf4);border-color:rgba(16,185,129,0.2)}
+
     /* ── Full-screen Add Food overlay ── */
     .addfood-fs{
       position:fixed;top:0;left:0;right:0;bottom:0;
@@ -4645,6 +4668,126 @@ function CoachTab({
   }, "Clear conversation"));
 }
 
+/* ── Course Correction Engine ── */
+function CourseCorrection({logged, goals, entries, isToday}){
+  // Only show after 5 PM on today's view, and only if they've logged something
+  if(!isToday) return null;
+  var hour = new Date().getHours();
+  if(hour < 17) return null;
+  if(logged.calories === 0) return null;
+
+  var proteinPct = goals.protein > 0 ? (logged.protein / goals.protein) : 1;
+  var calPct = goals.calories > 0 ? (logged.calories / goals.calories) : 1;
+  var proteinRemaining = Math.max(0, goals.protein - logged.protein);
+  var calRemaining = Math.max(0, goals.calories - logged.calories);
+
+  // Build suggestion from recent foods that are high protein
+  function getProteinSuggestions(){
+    try {
+      var allEntries = JSON.parse(localStorage.getItem("mt_entries") || "{}");
+      var seen = {};
+      var foods = [];
+      var dates = Object.keys(allEntries).sort().reverse();
+      for(var di=0; di<dates.length; di++){
+        var items = allEntries[dates[di]] || [];
+        for(var fi=0; fi<items.length; fi++){
+          var item = items[fi];
+          var key = (item.name||"").toLowerCase().trim();
+          if(!key || seen[key]) continue;
+          if((item.p||0) < 10) continue; // only suggest items with 10g+ protein
+          seen[key] = true;
+          foods.push({name:item.name, cal:item.cal||0, p:item.p||0, serving:item.serving||""});
+          if(foods.length >= 20) break;
+        }
+        if(foods.length >= 20) break;
+      }
+      // Sort by protein density (protein per calorie)
+      foods.sort(function(a,b){ return (b.p/(b.cal||1)) - (a.p/(a.cal||1)); });
+      return foods;
+    } catch(e){ return []; }
+  }
+
+  // Find a combo that closes the protein gap within remaining calories
+  function buildSuggestion(){
+    var foods = getProteinSuggestions();
+    if(foods.length === 0) return null;
+    var combo = [];
+    var pLeft = proteinRemaining;
+    var cLeft = calRemaining;
+    for(var i=0; i<foods.length && pLeft > 5; i++){
+      var f = foods[i];
+      if(f.cal <= cLeft && f.p > 0){
+        combo.push(f);
+        pLeft -= f.p;
+        cLeft -= f.cal;
+        if(combo.length >= 3) break;
+      }
+    }
+    if(combo.length === 0) return null;
+    return combo;
+  }
+
+  // Determine card state
+  var state, icon, title, message;
+
+  if(proteinPct >= 0.9 && calPct >= 0.8 && calPct <= 1.1){
+    // On track
+    state = "ontrack";
+    icon = "✅";
+    title = "On Track";
+    message = "You're hitting your targets today. " + logged.protein + "g of " + goals.protein + "g protein, " + logged.calories + " of " + goals.calories + " kcal. Keep it up.";
+    return React.createElement("div", {className:"cc-card ontrack"},
+      React.createElement("div", {className:"cc-head"},
+        React.createElement("span", {className:"cc-icon"}, icon),
+        React.createElement("span", {className:"cc-title"}, title)
+      ),
+      React.createElement("div", {className:"cc-body"}, message)
+    );
+  }
+
+  if(proteinPct < 0.7){
+    // Significant protein gap
+    state = "gap";
+    icon = "🎯";
+    title = "Protein Gap Alert";
+    message = "You're at " + logged.protein + "g of " + goals.protein + "g protein (" + Math.round(proteinPct*100) + "%). You need " + proteinRemaining + "g more to hit your target.";
+  } else if(proteinPct < 0.9){
+    // Close but needs attention
+    state = "close";
+    icon = "⚡";
+    title = "Close — Finish Strong";
+    message = "You're at " + logged.protein + "g of " + goals.protein + "g protein (" + Math.round(proteinPct*100) + "%). Just " + proteinRemaining + "g more to go.";
+  } else if(calPct < 0.7){
+    state = "gap";
+    icon = "🔥";
+    title = "Calorie Gap";
+    message = "You've only logged " + logged.calories + " of " + goals.calories + " kcal today (" + Math.round(calPct*100) + "%). You have " + calRemaining + " kcal remaining.";
+  } else {
+    return null;
+  }
+
+  var suggestion = buildSuggestion();
+
+  return React.createElement("div", {className:"cc-card " + state},
+    React.createElement("div", {className:"cc-head"},
+      React.createElement("span", {className:"cc-icon"}, icon),
+      React.createElement("span", {className:"cc-title"}, title)
+    ),
+    React.createElement("div", {className:"cc-body"}, message),
+    suggestion && React.createElement("div", {className:"cc-suggestion"},
+      React.createElement("div", {className:"cc-sug-label"}, "Try these to close the gap"),
+      suggestion.map(function(f, i){
+        return React.createElement("div", {key:i, style:{padding:"4px 0"}},
+          React.createElement("strong", {style:{color:"var(--txt)"}}, f.name),
+          " — ",
+          f.p + "g protein, " + f.cal + " kcal",
+          f.serving ? " (" + f.serving + ")" : ""
+        );
+      })
+    )
+  );
+}
+
 /* ── App ── */
 function App() {
   const [tab, setTab] = useLocal("mt_tab", "log");
@@ -5148,6 +5291,11 @@ function App() {
   }), /*#__PURE__*/React.createElement(CalHero, {
     logged: logged,
     goals: goals
+  }), /*#__PURE__*/React.createElement(CourseCorrection, {
+    logged: logged,
+    goals: goals,
+    entries: entries,
+    isToday: isToday
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
