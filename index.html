@@ -580,6 +580,18 @@
     .light .cc-card.close{background:linear-gradient(145deg,#fefce8,#fffbeb);border-color:rgba(245,158,11,0.2)}
     .light .cc-card.ontrack{background:linear-gradient(145deg,#ecfdf5,#f0fdf4);border-color:rgba(16,185,129,0.2)}
 
+    /* ── NLP Entry ── */
+    .nlp-input{width:100%;padding:14px 16px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:14px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;resize:none;min-height:56px;max-height:120px;line-height:1.5;transition:border-color 0.2s;-webkit-appearance:none}
+    .nlp-input:focus{border-color:var(--ind);background:rgba(99,102,241,0.04)}
+    .nlp-input::placeholder{color:var(--mu)}
+    .nlp-item{background:rgba(255,255,255,0.03);border:1px solid var(--b1);border-radius:14px;padding:14px;margin-bottom:10px}
+    .nlp-item-name{font-size:15px;font-weight:600;color:var(--txt);margin-bottom:2px}
+    .nlp-item-serving{font-size:12px;color:var(--mu);margin-bottom:10px}
+    .nlp-item-macros{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+    .nlp-macro{text-align:center;background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 4px}
+    .nlp-macro-val{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600}
+    .nlp-macro-lbl{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px}
+
     /* ── Full-screen Add Food overlay ── */
     .addfood-fs{
       position:fixed;top:0;left:0;right:0;bottom:0;
@@ -1919,6 +1931,44 @@ function AddFoodModal({
   const [mF, setMF] = useState("");
   const fRef = useRef(null);
   const tRef = useRef(null);
+
+  // ── NLP state ──
+  const [nlpText, setNlpText] = useState("");
+  const [nlpLoading, setNlpLoading] = useState(false);
+  const [nlpResults, setNlpResults] = useState(null);
+  const [nlpErr, setNlpErr] = useState("");
+
+  async function submitNlp(){
+    var text = nlpText.trim();
+    if(!text || !workerUrl) return;
+    setNlpLoading(true); setNlpErr(""); setNlpResults(null);
+    try {
+      var r = await fetch(workerUrl.replace(/\/$/, ""), {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({type:"nlp_food", text:text})
+      });
+      if(!r.ok) throw new Error("Request failed");
+      var d = await r.json();
+      if(d.error) throw new Error(d.error);
+      if(!d.foods || d.foods.length === 0) throw new Error("No foods parsed");
+      setNlpResults(d.foods);
+    } catch(e){
+      setNlpErr(e.message || "Could not parse that. Try being more specific.");
+    }
+    setNlpLoading(false);
+  }
+
+  function confirmNlpItem(item){
+    confirm({name:item.name, serving:item.serving||"1 serving", meal:meal, cal:item.cal||0, p:item.p||0, c:item.c||0, f:item.f||0});
+  }
+
+  function confirmAllNlp(){
+    if(!nlpResults) return;
+    nlpResults.forEach(function(item){
+      onAdd({name:item.name, serving:item.serving||"1 serving", meal:meal, cal:item.cal||0, p:item.p||0, c:item.c||0, f:item.f||0});
+    });
+    onClose();
+  }
   useEffect(() => {
     const q = query.trim();
     // Fire search after just 2 chars — catch partial queries like "fair", "eggs"
@@ -2072,7 +2122,7 @@ function AddFoodModal({
     style: {
       marginBottom: 0
     }
-  }, [["search", "🔍 Search"], ["barcode", "📦 Scan"], ["photo", "📷 AI"], ["custom", "✏️ Manual"]].map(t => /*#__PURE__*/React.createElement("button", {
+  }, [["search", "🔍 Search"], ["nlp", "💬 Describe"], ["barcode", "📦 Scan"], ["photo", "📷 AI"], ["custom", "✏️ Manual"]].map(t => /*#__PURE__*/React.createElement("button", {
     key: t[0],
     className: "tab-btn" + (tab === t[0] ? " active" : ""),
     onClick: () => switchTab(t[0])
@@ -2142,7 +2192,70 @@ function AddFoodModal({
     meal: meal,
     onBack: () => setSelected(null),
     onConfirm: confirm
-  })), tab === "barcode" && /*#__PURE__*/React.createElement("div", null, !bFood ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(BarcodeScanner, {
+  })), tab === "nlp" && /*#__PURE__*/React.createElement("div", null,
+    /*#__PURE__*/React.createElement("div", {style:{marginBottom:14}},
+      /*#__PURE__*/React.createElement("div", {style:{fontSize:13,color:"var(--txt2)",marginBottom:10,lineHeight:1.6}}, "Describe what you ate in plain English. AI will parse each food and estimate the macros."),
+      /*#__PURE__*/React.createElement("textarea", {
+        className:"nlp-input",
+        placeholder:"e.g. chicken breast with half cup of rice and a Fairlife protein shake",
+        value:nlpText,
+        onChange:function(e){setNlpText(e.target.value);},
+        rows:2
+      }),
+      /*#__PURE__*/React.createElement("button", {
+        className:"btn",
+        style:{marginTop:10},
+        disabled:!nlpText.trim()||nlpLoading,
+        onClick:submitNlp
+      }, nlpLoading ? "PARSING..." : "PARSE FOOD")
+    ),
+    nlpLoading && /*#__PURE__*/React.createElement("div", {className:"loading-row"},
+      /*#__PURE__*/React.createElement("div", {className:"spin"}),
+      /*#__PURE__*/React.createElement("span", null, "AI is reading your meal...")
+    ),
+    nlpErr && /*#__PURE__*/React.createElement("div", {className:"err", style:{padding:"8px 0"}}, nlpErr),
+    nlpResults && /*#__PURE__*/React.createElement("div", null,
+      /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700,marginBottom:10}}, nlpResults.length + " item" + (nlpResults.length>1?"s":"") + " found"),
+      nlpResults.map(function(item, i){
+        return /*#__PURE__*/React.createElement("div", {className:"nlp-item", key:i},
+          /*#__PURE__*/React.createElement("div", {className:"nlp-item-name"}, item.name),
+          /*#__PURE__*/React.createElement("div", {className:"nlp-item-serving"}, item.serving || (item.grams ? item.grams+"g" : "1 serving")),
+          /*#__PURE__*/React.createElement("div", {className:"nlp-item-macros"},
+            /*#__PURE__*/React.createElement("div", {className:"nlp-macro"},
+              /*#__PURE__*/React.createElement("div", {className:"nlp-macro-val", style:{color:"var(--indll)"}}, item.cal),
+              /*#__PURE__*/React.createElement("div", {className:"nlp-macro-lbl"}, "kcal")
+            ),
+            /*#__PURE__*/React.createElement("div", {className:"nlp-macro"},
+              /*#__PURE__*/React.createElement("div", {className:"nlp-macro-val", style:{color:"var(--rosel)"}}, item.p, "g"),
+              /*#__PURE__*/React.createElement("div", {className:"nlp-macro-lbl"}, "protein")
+            ),
+            /*#__PURE__*/React.createElement("div", {className:"nlp-macro"},
+              /*#__PURE__*/React.createElement("div", {className:"nlp-macro-val", style:{color:"var(--cyanl)"}}, item.c, "g"),
+              /*#__PURE__*/React.createElement("div", {className:"nlp-macro-lbl"}, "carbs")
+            ),
+            /*#__PURE__*/React.createElement("div", {className:"nlp-macro"},
+              /*#__PURE__*/React.createElement("div", {className:"nlp-macro-val", style:{color:"var(--ambl)"}}, item.f, "g"),
+              /*#__PURE__*/React.createElement("div", {className:"nlp-macro-lbl"}, "fat")
+            )
+          ),
+          /*#__PURE__*/React.createElement("button", {
+            style:{width:"100%",marginTop:10,padding:"10px",background:"rgba(99,102,241,0.1)",border:"1px solid rgba(99,102,241,0.25)",borderRadius:10,color:"var(--indll)",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"},
+            onClick:function(){confirmNlpItem(item);}
+          }, "Add ", item.name)
+        );
+      }),
+      nlpResults.length > 1 && /*#__PURE__*/React.createElement("button", {
+        className:"btn",
+        style:{marginTop:6},
+        onClick:confirmAllNlp
+      }, "ADD ALL " + nlpResults.length + " ITEMS"),
+      /*#__PURE__*/React.createElement("button", {
+        className:"btn-ghost",
+        style:{marginTop:6},
+        onClick:function(){setNlpResults(null);setNlpText("");setNlpErr("");}
+      }, "Start Over")
+    )
+  ), tab === "barcode" && /*#__PURE__*/React.createElement("div", null, !bFood ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(BarcodeScanner, {
     onDetected: c => {
       setBarcode(c);
       lookupBarcode(c);
