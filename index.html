@@ -592,6 +592,17 @@
     .nlp-macro-val{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600}
     .nlp-macro-lbl{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px}
 
+    /* ── Meal Bundles ── */
+    .bundle-card{background:linear-gradient(145deg,rgba(15,15,32,1),rgba(18,18,38,1));border:1px solid rgba(99,102,241,0.2);border-radius:16px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color 0.15s,transform 0.15s}
+    .bundle-card:active{border-color:var(--ind);transform:scale(0.98)}
+    .bundle-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .bundle-name{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.5px;color:var(--indll)}
+    .bundle-count{font-size:10px;color:var(--mu);font-family:'JetBrains Mono',monospace}
+    .bundle-items{font-size:12px;color:var(--txt2);line-height:1.6}
+    .bundle-macros{display:flex;gap:10px;margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--mu)}
+    .bundle-macros strong{color:var(--txt2);font-weight:600}
+    .light .bundle-card{background:linear-gradient(145deg,#eeeef8,#e8e8f5);border-color:rgba(99,102,241,0.2)}
+
     /* ── Full-screen Add Food overlay ── */
     .addfood-fs{
       position:fixed;top:0;left:0;right:0;bottom:0;
@@ -1916,6 +1927,65 @@ function AddFoodModal({
       return list;
     } catch(e){ return []; }
   })[0];
+
+  // ── Smart Meal Bundles: detect foods logged together 3+ times ──
+  const bundles = useState(function(){
+    try {
+      var entries = JSON.parse(localStorage.getItem("mt_entries") || "{}");
+      var mealGroups = {}; // key: sorted food names joined, value: {foods, count, lastDate}
+      var dates = Object.keys(entries);
+      for(var di=0; di<dates.length; di++){
+        var dayItems = entries[dates[di]] || [];
+        // Group items by meal type for this day
+        var byMeal = {};
+        for(var fi=0; fi<dayItems.length; fi++){
+          var item = dayItems[fi];
+          var m = item.meal || "Other";
+          if(!byMeal[m]) byMeal[m] = [];
+          byMeal[m].push(item);
+        }
+        // For each meal with 2+ items, create a combo key
+        var meals = Object.keys(byMeal);
+        for(var mi=0; mi<meals.length; mi++){
+          var mealItems = byMeal[meals[mi]];
+          if(mealItems.length < 2) continue;
+          // Sort names to create a stable key
+          var names = mealItems.map(function(x){return (x.name||"").toLowerCase().trim();}).sort();
+          var key = names.join("|");
+          if(!mealGroups[key]){
+            mealGroups[key] = {
+              foods: mealItems.map(function(x){return {name:x.name, serving:x.serving||"1 serving", cal:x.cal||0, p:x.p||0, c:x.c||0, f:x.f||0};}),
+              count: 0,
+              lastDate: dates[di],
+              meal: meals[mi]
+            };
+          }
+          mealGroups[key].count++;
+          if(dates[di] > mealGroups[key].lastDate) mealGroups[key].lastDate = dates[di];
+        }
+      }
+      // Filter to combos that appeared 3+ times, sort by frequency then recency
+      var result = [];
+      var keys = Object.keys(mealGroups);
+      for(var ki=0; ki<keys.length; ki++){
+        var g = mealGroups[keys[ki]];
+        if(g.count >= 3) result.push(g);
+      }
+      result.sort(function(a,b){
+        if(b.count !== a.count) return b.count - a.count;
+        return b.lastDate.localeCompare(a.lastDate);
+      });
+      return result.slice(0, 5);
+    } catch(e){ return []; }
+  })[0];
+
+  function confirmBundle(bundle){
+    bundle.foods.forEach(function(f){
+      onAdd({name:f.name, serving:f.serving, meal:meal, cal:f.cal, p:f.p, c:f.c, f:f.f});
+    });
+    onClose();
+  }
+
   const [barcode, setBarcode] = useState("");
   const [bLoad, setBLoad] = useState(false);
   const [bErr, setBErr] = useState("");
@@ -2150,7 +2220,31 @@ function AddFoodModal({
       setSelected(null);
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
     }
-  }))), query.length < 2 && !searching && recents.length > 0 && /*#__PURE__*/React.createElement("div", null,
+  }))), query.length < 2 && !searching && bundles.length > 0 && /*#__PURE__*/React.createElement("div", null,
+    /*#__PURE__*/React.createElement("div", {
+      style: {fontSize:11, color:"var(--mu)", textTransform:"uppercase", letterSpacing:"1px", fontWeight:700, marginTop:12, marginBottom:8}
+    }, "\u26A1 Quick Meals"),
+    bundles.map(function(b, i){
+      var totalCal=0, totalP=0, totalC=0, totalF=0;
+      b.foods.forEach(function(f){totalCal+=f.cal;totalP+=f.p;totalC+=f.c;totalF+=f.f;});
+      var foodNames = b.foods.map(function(f){return f.name;}).join(" + ");
+      return /*#__PURE__*/React.createElement("div", {
+        key:i, className:"bundle-card", onClick:function(){confirmBundle(b);}
+      },
+        /*#__PURE__*/React.createElement("div", {className:"bundle-head"},
+          /*#__PURE__*/React.createElement("div", {className:"bundle-name"}, b.foods.length + " Item " + b.meal + " Combo"),
+          /*#__PURE__*/React.createElement("div", {className:"bundle-count"}, "logged " + b.count + "x")
+        ),
+        /*#__PURE__*/React.createElement("div", {className:"bundle-items"}, foodNames),
+        /*#__PURE__*/React.createElement("div", {className:"bundle-macros"},
+          /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", null, totalCal), " kcal"),
+          /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", {style:{color:"var(--rosel)"}}, totalP), "g P"),
+          /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", {style:{color:"var(--cyanl)"}}, totalC), "g C"),
+          /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", {style:{color:"var(--ambl)"}}, totalF), "g F")
+        )
+      );
+    })
+  ), query.length < 2 && !searching && recents.length > 0 && /*#__PURE__*/React.createElement("div", null,
     /*#__PURE__*/React.createElement("div", {
       style: {fontSize:11, color:"var(--mu)", textTransform:"uppercase", letterSpacing:"1px", fontWeight:700, marginTop:12, marginBottom:8}
     }, "\uD83D\uDD52 Recents"),
