@@ -47,7 +47,7 @@
     .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
     /* Page */
-    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px calc(62px + env(safe-area-inset-bottom,34px) + 70px);-webkit-overflow-scrolling:touch}
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px 120px;-webkit-overflow-scrolling:touch}
     .page::-webkit-scrollbar{display:none}
 
     /* Week selector */
@@ -120,17 +120,17 @@
     .food-del:active{color:var(--rose)}
 
     /* FAB */
-    .fab{position:fixed;bottom:calc(62px + env(safe-area-inset-bottom,34px));left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
-    .fab:active{transform:scale(0.97)}
+    .fab{position:fixed;bottom:53px;left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab:active{transform:translateX(-50%) scale(0.97)}
 
     /* Nav — native iOS tab bar: icons at bottom, background extends behind home indicator via ::after */
     .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:stretch;justify-content:space-around;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50;padding-bottom:0}
     .nav::after{content:'';position:absolute;bottom:0;left:0;right:0;height:env(safe-area-inset-bottom,0px);background:rgba(6,6,15,0.97);transform:translateY(100%);z-index:50}
     
     
-    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;padding:10px 0 8px;position:relative;-webkit-tap-highlight-color:transparent}
-    .nav-icon{font-size:25px;display:block;line-height:1}
-    .nav-lbl{font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s;line-height:1}
+    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;padding:7px 0 5px;position:relative;-webkit-tap-highlight-color:transparent}
+    .nav-icon{font-size:22px;display:block;line-height:1}
+    .nav-lbl{font-size:9px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s;line-height:1}
     .nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ind);opacity:0;transition:opacity 0.2s;position:absolute;top:2px;left:50%;transform:translateX(-50%)}
     .nav-btn.active .nav-lbl{color:var(--indl)}
     .nav-btn.active .nav-dot{opacity:1}
@@ -4265,28 +4265,32 @@ function CoachTab({
       });
     }, 350);
 
-    // iOS keyboard fix — shrink only the messages area, never move the overlay.
-    // Moving the overlay (setting top/height) pushes the header behind the Dynamic Island.
-    // Instead we calculate keyboard height and add padding to chat-msgs so it scrolls up.
+    // iOS visual viewport fix — keyboard shrinks visual viewport
+    // We reposition the chat overlay to match visual viewport height
     function handleViewportResize() {
       const vv = window.visualViewport;
       if (!vv) return;
-      const msgs = document.querySelector(".chat-msgs");
-      if (!msgs) return;
-      const keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      msgs.style.paddingBottom = keyboardHeight > 50 ? keyboardHeight + "px" : "";
+      const el = document.querySelector(".chat-fullscreen");
+      if (!el) return;
+      el.style.height = vv.height + "px";
+      el.style.top = vv.offsetTop + "px";
     }
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", handleViewportResize);
       window.visualViewport.addEventListener("scroll", handleViewportResize);
+      handleViewportResize();
     }
     return function () {
       if (window.visualViewport) {
         window.visualViewport.removeEventListener("resize", handleViewportResize);
         window.visualViewport.removeEventListener("scroll", handleViewportResize);
       }
-      const msgs = document.querySelector(".chat-msgs");
-      if (msgs) msgs.style.paddingBottom = "";
+      // Reset on close
+      const el = document.querySelector(".chat-fullscreen");
+      if (el) {
+        el.style.height = "";
+        el.style.top = "";
+      }
     };
   }, [chatOpen]);
   function buildContext() {
