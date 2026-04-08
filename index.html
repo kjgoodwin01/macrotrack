@@ -290,13 +290,19 @@
       from{transform:translateY(100%);opacity:0.8}
       to{transform:translateY(0);opacity:1}
     }
-    .chat-fs-header{
-      display:flex;align-items:center;gap:12px;
-      padding:14px 16px;
-      border-bottom:1px solid var(--b1);
-      background:var(--s1);
-      flex-shrink:0;
-    }
+.chat-fs-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--b1);
+    background: var(--s1);
+    flex-shrink: 0;
+    /* ADD THESE TWO LINES */
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
     .chat-fs-back{
       width:40px;height:40px;border-radius:50%;
       background:var(--s2);border:1px solid var(--b2);
@@ -304,22 +310,20 @@
       display:flex;align-items:center;justify-content:center;
       flex-shrink:0;font-weight:300;
       -webkit-tap-highlight-color:transparent;
-      z-index:10;
+      z-index:110;
     }
     .chat-fs-title{font-size:16px;font-weight:600;color:var(--txt);flex:1}
     .chat-fs-sub{font-size:11px;color:var(--mu)}
     .chat-fs-usage{font-size:11px;color:var(--mu);text-align:right;flex-shrink:0}
 
     /* ── Messages ── */
-    .chat-msgs{
-      flex:1;
-      overflow-y:scroll;
-      -webkit-overflow-scrolling:touch;
-      padding:16px;
-      display:flex;flex-direction:column;gap:12px;
-      overscroll-behavior:contain;
-      min-height:0;
-    }
+.chat-msgs {
+    flex: 1;
+    overflow-y: scroll;
+    /* ADD THIS LINE */
+    padding-top: 10px; 
+    /* If it's still cut off, increase 10px to 20px */
+}
     .chat-msgs::-webkit-scrollbar{display:none}
     .msg{display:flex;flex-direction:column;gap:3px}
     .msg.user{align-items:flex-end}
