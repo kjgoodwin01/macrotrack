@@ -1,6 +1,6 @@
 // MacroTrack Service Worker
 // Bump this version number with every deploy to force an immediate update
-const VERSION = "mt-v6";
+const VERSION = "mt-v7";
 const CACHE = VERSION;
 
 // Files to precache on install
@@ -49,7 +49,7 @@ self.addEventListener("activate", function(e) {
 
 // ── Fetch: network-first for HTML, cache-first for everything else ─────────
 self.addEventListener("fetch", function(e) {
-  const url = new URL(e.request.url);
+  var url = new URL(e.request.url);
 
   // Only handle same-origin requests
   if (url.origin !== self.location.origin) return;
@@ -61,7 +61,7 @@ self.addEventListener("fetch", function(e) {
     e.respondWith(
       fetch(e.request).then(function(networkRes) {
         // Got fresh from network — update cache and return
-        const clone = networkRes.clone();
+        var clone = networkRes.clone();
         caches.open(CACHE).then(function(cache) {
           cache.put(e.request, clone);
         });
@@ -81,12 +81,57 @@ self.addEventListener("fetch", function(e) {
     caches.match(e.request).then(function(cached) {
       if (cached) return cached;
       return fetch(e.request).then(function(networkRes) {
-        const clone = networkRes.clone();
+        var clone = networkRes.clone();
         caches.open(CACHE).then(function(cache) {
           cache.put(e.request, clone);
         });
         return networkRes;
       });
+    })
+  );
+});
+
+// ── Push: handle incoming push notifications ──────────────────────────────
+self.addEventListener("push", function(e) {
+  var data = {};
+  try {
+    data = e.data ? e.data.json() : {};
+  } catch (err) {
+    data = { title: "MacroTrack", body: "You have a new notification" };
+  }
+
+  var title = data.title || "MacroTrack";
+  var options = {
+    body: data.body || "",
+    icon: data.icon || "./icon-192.png",
+    badge: data.badge || "./icon-192.png",
+    data: { url: data.url || "./" },
+    vibrate: [100, 50, 100],
+    tag: data.tag || "macrotrack-notification",
+    renotify: true,
+  };
+
+  e.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// ── Notification click: open or focus the app ─────────────────────────────
+self.addEventListener("notificationclick", function(e) {
+  e.notification.close();
+
+  var targetUrl = (e.notification.data && e.notification.data.url) || "https://kjgoodwin01.github.io/macrotrack/";
+
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function(clients) {
+      // If app is already open, focus it
+      for (var i = 0; i < clients.length; i++) {
+        if (clients[i].url.indexOf("macrotrack") !== -1) {
+          return clients[i].focus();
+        }
+      }
+      // Otherwise open a new window
+      return self.clients.openWindow(targetUrl);
     })
   );
 });
