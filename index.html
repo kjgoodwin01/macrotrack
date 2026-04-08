@@ -679,6 +679,54 @@ const USDA = "https://api.nal.usda.gov/fdc/v1";
 /* ── Worker URL — hardcoded so users need zero configuration ── */
 const DEFAULT_WORKER_URL = "https://macrotrack-ai.kjgoodwin01.workers.dev";
 
+/* ── Push Notification helpers ── */
+const VAPID_PUBLIC_KEY = "BB5b5K365feffJpjzxwJKn7qETCuO498JByFCrf_qpey_izmiI--ljQJZrpJiNXI13SXN9ZYbpJHvZo-RnbwBuI";
+
+function urlBase64ToUint8Array(base64String) {
+  var padding = "=".repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  var rawData = atob(base64);
+  var outputArray = new Uint8Array(rawData.length);
+  for (var i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function subscribeToPush(workerUrl, deviceId, preferences) {
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return {error:"Push not supported"};
+    var permission = await Notification.requestPermission();
+    if (permission !== "granted") return {error:"Permission denied"};
+    var reg = await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+    var subJSON = sub.toJSON();
+    await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        type: "push_subscribe",
+        deviceId: deviceId,
+        subscription: {endpoint: subJSON.endpoint, keys: subJSON.keys},
+        preferences: preferences || {},
+      }),
+    });
+    return {ok:true};
+  } catch(e) { return {error:e.message}; }
+}
+
+async function updatePushPrefs(workerUrl, deviceId, preferences) {
+  try {
+    await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({type: "push_update_prefs", deviceId: deviceId, preferences: preferences}),
+    });
+    return {ok:true};
+  } catch(e) { return {error:e.message}; }
+}
+
 /* ── Device ID — persistent anonymous user identifier ── */
 function getDeviceId() {
   let id = localStorage.getItem("mt_device_id");
@@ -5008,6 +5056,42 @@ function App() {
   const [aiUsage, setAiUsageRaw] = useLocal("mt_ai_usage", {});
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [installDismissed, setInstallDismissedRaw] = useLocal("mt_install_dismissed", false);
+
+  // ── Push notification state ──
+  const [pushEnabled, setPushEnabledRaw] = useLocal("mt_push_enabled", false);
+  const [pushPrefs, setPushPrefsRaw] = useLocal("mt_push_prefs", {report:true, correction:true, reminder:false, reminderHour:12});
+  const [pushLoading, setPushLoading] = useState(false);
+
+  async function togglePush() {
+    if (pushLoading) return;
+    setPushLoading(true);
+    if (!pushEnabled) {
+      var result = await subscribeToPush(workerUrl, DEVICE_ID, pushPrefs);
+      if (result.ok) {
+        setPushEnabledRaw(true);
+        showToast("✓ Notifications enabled");
+      } else {
+        showToast("Could not enable: " + (result.error || "unknown error"));
+      }
+    } else {
+      setPushEnabledRaw(false);
+      try {
+        await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({type: "push_unsubscribe", deviceId: DEVICE_ID}),
+        });
+      } catch(e){}
+      showToast("Notifications disabled");
+    }
+    setPushLoading(false);
+  }
+
+  function updatePushPref(key, value) {
+    var newPrefs = Object.assign({}, pushPrefs);
+    newPrefs[key] = value;
+    setPushPrefsRaw(newPrefs);
+    if (pushEnabled) updatePushPrefs(workerUrl, DEVICE_ID, newPrefs);
+  }
   useEffect(function () {
     const isInstalled = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: fullscreen)").matches;
     if (!isInstalled && !installDismissed) {
@@ -5957,6 +6041,70 @@ function App() {
       showToast("✓ Data restored");
     }
   })), /*#__PURE__*/React.createElement("div", {
+    className: "scard"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "stitle"
+  }, "Notifications"),
+    /*#__PURE__*/React.createElement("div", {className:"muted-t",style:{marginBottom:14}},
+      pushEnabled ? "Push notifications are enabled. Manage what you receive below." : "Get reminders to log food, weekly report alerts, and protein gap warnings."
+    ),
+    !pushEnabled
+      ? /*#__PURE__*/React.createElement("button", {
+          className:"btn", style:{marginTop:0},
+          onClick:togglePush, disabled:pushLoading
+        }, pushLoading ? "ENABLING..." : "ENABLE NOTIFICATIONS")
+      : /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("div", {style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid var(--b1)"}},
+            /*#__PURE__*/React.createElement("div", null,
+              /*#__PURE__*/React.createElement("div", {style:{fontSize:14}}, "\uD83D\uDCCA Weekly Report"),
+              /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"var(--mu)",marginTop:2}}, "Sunday 9 AM — coaching check-in")
+            ),
+            /*#__PURE__*/React.createElement("button", {
+              onClick:function(){updatePushPref("report",!pushPrefs.report);},
+              style:{width:44,height:26,borderRadius:13,border:"none",cursor:"pointer",
+                background:pushPrefs.report?"var(--ind)":"var(--b1)",transition:"background 0.2s",
+                position:"relative"}
+            }, /*#__PURE__*/React.createElement("div", {style:{
+              width:20,height:20,borderRadius:10,background:"#fff",position:"absolute",top:3,
+              left:pushPrefs.report?21:3,transition:"left 0.2s"
+            }}))
+          ),
+          /*#__PURE__*/React.createElement("div", {style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid var(--b1)"}},
+            /*#__PURE__*/React.createElement("div", null,
+              /*#__PURE__*/React.createElement("div", {style:{fontSize:14}}, "\uD83C\uDFAF Protein Gap Alert"),
+              /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"var(--mu)",marginTop:2}}, "7 PM — if protein is below 70%")
+            ),
+            /*#__PURE__*/React.createElement("button", {
+              onClick:function(){updatePushPref("correction",!pushPrefs.correction);},
+              style:{width:44,height:26,borderRadius:13,border:"none",cursor:"pointer",
+                background:pushPrefs.correction?"var(--ind)":"var(--b1)",transition:"background 0.2s",
+                position:"relative"}
+            }, /*#__PURE__*/React.createElement("div", {style:{
+              width:20,height:20,borderRadius:10,background:"#fff",position:"absolute",top:3,
+              left:pushPrefs.correction?21:3,transition:"left 0.2s"
+            }}))
+          ),
+          /*#__PURE__*/React.createElement("div", {style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid var(--b1)"}},
+            /*#__PURE__*/React.createElement("div", null,
+              /*#__PURE__*/React.createElement("div", {style:{fontSize:14}}, "\uD83D\uDCAA Daily Reminder"),
+              /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"var(--mu)",marginTop:2}}, "Remind me if I haven't logged by noon")
+            ),
+            /*#__PURE__*/React.createElement("button", {
+              onClick:function(){updatePushPref("reminder",!pushPrefs.reminder);},
+              style:{width:44,height:26,borderRadius:13,border:"none",cursor:"pointer",
+                background:pushPrefs.reminder?"var(--ind)":"var(--b1)",transition:"background 0.2s",
+                position:"relative"}
+            }, /*#__PURE__*/React.createElement("div", {style:{
+              width:20,height:20,borderRadius:10,background:"#fff",position:"absolute",top:3,
+              left:pushPrefs.reminder?21:3,transition:"left 0.2s"
+            }}))
+          ),
+          /*#__PURE__*/React.createElement("button", {
+            className:"btn-danger", style:{marginTop:14},
+            onClick:togglePush
+          }, "Disable All Notifications")
+        )
+  ), /*#__PURE__*/React.createElement("div", {
     className: "scard"
   }, /*#__PURE__*/React.createElement("div", {
     className: "stitle"
