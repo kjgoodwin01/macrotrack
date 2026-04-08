@@ -28,25 +28,7 @@
       --amb:#f59e0b;--ambl:#fbbf24;
       --em:#10b981;--eml:#34d399;
       --txt:#f4f4ff;--txt2:#a0a0c8;--mu:#52527a;
-      /* ── Layout tokens: single source of truth for all spacing ── */
-      --safe-t:env(safe-area-inset-top,0px);
-      --safe-b:env(safe-area-inset-bottom,0px);
-      /* Legacy aliases used throughout the app */
-      --st:env(safe-area-inset-top,0px);
-      --sb:env(safe-area-inset-bottom,0px);
-      /* Nav: content height + safe area bottom */
-      --nav-content-h:56px;
-      --nav-h:calc(var(--nav-content-h) + env(safe-area-inset-bottom,0px));
-      /* FAB: sits above nav with 8px breathing room */
-      --fab-h:52px;
-      --fab-gap:8px;
-      --fab-bottom:calc(var(--nav-h) + var(--fab-gap));
-      /* Page: must clear nav + fab + gap + extra breathing */
-      --page-pb:calc(var(--nav-h) + var(--fab-h) + var(--fab-gap) + 16px);
-      /* Fullscreen overlays: header padding respects Dynamic Island */
-      --overlay-header-pt:calc(env(safe-area-inset-top,44px) + 10px);
-      /* Chat input: respects home indicator */
-      --chat-input-pb:max(20px, env(safe-area-inset-bottom,20px))
+      --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)
     }
     html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:var(--txt)}
     body{font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
@@ -65,7 +47,7 @@
     .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
     /* Page */
-    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px var(--page-pb);-webkit-overflow-scrolling:touch}
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px 120px;-webkit-overflow-scrolling:touch}
     .page::-webkit-scrollbar{display:none}
 
     /* Week selector */
@@ -138,17 +120,17 @@
     .food-del:active{color:var(--rose)}
 
     /* FAB */
-    .fab{position:fixed;bottom:var(--fab-bottom);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
-    .fab:active{transform:scale(0.97)}
+    .fab{position:fixed;bottom:53px;left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab:active{transform:translateX(-50%) scale(0.97)}
 
     /* Nav — native iOS tab bar: icons at bottom, background extends behind home indicator via ::after */
     .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:stretch;justify-content:space-around;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50;padding-bottom:0}
     .nav::after{content:'';position:absolute;bottom:0;left:0;right:0;height:env(safe-area-inset-bottom,0px);background:rgba(6,6,15,0.97);transform:translateY(100%);z-index:50}
     
     
-    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;padding:10px 0 8px;position:relative;-webkit-tap-highlight-color:transparent}
-    .nav-icon{font-size:24px;display:block;line-height:1}
-    .nav-lbl{font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s;line-height:1}
+    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;padding:7px 0 5px;position:relative;-webkit-tap-highlight-color:transparent}
+    .nav-icon{font-size:22px;display:block;line-height:1}
+    .nav-lbl{font-size:9px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s;line-height:1}
     .nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ind);opacity:0;transition:opacity 0.2s;position:absolute;top:2px;left:50%;transform:translateX(-50%)}
     .nav-btn.active .nav-lbl{color:var(--indl)}
     .nav-btn.active .nav-dot{opacity:1}
@@ -311,7 +293,7 @@
     }
     .chat-fs-header{
       display:flex;align-items:center;gap:12px;
-      padding-top:var(--overlay-header-pt);
+      padding-top:calc(env(safe-area-inset-top, 44px) + 8px);
       padding-left:16px;padding-right:16px;padding-bottom:14px;
       border-bottom:1px solid var(--b1);
       background:var(--s1);
@@ -354,7 +336,7 @@
     .chat-input-row{
       display:flex;align-items:flex-end;gap:8px;
       padding:10px 14px;
-      padding-bottom:var(--chat-input-pb);
+      padding-bottom:max(20px, env(safe-area-inset-bottom, 20px));
       border-top:1px solid var(--b1);
       background:var(--s1);
       flex-shrink:0;
@@ -632,7 +614,7 @@
     }
     .addfood-fs-header{
       flex-shrink:0;
-      padding-top:var(--overlay-header-pt);
+      padding-top:calc(env(safe-area-inset-top, 44px) + 8px);
       padding-left:16px;padding-right:16px;padding-bottom:10px;
       background:var(--s1);border-bottom:1px solid var(--b1);
     }
@@ -4283,29 +4265,32 @@ function CoachTab({
       });
     }, 350);
 
-    // iOS keyboard fix: never reposition the overlay (that hides the header behind
-    // the Dynamic Island). Instead, shrink only the messages scroll area so the
-    // header stays pinned at top:0 with its safe-area padding intact.
+    // iOS visual viewport fix — keyboard shrinks visual viewport
+    // We reposition the chat overlay to match visual viewport height
     function handleViewportResize() {
       const vv = window.visualViewport;
       if (!vv) return;
-      const msgs = document.querySelector(".chat-msgs");
-      if (!msgs) return;
-      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      msgs.style.paddingBottom = kb > 50 ? kb + "px" : "";
-      if (msgsEndRef.current) msgsEndRef.current.scrollIntoView({ behavior: "smooth" });
+      const el = document.querySelector(".chat-fullscreen");
+      if (!el) return;
+      el.style.height = vv.height + "px";
+      el.style.top = vv.offsetTop + "px";
     }
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", handleViewportResize);
       window.visualViewport.addEventListener("scroll", handleViewportResize);
+      handleViewportResize();
     }
     return function () {
       if (window.visualViewport) {
         window.visualViewport.removeEventListener("resize", handleViewportResize);
         window.visualViewport.removeEventListener("scroll", handleViewportResize);
       }
-      const msgs = document.querySelector(".chat-msgs");
-      if (msgs) msgs.style.paddingBottom = "";
+      // Reset on close
+      const el = document.querySelector(".chat-fullscreen");
+      if (el) {
+        el.style.height = "";
+        el.style.top = "";
+      }
     };
   }, [chatOpen]);
   function buildContext() {
