@@ -279,8 +279,7 @@
     /* ── Chat fullscreen overlay ── */
     .chat-fullscreen{
       position:fixed;
-      top:0;left:0;right:0;bottom:0;
-      width:100vw;height:100vh;
+      top:env(safe-area-inset-top, 0px);left:0;right:0;bottom:0;
       z-index:9999;
       background:var(--bg);
       display:flex;flex-direction:column;
@@ -293,8 +292,7 @@
     }
     .chat-fs-header{
       display:flex;align-items:center;gap:12px;
-      padding-top:calc(env(safe-area-inset-top, 20px) + 12px);
-      padding-left:16px;padding-right:16px;padding-bottom:14px;
+      padding:14px 16px;
       border-bottom:1px solid var(--b1);
       background:var(--s1);
       flex-shrink:0;
@@ -606,16 +604,14 @@
 
     /* ── Full-screen Add Food overlay ── */
     .addfood-fs{
-      position:fixed;top:0;left:0;right:0;bottom:0;
-      width:100vw;height:100vh;height:100dvh;
+      position:fixed;top:env(safe-area-inset-top, 0px);left:0;right:0;bottom:0;
       z-index:9999;background:var(--bg);
       display:flex;flex-direction:column;overflow:hidden;
       animation:slideUp 0.25s ease-out;
     }
     .addfood-fs-header{
       flex-shrink:0;
-      padding-top:calc(env(safe-area-inset-top, 20px) + 12px);
-      padding-left:16px;padding-right:16px;padding-bottom:10px;
+      padding:12px 16px 10px;
       background:var(--s1);border-bottom:1px solid var(--b1);
     }
     .addfood-fs-toprow{display:flex;align-items:center;gap:12px;margin-bottom:12px}
