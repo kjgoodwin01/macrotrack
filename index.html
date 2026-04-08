@@ -301,11 +301,12 @@
     }
     .chat-fs-back{
       width:40px;height:40px;border-radius:50%;
-      background:var(--s2);border:1px solid var(--b1);
-      color:var(--txt);font-size:22px;cursor:pointer;
+      background:var(--s2);border:1px solid var(--b2);
+      color:var(--txt);font-size:24px;cursor:pointer;
       display:flex;align-items:center;justify-content:center;
       flex-shrink:0;font-weight:300;
       -webkit-tap-highlight-color:transparent;
+      z-index:10;
     }
     .chat-fs-title{font-size:16px;font-weight:600;color:var(--txt);flex:1}
     .chat-fs-sub{font-size:11px;color:var(--mu)}
@@ -4204,6 +4205,26 @@ function computeAdapt(wlog, goals) {
 }
 
 /* ── Coach Tab ── */
+/* ── Format coach messages — strip markdown, create clean paragraphs ── */
+function formatCoachMsg(text) {
+  if (!text) return null;
+  // Remove markdown bold/italic
+  var clean = text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1").replace(/__([^_]+)__/g, "$1");
+  // Remove leading bullet characters
+  clean = clean.replace(/^[\-\•\–]\s*/gm, "");
+  // Remove numbered list prefixes like "1. " or "1) "
+  clean = clean.replace(/^\d+[\.\)]\s*/gm, "");
+  // Split into paragraphs on double newlines or single newlines
+  var parts = clean.split(/\n+/).map(function(p){ return p.trim(); }).filter(function(p){ return p.length > 0; });
+  return parts.map(function(p, i) {
+    return React.createElement("span", {key: i},
+      i > 0 ? React.createElement("br", null) : null,
+      i > 0 ? React.createElement("br", null) : null,
+      p
+    );
+  });
+}
+
 function CoachTab({
   goals,
   entries,
@@ -4822,7 +4843,7 @@ function CoachTab({
     onClick: function () {
       closeChat();
     }
-  }, "\u2039"), /*#__PURE__*/React.createElement("div", {
+  }, "\u2190"), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1
     }
@@ -4866,7 +4887,7 @@ function CoachTab({
       className: "msg " + (m.role === "user" ? "user" : "ai")
     }, /*#__PURE__*/React.createElement("div", {
       className: "msg-bubble"
-    }, m.text), m.time && /*#__PURE__*/React.createElement("div", {
+    }, m.role === "user" ? m.text : formatCoachMsg(m.text)), m.time && /*#__PURE__*/React.createElement("div", {
       className: "msg-time"
     }, m.time));
   }), aiTyping && /*#__PURE__*/React.createElement("div", {
