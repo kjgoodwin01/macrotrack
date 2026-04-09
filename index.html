@@ -136,6 +136,28 @@
     .food-mpw{font-size:10px;color:var(--mu);margin-top:2px;font-family:'JetBrains Mono',monospace}
     .food-del{background:none;border:none;color:var(--mu);font-size:20px;cursor:pointer;padding:0 0 0 10px;line-height:1;flex-shrink:0;transition:color 0.15s}
     .food-del:active{color:var(--rose)}
+    .food-row{cursor:pointer}
+    .food-row:active{background:var(--s2)}
+    /* Edit entry sheet */
+    .edit-sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:400;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:fdin 0.2s ease}
+    .edit-sheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:var(--s1);border:1px solid var(--b2);border-radius:24px 24px 0 0;padding:20px 20px calc(var(--safe-b) + 24px);z-index:401;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    .edit-sheet-handle{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 18px}
+    .edit-sheet-title{font-size:15px;font-weight:700;color:var(--txt);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .edit-sheet-sub{font-size:11px;color:var(--mu);margin-bottom:18px}
+    .edit-macro-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+    .edit-macro-field{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:12px 14px;transition:border-color 0.15s}
+    .edit-macro-field:focus-within{border-color:rgba(99,102,241,0.6)}
+    .edit-macro-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--mu);margin-bottom:4px}
+    .edit-macro-label.p{color:var(--rose)} .edit-macro-label.c{color:var(--cyan)} .edit-macro-label.f{color:var(--amb)} .edit-macro-label.cal{color:var(--indl)}
+    .edit-macro-input{width:100%;background:none;border:none;outline:none;font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--txt);padding:0}
+    .edit-macro-unit{font-size:10px;color:var(--mu);margin-top:2px}
+    .edit-cal-row{background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;transition:border-color 0.15s}
+    .edit-cal-row:focus-within{border-color:rgba(99,102,241,0.6)}
+    .edit-cal-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--indl)}
+    .edit-cal-input{background:none;border:none;outline:none;font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;color:var(--txt);width:120px;text-align:right}
+    .edit-cal-unit{font-size:11px;color:var(--mu)}
+    .edit-save-btn{width:100%;background:linear-gradient(135deg,var(--ind),var(--vio));border:none;border-radius:14px;padding:15px;color:#fff;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;cursor:pointer;transition:transform 0.15s}
+    .edit-save-btn:active{transform:scale(0.98)}
 
     /* FAB */
     .fab{position:fixed;bottom:var(--fab-bottom);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
@@ -5445,7 +5467,6 @@ function App() {
     // Then delete from cloud — retry once on failure so it always sticks
     syncToCloud(workerUrl, "sync_delete_entry", { entryId: id }).then(function(res) {
       if (!res || !res.ok) {
-        // Retry once after 2 seconds
         setTimeout(function() {
           syncToCloud(workerUrl, "sync_delete_entry", { entryId: id });
         }, 2000);
@@ -5455,6 +5476,60 @@ function App() {
         syncToCloud(workerUrl, "sync_delete_entry", { entryId: id });
       }, 2000);
     });
+  }
+
+  // Edit entry
+  const [editItem, setEditItem] = React.useState(null);
+  const [editP, setEditP] = React.useState("");
+  const [editC, setEditC] = React.useState("");
+  const [editF, setEditF] = React.useState("");
+  const [editCal, setEditCal] = React.useState("");
+  const [calManual, setCalManual] = React.useState(false);
+
+  function openEdit(item) {
+    setEditItem(item);
+    setEditP(String(item.p || 0));
+    setEditC(String(item.c || 0));
+    setEditF(String(item.f || 0));
+    setEditCal(String(item.cal || 0));
+    setCalManual(false);
+  }
+
+  function handleEditMacro(field, val) {
+    const n = val.replace(/[^0-9.]/g, "");
+    if (field === "p") { setEditP(n); if (!calManual) setEditCal(String(Math.round((parseFloat(n)||0)*4 + (parseFloat(editC)||0)*4 + (parseFloat(editF)||0)*9))); }
+    if (field === "c") { setEditC(n); if (!calManual) setEditCal(String(Math.round((parseFloat(editP)||0)*4 + (parseFloat(n)||0)*4 + (parseFloat(editF)||0)*9))); }
+    if (field === "f") { setEditF(n); if (!calManual) setEditCal(String(Math.round((parseFloat(editP)||0)*4 + (parseFloat(editC)||0)*4 + (parseFloat(n)||0)*9))); }
+    if (field === "cal") {
+      setCalManual(true);
+      setEditCal(n);
+      // Scale macros proportionally when calories edited directly
+      const oldCal = editItem ? (editItem.cal || 1) : 1;
+      const ratio = (parseFloat(n) || 0) / oldCal;
+      setEditP(String(Math.round((parseFloat(editP)||0) * ratio)));
+      setEditC(String(Math.round((parseFloat(editC)||0) * ratio)));
+      setEditF(String(Math.round((parseFloat(editF)||0) * ratio)));
+    }
+  }
+
+  function saveEdit() {
+    if (!editItem) return;
+    const updated = Object.assign({}, editItem, {
+      p: Math.round(parseFloat(editP) || 0),
+      c: Math.round(parseFloat(editC) || 0),
+      f: Math.round(parseFloat(editF) || 0),
+      cal: Math.round(parseFloat(editCal) || 0),
+    });
+    setEntriesRaw(function(prev) {
+      const n = Object.assign({}, prev);
+      n[selectedDate] = (prev[selectedDate] || []).map(function(e) {
+        return e.id === editItem.id ? updated : e;
+      });
+      return n;
+    });
+    syncToCloud(workerUrl, "sync_update_entry", { entryId: editItem.id, entry: updated });
+    setEditItem(null);
+    showToast("✓ Entry updated");
   }
   function logWeight(w) {
     const entry = {
@@ -5726,7 +5801,8 @@ function App() {
       className: "meal-empty"
     }, isToday ? "Nothing logged yet — tap + to add" : "Nothing logged — tap + to add") : items.map(item => /*#__PURE__*/React.createElement("div", {
       className: "food-row",
-      key: item.id
+      key: item.id,
+      onClick: () => openEdit(item)
     }, /*#__PURE__*/React.createElement("div", {
       className: "food-info"
     }, /*#__PURE__*/React.createElement("div", {
@@ -5741,7 +5817,7 @@ function App() {
       className: "food-mpw"
     }, item.p, "P\xB7", item.c, "C\xB7", item.f, "F")), /*#__PURE__*/React.createElement("button", {
       className: "food-del",
-      onClick: () => delEntry(item.id)
+      onClick: (e) => { e.stopPropagation(); delEntry(item.id); }
     }, "\xD7")))));
   }), /*#__PURE__*/React.createElement("button", {
     className: "fab",
@@ -5757,7 +5833,54 @@ function App() {
       marginTop: 20,
       paddingBottom: 8
     }
-  }, "Logging for ", fmtShort(new Date(selectedDate + "T12:00:00")))), tab === "weight" && /*#__PURE__*/React.createElement("div", {
+  }, "Logging for ", fmtShort(new Date(selectedDate + "T12:00:00"))),
+
+  editItem && /*#__PURE__*/React.createElement(React.Fragment, null,
+    /*#__PURE__*/React.createElement("div", {
+      className: "edit-sheet-overlay",
+      onClick: () => setEditItem(null)
+    }),
+    /*#__PURE__*/React.createElement("div", { className: "edit-sheet" },
+      /*#__PURE__*/React.createElement("div", { className: "edit-sheet-handle" }),
+      /*#__PURE__*/React.createElement("div", { className: "edit-sheet-title" }, editItem.name),
+      /*#__PURE__*/React.createElement("div", { className: "edit-sheet-sub" }, "Tap any value to edit. Calories update automatically."),
+      /*#__PURE__*/React.createElement("div", { className: "edit-macro-grid" },
+        /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
+          /*#__PURE__*/React.createElement("div", { className: "edit-macro-label p" }, "Protein"),
+          /*#__PURE__*/React.createElement("input", {
+            className: "edit-macro-input", type: "number", inputMode: "numeric",
+            value: editP, onChange: e => handleEditMacro("p", e.target.value)
+          }),
+          /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "grams \xB7 4 cal/g")
+        ),
+        /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
+          /*#__PURE__*/React.createElement("div", { className: "edit-macro-label c" }, "Carbs"),
+          /*#__PURE__*/React.createElement("input", {
+            className: "edit-macro-input", type: "number", inputMode: "numeric",
+            value: editC, onChange: e => handleEditMacro("c", e.target.value)
+          }),
+          /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "grams \xB7 4 cal/g")
+        ),
+        /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
+          /*#__PURE__*/React.createElement("div", { className: "edit-macro-label f" }, "Fat"),
+          /*#__PURE__*/React.createElement("input", {
+            className: "edit-macro-input", type: "number", inputMode: "numeric",
+            value: editF, onChange: e => handleEditMacro("f", e.target.value)
+          }),
+          /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "grams \xB7 9 cal/g")
+        ),
+        /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
+          /*#__PURE__*/React.createElement("div", { className: "edit-macro-label cal" }, "Calories"),
+          /*#__PURE__*/React.createElement("input", {
+            className: "edit-macro-input", type: "number", inputMode: "numeric",
+            value: editCal, onChange: e => handleEditMacro("cal", e.target.value)
+          }),
+          /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "kcal total")
+        )
+      ),
+      /*#__PURE__*/React.createElement("button", { className: "edit-save-btn", onClick: saveEdit }, "SAVE CHANGES")
+    )
+  )), tab === "weight" && /*#__PURE__*/React.createElement("div", {
     className: "page"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
