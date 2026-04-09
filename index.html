@@ -35,7 +35,7 @@
       --st:env(safe-area-inset-top,0px);
       --sb:env(safe-area-inset-bottom,0px);
       /* Nav: content height + safe area bottom */
-      --nav-content-h:56px;
+      --nav-content-h:53px;
       --nav-h:calc(var(--nav-content-h) + env(safe-area-inset-bottom,0px));
       /* FAB: sits above nav with 8px breathing room */
       --fab-h:52px;
@@ -140,7 +140,7 @@
     .food-row:active{background:var(--s2)}
     /* Edit entry sheet */
     .edit-sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:400;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:fdin 0.2s ease}
-    .edit-sheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:var(--s1);border:1px solid var(--b2);border-radius:24px 24px 0 0;padding:20px 20px calc(var(--safe-b) + 24px);z-index:401;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    .edit-sheet{position:fixed;bottom:0;left:0;right:0;width:100%;max-width:430px;margin:0 auto;background:var(--s1);border:1px solid var(--b2);border-radius:24px 24px 0 0;padding:20px 20px calc(var(--sb) + 24px);z-index:401;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
     .edit-sheet-handle{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 18px}
     .edit-sheet-title{font-size:15px;font-weight:700;color:var(--txt);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .edit-sheet-sub{font-size:11px;color:var(--mu);margin-bottom:18px}
@@ -160,7 +160,7 @@
     .edit-save-btn:active{transform:scale(0.98)}
 
     /* FAB */
-    .fab{position:fixed;bottom:var(--fab-bottom);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab{position:fixed;bottom:58px;left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:scale(0.97)}
 
     /* Nav — native iOS tab bar: icons at bottom, background extends behind home indicator via ::after */
