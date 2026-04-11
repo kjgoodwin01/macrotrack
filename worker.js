@@ -48,7 +48,7 @@ async function sb(env, method, path, body) {
   catch (e) { return { ok: res.ok, status: res.status, data: text }; }
 }
 
-async function callClaude(apiKey, system, messages, maxTokens) {
+async function callClaude(apiKey, system, messages, maxTokens, model) {
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -58,7 +58,7 @@ async function callClaude(apiKey, system, messages, maxTokens) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: model || "claude-haiku-4-5-20251001",
         max_tokens: maxTokens || 800,
         system: system,
         messages: messages,
@@ -70,6 +70,99 @@ async function callClaude(apiKey, system, messages, maxTokens) {
     return { text };
   } catch (e) {
     return { error: "Failed to reach Anthropic API" };
+  }
+}
+
+// ── Search Orchestrator helpers ───────────────────────────────────────────
+function getNutrientVal(nutrients, id) {
+  const n = (nutrients || []).find(x => x.nutrientId === id || x.nutrientNumber === String(id));
+  return Math.round(n && n.value ? n.value : 0);
+}
+
+async function callSearchOrchestrator(apiKey, query, candidates, recentFoods) {
+  // Compact candidate format — single-letter keys to minimise prompt tokens
+  const slim = candidates.map(c => ({
+    n: c.description,
+    b: c.brandOwner || "",
+    cal: getNutrientVal(c.foodNutrients, 1008),
+    p: getNutrientVal(c.foodNutrients, 1003),
+    c: getNutrientVal(c.foodNutrients, 1005),
+    f: getNutrientVal(c.foodNutrients, 1004),
+  }));
+
+  const candidateBlock = slim.length > 0
+    ? `Candidates:${JSON.stringify(slim)}\n`
+    : `No DB results — use your knowledge.\n`;
+
+  // Personalisation: surface foods this user already knows and logs
+  const recentBlock = Array.isArray(recentFoods) && recentFoods.length > 0
+    ? `User frequently logs: ${JSON.stringify(recentFoods.slice(0, 10))}. If any closely match "${query}", place them at index 0-2.\n`
+    : "";
+
+  const result = await callClaude(
+    apiKey,
+    "Nutrition DB. Output raw JSON array only — no markdown, no text.",
+    [{
+      role: "user",
+      content:
+        `Query:"${query}"\n${candidateBlock}${recentBlock}\n` +
+        `Return exactly 8 objects. Rules:\n` +
+        `[0]=best generic match for "${query}", accurate macros, Title Case name.\n` +
+        `[1-7]=closely related variants/brands — every item must be unmistakably about "${query}".\n` +
+        `Discard any candidate unrelated to "${query}"; fill gaps from your knowledge instead.\n` +
+        `cal100/p100/c100/f100=per 100g. source="ai_verified" if from candidates, "ai_generated" if new.\n` +
+        `servings=array of 2-4 objects [{label,g}] with realistic human portions e.g. [{"label":"1 large egg","g":50},{"label":"2 eggs","g":100},{"label":"100g","g":100}].\n` +
+        `[{"name":"","brand":"","cal100":0,"p100":0,"c100":0,"f100":0,"servings":[{"label":"100g","g":100}],"source":"ai_generated"}]`
+    }],
+    768,
+    "claude-haiku-4-5-20251001"
+  );
+
+  if (result.error) {
+    console.log(`[search-orchestrator] Claude error: ${result.error}`);
+    return null;
+  }
+
+  try {
+    const arr = JSON.parse(result.text.replace(/```json|```/g, "").trim());
+    if (!Array.isArray(arr) || arr.length === 0) {
+      console.log(`[search-orchestrator] Claude returned non-array or empty: ${result.text.slice(0, 200)}`);
+      return null;
+    }
+
+    // Convert AI output back to USDA-compatible shape so client parseFood works unchanged
+    const foods = arr.slice(0, 8).map((item, idx) => {
+      const srvArr = Array.isArray(item.servings) && item.servings.length > 0 ? item.servings : null;
+      const primary = srvArr ? srvArr[0] : null;
+      return {
+        fdcId: `ai-${idx}`,
+        description: item.name || "Unknown Food",
+        brandOwner: item.brand || "",
+        dataType: item.source === "ai_generated" ? "AI Generated" : "AI Verified",
+        foodNutrients: [
+          { nutrientId: 1008, value: Number(item.cal100) || 0 },
+          { nutrientId: 1003, value: Number(item.p100)   || 0 },
+          { nutrientId: 1005, value: Number(item.c100)   || 0 },
+          { nutrientId: 1004, value: Number(item.f100)   || 0 },
+        ],
+        // Primary serving drives the default size in FoodDetail
+        servingSize: primary ? (Number(primary.g) || 100) : (Number(item.servingGrams) || 100),
+        servingSizeUnit: "g",
+        householdServingFullText: primary ? (primary.label || "100g") : (item.serving || "100g"),
+        // Additional servings flow through foodPortions → parseFood → FoodDetail size picker
+        foodPortions: srvArr
+          ? srvArr.slice(1).filter(s => Number(s.g) > 0).map(s => ({
+              portionDescription: s.label || (s.g + "g"),
+              gramWeight: Number(s.g),
+            }))
+          : [],
+        source: item.source || "ai_verified",
+      };
+    });
+
+    return { foods };
+  } catch (e) {
+    return null;
   }
 }
 
@@ -481,20 +574,47 @@ export default {
       return jsonRes({ ok: true }, 200, cors);
     }
 
-    // ── FOOD SEARCH (V9 - CONSUMER-FIRST PRIORITY) ────────────────────────
+    // ── FOOD SEARCH (V11 - AI ORCHESTRATED + KV CACHE) ───────────────────
     if (type === "usda_search") {
-      const { query } = body;
+      const { query, recentFoods } = body;
       if (!query) return jsonRes({ error: "Missing query" }, 400, cors);
 
       const q = query.trim().toLowerCase();
       const qWords = q.split(/\s+/);
 
-      const [usdaRaw, offRaw] = await Promise.all([
-        fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(q)}&pageSize=50&api_key=${env.USDA_API_KEY}`).then(r => r.ok ? r.json() : {foods:[]}).catch(() => ({foods:[]})),
-        fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=50&fields=product_name,brands,serving_size,serving_quantity,nutriments,code,unique_scans_n`, { headers: { "User-Agent": "MacroTrack App" } }).then(r => r.ok ? r.json() : {products:[]}).catch(() => ({products:[]}))
-      ]);
+      // ── KV cache check — common foods return in ~50ms instead of ~1.5s ──
+      const cacheKey = "search:" + q;
+      try {
+        const cached = await env.CODES.get(cacheKey);
+        if (cached) {
+          console.log(`[search-orchestrator] cache HIT "${q}"`);
+          return jsonRes({ foods: JSON.parse(cached), cached: true }, 200, cors);
+        }
+      } catch (e) {
+        console.log(`[search-orchestrator] cache read error: ${e.message}`);
+      }
 
-      let combined = [];
+      // Fetch from USDA (only if API key is configured) and OFF in parallel
+      const usdaPromise = env.USDA_API_KEY
+        ? fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(q)}&pageSize=8&api_key=${env.USDA_API_KEY}`)
+            .then(r => {
+              if (!r.ok) { console.log(`[search-orchestrator] USDA HTTP ${r.status}`); return {foods:[]}; }
+              return r.json();
+            }).catch(e => { console.log(`[search-orchestrator] USDA fetch error: ${e.message}`); return {foods:[]}; })
+        : (console.log(`[search-orchestrator] USDA_API_KEY not set`), Promise.resolve({foods:[]}));
+
+      const offPromise = fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=12&fields=product_name,brands,serving_size,serving_quantity,nutriments,code,unique_scans_n`,
+        { headers: { "User-Agent": "MacroTrack App" } }
+      ).then(r => r.ok ? r.json() : {products:[]}).catch(() => ({products:[]}));
+
+      const [usdaRaw, offRaw] = await Promise.all([usdaPromise, offPromise]);
+
+      // Diagnostic logging so we can see exactly what each source returns
+      console.log(`[search-orchestrator] query="${q}" USDA foods=${usdaRaw.foods?.length ?? "err"} OFF products=${offRaw.products?.length ?? "err"}`);
+
+      // Normalise both sources into a unified shape
+      const combined = [];
 
       (offRaw.products || []).forEach(p => {
         if (!p.product_name || !p.nutriments) return;
@@ -509,12 +629,12 @@ export default {
             { nutrientId: 1008, value: cal },
             { nutrientId: 1003, value: n.proteins_100g || 0 },
             { nutrientId: 1005, value: n.carbohydrates_100g || 0 },
-            { nutrientId: 1004, value: n.fat_100g || 0 }
+            { nutrientId: 1004, value: n.fat_100g || 0 },
           ],
           servingSize: parseFloat(p.serving_quantity) || 100,
           servingSizeUnit: "g",
           source: "OFF",
-          pop: parseInt(p.unique_scans_n) || 0
+          pop: parseInt(p.unique_scans_n) || 0,
         });
       });
 
@@ -522,38 +642,76 @@ export default {
         combined.push({ ...f, source: "USDA", pop: 0 });
       });
 
+      console.log(`[search-orchestrator] query="${q}" combined after normalise=${combined.length}`);
+
+      // Score, sort, and deduplicate — relevance only, no source bias
       const scored = combined.map(item => {
-        const desc = item.description.toLowerCase();
+        const desc  = item.description.toLowerCase();
         const brand = (item.brandOwner || "").toLowerCase();
         let score = 0;
 
-        if (item.source === "OFF") score += 10000;
-        if (desc.startsWith(q)) score += 20000;
+        // Exact or leading match is strongest signal
+        if (desc === q)           score += 40000;
+        if (desc.startsWith(q))   score += 20000;
 
-        const matchCount = qWords.filter(w => desc.includes(w) || brand.includes(w)).length;
-        score += (matchCount * 5000);
-        score += (item.pop * 20);
+        // Every query word present in name scores high; brand matches score less
+        const nameMatches  = qWords.filter(w => desc.includes(w)).length;
+        const brandMatches = qWords.filter(w => brand.includes(w)).length;
+        score += nameMatches  * 8000;
+        score += brandMatches * 2000;
 
-        if (brand.includes("llc") || brand.includes("inc") || brand.includes("operations")) score -= 5000;
+        // Hard penalty for items with zero name-word overlap — likely irrelevant
+        if (nameMatches === 0) score -= 30000;
+
+        // Popularity signal from OFF (scans), but only when the item is relevant
+        if (nameMatches > 0) score += Math.min((item.pop || 0) * 10, 5000);
+
+        // Penalise legal-entity clutter in brand names and survey data
+        if (brand.includes("llc") || brand.includes("inc") || brand.includes("operations")) score -= 3000;
         if (item.dataType === "Survey (FNDDS)") score -= 8000;
 
         return { ...item, _score: score };
       });
-
       scored.sort((a, b) => b._score - a._score);
 
       const seen = new Set();
-      const final = [];
+      const candidates = [];
       for (const item of scored) {
         const nameParts = item.description.toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/);
-        const key = `${(item.brandOwner || "").toLowerCase().slice(0,8)}|${nameParts.slice(0,2).join("")}`;
+        const key = `${(item.brandOwner || "").toLowerCase().slice(0, 8)}|${nameParts.slice(0, 2).join("")}`;
         if (!seen.has(key)) {
           seen.add(key);
-          final.push(item);
+          candidates.push(item);
+        }
+        if (candidates.length >= 8) break;
+      }
+
+      // Fallback: first 8 of the deterministic candidates
+      const fallback = candidates.slice(0, 8).map(c => ({ ...c, source: c.source + "_fallback" }));
+
+      // ── AI Orchestration (2.5s hard timeout) ─────────────────────────────
+      // Run even with 0 candidates — AI can generate results from knowledge
+      if (env.ANTHROPIC_API_KEY) {
+        try {
+          const aiResult = await Promise.race([
+            callSearchOrchestrator(env.ANTHROPIC_API_KEY, q, candidates, recentFoods),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("ai_timeout")), 2500)),
+          ]);
+
+          if (aiResult && Array.isArray(aiResult.foods) && aiResult.foods.length > 0) {
+            console.log(`[search-orchestrator] query="${q}" returned ${aiResult.foods.length} AI results, index-0="${aiResult.foods[0].description}" source="${aiResult.foods[0].source}"`);
+            // Cache successful AI result for 24h — non-blocking, doesn't slow response
+            env.CODES.put(cacheKey, JSON.stringify(aiResult.foods), { expirationTtl: 86400 }).catch(() => {});
+            return jsonRes({ foods: aiResult.foods }, 200, cors);
+          }
+        } catch (e) {
+          console.log(`[search-orchestrator] query="${q}" fell back — reason: ${e.message}`);
         }
       }
 
-      return jsonRes({ foods: final.slice(0, 25) }, 200, cors);
+      // Deterministic fallback
+      console.log(`[search-orchestrator] query="${q}" using fallback (${fallback.length} results)`);
+      return jsonRes({ foods: fallback }, 200, cors);
     }
 
     // ── BARCODE LOOKUP ────────────────────────────────────────────────────
@@ -633,6 +791,28 @@ export default {
         return jsonRes(JSON.parse(result.text.replace(/```json|```/g, "").trim()), 200, cors);
       } catch (e) {
         return jsonRes({ error: "Could not parse nutrition data" }, 500, cors);
+      }
+    }
+
+    // ── NUTRITION LABEL SCAN ─────────────────────────────────────────────
+    if (type === "label_scan") {
+      const { imageBase64, mediaType } = body;
+      if (!imageBase64 || !mediaType) return jsonRes({ error: "Missing image data" }, 400, cors);
+      const result = await callClaude(
+        env.ANTHROPIC_API_KEY,
+        "You are reading a nutrition facts panel from a food package photo. Extract EXACTLY what is printed — do not estimate. Return ONLY valid JSON: {\"name\":\"product name\",\"serving\":\"serving description from label\",\"servingGrams\":100,\"cal\":0,\"p\":0,\"c\":0,\"f\":0,\"confidence\":\"high/medium/low\"}. All macro values are per serving as printed. Integers only. If the label is unreadable, set confidence to \"low\" and estimate.",
+        [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
+          { type: "text", text: "Read the nutrition facts label. Return per-serving values exactly as printed." }
+        ]}],
+        300
+      );
+      if (result.error) return jsonRes({ error: result.error }, 502, cors);
+      try {
+        const data = JSON.parse(result.text.replace(/```json|```/g, "").trim());
+        return jsonRes({ ...data, isLabel: true }, 200, cors);
+      } catch (e) {
+        return jsonRes({ error: "Could not read label" }, 500, cors);
       }
     }
 

@@ -2088,6 +2088,7 @@ function AddFoodModal({
   const [scanning, setScanning] = useState(false);
   const [aiRes, setAiRes] = useState(null);
   const [aiErr, setAiErr] = useState("");
+  const [photoMode, setPhotoMode] = useState("identify");
   const [mN, setMN] = useState("");
   const [mC, setMC] = useState("");
   const [mP, setMP] = useState("");
@@ -2159,7 +2160,8 @@ function AddFoodModal({
           body: JSON.stringify({
             type: "usda_search",
             query: q,
-            pageSize: 20
+            pageSize: 20,
+            recentFoods: recents.slice(0, 10).map(function(r) { return r.name; })
           })
         });
         if (!r.ok) throw new Error("Search error " + r.status);
@@ -2229,6 +2231,7 @@ function AddFoodModal({
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
+            type: photoMode === "label" ? "label_scan" : "image_scan",
             imageBase64: base64,
             mediaType: "image/jpeg"
           })
@@ -2257,6 +2260,15 @@ function AddFoodModal({
     setSelected(null);
     setBFood(null);
   }
+  // Recents that match the live query — computed every render, zero cost
+  var filteredRecents = query.length >= 2
+    ? recents.filter(function(r) {
+        var name = (r.name || "").toLowerCase();
+        return query.trim().toLowerCase().split(/\s+/).some(function(w) {
+          return w.length >= 2 && name.includes(w);
+        });
+      })
+    : [];
   return /*#__PURE__*/React.createElement("div", {
     className: "addfood-fs"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2344,6 +2356,18 @@ function AddFoodModal({
     }, "\uD83D\uDD52 Recents"),
     recents.map(function(r, i){ return /*#__PURE__*/React.createElement("div", {
       key: i,
+      className: "sres",
+      onClick: function(){ confirm({name:r.name, serving:r.serving, meal:meal, cal:r.cal, p:r.p, c:r.c, f:r.f}); }
+    }, /*#__PURE__*/React.createElement("div", {style:{minWidth:0}},
+      /*#__PURE__*/React.createElement("div", {className:"sr-name"}, r.name),
+      /*#__PURE__*/React.createElement("div", {className:"sr-sub"}, r.serving, " \xB7 ", r.p, "P/", r.c, "C/", r.f, "F")
+    ), /*#__PURE__*/React.createElement("div", {className:"sr-cal"}, r.cal)); })
+  ), filteredRecents.length > 0 && /*#__PURE__*/React.createElement("div", null,
+    /*#__PURE__*/React.createElement("div", {
+      style: {fontSize:11, color:"var(--mu)", textTransform:"uppercase", letterSpacing:"1px", fontWeight:700, marginTop:12, marginBottom:8}
+    }, "\u2713 From Your Log"),
+    filteredRecents.map(function(r, i){ return /*#__PURE__*/React.createElement("div", {
+      key: "fr-" + i,
       className: "sres",
       onClick: function(){ confirm({name:r.name, serving:r.serving, meal:meal, cal:r.cal, p:r.p, c:r.c, f:r.f}); }
     }, /*#__PURE__*/React.createElement("div", {style:{minWidth:0}},
@@ -2488,14 +2512,26 @@ function AddFoodModal({
     meal: meal,
     onBack: () => setBFood(null),
     onConfirm: confirm
-  })), tab === "photo" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("input", {
+  })), tab === "photo" && /*#__PURE__*/React.createElement("div", null,
+  /*#__PURE__*/React.createElement("div", {
+    className: "chips",
+    style: { marginBottom: 14 }
+  },
+    /*#__PURE__*/React.createElement("div", {
+      className: "chip" + (photoMode === "identify" ? " active" : ""),
+      onClick: () => { setPhotoMode("identify"); setImg(null); setAiRes(null); setAiErr(""); }
+    }, "\uD83C\uDF7D\uFE0F Identify Food"),
+    /*#__PURE__*/React.createElement("div", {
+      className: "chip" + (photoMode === "label" ? " active" : ""),
+      onClick: () => { setPhotoMode("label"); setImg(null); setAiRes(null); setAiErr(""); }
+    }, "\uD83C\uDFF7\uFE0F Read Label")
+  ),
+  /*#__PURE__*/React.createElement("input", {
     ref: fRef,
     type: "file",
     accept: "image/*",
     capture: "environment",
-    style: {
-      display: "none"
-    },
+    style: { display: "none" },
     onChange: handlePhoto
   }), !img ? /*#__PURE__*/React.createElement("div", {
     className: "scan-drop",
@@ -2503,27 +2539,14 @@ function AddFoodModal({
       if (!workerUrl) return;
       fRef.current && fRef.current.click();
     },
-    style: {
-      opacity: workerUrl ? 1 : 0.5
-    }
+    style: { opacity: workerUrl ? 1 : 0.5 }
   }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 50,
-      marginBottom: 12
-    }
-  }, "\uD83D\uDCF7"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 15,
-      color: "var(--txt2)",
-      fontWeight: 500
-    }
+    style: { fontSize: 50, marginBottom: 12 }
+  }, photoMode === "label" ? "\uD83C\uDFF7\uFE0F" : "\uD83D\uDCF7"), /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 15, color: "var(--txt2)", fontWeight: 500 }
   }, "Tap to take a photo"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 12,
-      color: "var(--mu)",
-      marginTop: 6
-    }
-  }, "AI estimates calories and macros")) : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("img", {
+    style: { fontSize: 12, color: "var(--mu)", marginTop: 6 }
+  }, photoMode === "label" ? "AI reads exact values from the label" : "AI estimates calories and macros")) : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("img", {
     src: img,
     className: "scan-prev",
     alt: "food"
@@ -2531,17 +2554,17 @@ function AddFoodModal({
     className: "loading-row"
   }, /*#__PURE__*/React.createElement("div", {
     className: "spin"
-  }), /*#__PURE__*/React.createElement("span", null, "Analyzing with AI\u2026")), aiErr && /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, photoMode === "label" ? "Reading label\u2026" : "Analyzing with AI\u2026")), aiErr && /*#__PURE__*/React.createElement("div", {
     className: "err"
   }, aiErr), aiRes && /*#__PURE__*/React.createElement("div", {
     className: "detail-box"
   }, /*#__PURE__*/React.createElement("div", {
     className: "ai-badge"
-  }, "\u2728 AI Estimate"), /*#__PURE__*/React.createElement("div", {
+  }, aiRes.isLabel ? "\uD83C\uDFF7\uFE0F Label Scan" : "\u2728 AI Estimate"), /*#__PURE__*/React.createElement("div", {
     className: "det-name"
-  }, aiRes.name), aiRes.note && /*#__PURE__*/React.createElement("div", {
+  }, aiRes.name), (aiRes.isLabel ? aiRes.serving : aiRes.note) && /*#__PURE__*/React.createElement("div", {
     className: "det-sub"
-  }, aiRes.note), /*#__PURE__*/React.createElement("div", {
+  }, aiRes.isLabel ? aiRes.serving : aiRes.note), /*#__PURE__*/React.createElement("div", {
     className: "m4"
   }, /*#__PURE__*/React.createElement("div", {
     className: "m4c"
@@ -2553,43 +2576,31 @@ function AddFoodModal({
     className: "m4c"
   }, /*#__PURE__*/React.createElement("div", {
     className: "m4v",
-    style: {
-      color: "var(--rosel)"
-    }
+    style: { color: "var(--rosel)" }
   }, aiRes.p, "g"), /*#__PURE__*/React.createElement("div", {
     className: "m4l"
   }, "Protein")), /*#__PURE__*/React.createElement("div", {
     className: "m4c"
   }, /*#__PURE__*/React.createElement("div", {
     className: "m4v",
-    style: {
-      color: "var(--cyanl)"
-    }
+    style: { color: "var(--cyanl)" }
   }, aiRes.c, "g"), /*#__PURE__*/React.createElement("div", {
     className: "m4l"
   }, "Carbs")), /*#__PURE__*/React.createElement("div", {
     className: "m4c"
   }, /*#__PURE__*/React.createElement("div", {
     className: "m4v",
-    style: {
-      color: "var(--ambl)"
-    }
+    style: { color: "var(--ambl)" }
   }, aiRes.f, "g"), /*#__PURE__*/React.createElement("div", {
     className: "m4l"
   }, "Fat"))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: "var(--mu)",
-      marginBottom: 4
-    }
+    style: { fontSize: 11, color: "var(--mu)", marginBottom: 4 }
   }, "Confidence: ", aiRes.confidence), /*#__PURE__*/React.createElement("button", {
     className: "btn",
-    style: {
-      marginTop: 4
-    },
+    style: { marginTop: 4 },
     onClick: () => confirm({
       name: aiRes.name,
-      serving: "AI estimate",
+      serving: aiRes.isLabel ? (aiRes.serving || "1 serving") : "AI estimate",
       meal,
       cal: aiRes.cal,
       p: aiRes.p,
