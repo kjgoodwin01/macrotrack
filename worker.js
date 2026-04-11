@@ -266,9 +266,10 @@ export default {
     }
 
     // ── Protein gap: 9 PM UTC = 5 PM EDT ───────────────────────────────
-    // Only fires if user is actually under their protein target
+    // Fires if user is under 200g protein for the day
     console.log("[scheduled] checking protein gap block: hour === 21 →", hour === 21);
     if (hour === 21) {
+      const PROTEIN_GOAL = 200;
       const subs = await sb(env, "GET", "push_subscriptions?notify_correction=eq.true&limit=5000");
       console.log("[scheduled] protein gap subs count:", (subs.data || []).length, "subs.ok:", subs.ok);
       if (subs.data && subs.data.length > 0) {
@@ -278,32 +279,22 @@ export default {
               console.log("[scheduled] protein gap — sub.device_id is undefined for sub.id:", sub.id, "SKIPPING");
               continue;
             }
-            const profile = await sb(env, "GET",
-              "profiles?device_id=eq." + encodeURIComponent(sub.device_id) + "&limit=1"
-            );
-            console.log("[scheduled] protein gap profile for sub.id:", sub.id, "found:", (profile.data || []).length > 0);
-            if (!profile.data || profile.data.length === 0) continue;
-            const proteinTarget = profile.data[0].protein || 0;
-            console.log("[scheduled] protein gap sub.id:", sub.id, "proteinTarget:", proteinTarget);
-            if (proteinTarget === 0) continue;
-
             const entries = await sb(env, "GET",
               "food_entries?device_id=eq." + encodeURIComponent(sub.device_id) +
               "&log_date=eq." + todayISO + "&limit=200"
             );
             if (!entries.data || entries.data.length === 0) continue;
 
-            const proteinLogged = entries.data.reduce(function(sum, e) {
+            const proteinLogged = Math.round(entries.data.reduce(function(sum, e) {
               return sum + (parseFloat(e.protein) || 0);
-            }, 0);
+            }, 0));
 
-            const gap = Math.round(proteinTarget - proteinLogged);
+            const gap = PROTEIN_GOAL - proteinLogged;
             console.log("[scheduled] protein gap sub.id:", sub.id, "proteinLogged:", proteinLogged, "gap:", gap);
 
-            // Only notify if more than 20g under target
-            if (gap > 20) {
-              const msg = "You're " + gap + "g short of your " + proteinTarget + "g protein target. Still time to hit it.";
-              console.log("[scheduled] sending protein gap push to sub.id:", sub.id, "gap:", gap);
+            if (gap > 0) {
+              const msg = "You've had " + proteinLogged + "g of protein today. You still need " + gap + "g to hit your 200g goal!";
+              console.log("[scheduled] sending protein gap push to sub.id:", sub.id);
               await sendPush(sub, "Protein Gap Alert 🎯", msg);
             }
           } catch (e) {
