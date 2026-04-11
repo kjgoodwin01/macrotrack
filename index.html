@@ -1269,10 +1269,13 @@ function Toast({
 /* ── CalHero ── */
 function CalHero({
   logged,
-  goals
+  goals,
+  exerciseCal
 }) {
-  const pct = Math.min(logged.calories / goals.calories * 100, 100);
-  const rem = goals.calories - logged.calories;
+  var ec = exerciseCal || 0;
+  var budget = goals.calories + ec;
+  const pct = Math.min(logged.calories / budget * 100, 100);
+  const rem = budget - logged.calories;
   const over = rem < 0;
   const pp = Math.min(logged.protein / goals.protein * 100, 100);
   const pc = Math.min(logged.carbs / goals.carbs * 100, 100);
@@ -1297,7 +1300,9 @@ function CalHero({
     className: "cal-rem-val " + (over ? "over" : "good")
   }, Math.abs(rem).toLocaleString()), /*#__PURE__*/React.createElement("div", {
     className: "cal-rem-sub " + (over ? "over" : "good")
-  }, over ? "⬆ over budget" : "⬇ to goal"))), /*#__PURE__*/React.createElement("div", {
+  }, over ? "⬆ over budget" : "⬇ to goal"), ec > 0 && /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 10, color: "var(--eml)", marginTop: 5, fontFamily: "'JetBrains Mono',monospace", fontWeight: 600 }
+  }, "\uD83D\uDD25 +" + ec + " exercise"))), /*#__PURE__*/React.createElement("div", {
     className: "pbar-track"
   }, /*#__PURE__*/React.createElement("div", {
     className: "pbar-fill" + (over ? " over" : ""),
@@ -5133,6 +5138,30 @@ function CourseCorrection({logged, goals, entries, isToday}){
   );
 }
 
+/* ── Exercise calorie estimator (MET-based) ── */
+function calcExerciseCal(exercises, weightLbs) {
+  var kg = (weightLbs || 160) * 0.4536;
+  var total = 0;
+  (exercises || []).forEach(function(ex) {
+    var name = (ex.name || "").toLowerCase();
+    if (ex.type === "cardio" && ex.duration) {
+      var met = 7;
+      if (name.includes("run") || name.includes("jog") || name.includes("sprint")) met = 10;
+      else if (name.includes("walk")) met = 4;
+      else if (name.includes("bike") || name.includes("cycl") || name.includes("spin")) met = 8;
+      else if (name.includes("swim")) met = 8;
+      else if (name.includes("elliptical") || name.includes("stair")) met = 7;
+      else if (name.includes("row")) met = 8;
+      else if (name.includes("hike")) met = 6;
+      total += met * kg * (Number(ex.duration) / 60);
+    } else if (ex.sets) {
+      // Strength/bodyweight: ~3 min per set (1 min work + 2 min rest), 5 METs
+      total += 5 * kg * (Number(ex.sets) * 3 / 60);
+    }
+  });
+  return Math.round(total);
+}
+
 /* ── Workout Section ── */
 function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl }) {
   var _s = React.useState(""); var text = _s[0]; var setText = _s[1];
@@ -5734,6 +5763,7 @@ function App() {
   const latW = sorted[sorted.length - 1];
   const prevW = sorted[sorted.length - 2];
   const wDelta = latW && prevW ? (latW.weight - prevW.weight).toFixed(1) : null;
+  const exerciseCal = calcExerciseCal(workouts[selectedDate] || [], latW ? latW.weight : null);
   const adapt = computeAdapt(sorted, goals);
   const isToday = selectedDate === todayISO();
   if (!onboarded) {
@@ -5884,7 +5914,8 @@ function App() {
     entries: entries
   }), /*#__PURE__*/React.createElement(CalHero, {
     logged: logged,
-    goals: goals
+    goals: goals,
+    exerciseCal: exerciseCal
   }), /*#__PURE__*/React.createElement(CourseCorrection, {
     logged: logged,
     goals: goals,

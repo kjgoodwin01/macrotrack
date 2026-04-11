@@ -810,31 +810,67 @@ export default {
     if (type === "barcode_lookup") {
       const { upc } = body;
       if (!upc) return jsonRes({ error: "Missing upc" }, 400, cors);
+
+      // ── 1. Open Food Facts (3M+ products globally) ───────────────────────
       try {
-        const r = await fetch("https://world.openfoodfacts.org/api/v0/product/" + upc + ".json",
-          { headers: { "User-Agent": "MacroTrack App" } });
+        const r = await fetch("https://world.openfoodfacts.org/api/v0/product/" + encodeURIComponent(upc) + ".json",
+          { headers: { "User-Agent": "MacroTrack/1.0 (https://kjgoodwin01.github.io/macrotrack)" } });
         if (r.ok) {
           const d = await r.json();
           if (d.status === 1 && d.product) {
             const p = d.product;
             const n = p.nutriments || {};
-            const servGrams = parseFloat(p.serving_quantity) || 100;
+
+            // Best available product name (English preferred)
+            const productName = (p.product_name_en || p.product_name || p.abbreviated_product_name || "").trim() || "Unknown Product";
+
+            // Brand: take first if comma-separated
+            const brand = (p.brands || "").split(",")[0].trim();
+
+            // Energy: prefer kcal/100g; fall back from kJ (1 kcal = 4.184 kJ)
+            const kcal100 = Math.round(
+              parseFloat(n["energy-kcal_100g"]) ||
+              parseFloat(n["energy-kcal"])       ||
+              (parseFloat(n["energy_100g"]) / 4.184) ||
+              0
+            );
+
+            // Serving size: prefer numeric serving_quantity, then parse from serving_size string
+            let servGrams = parseFloat(p.serving_quantity) || 0;
+            if (!servGrams && p.serving_size) {
+              const m = String(p.serving_size).match(/(\d+(?:\.\d+)?)/);
+              if (m) servGrams = parseFloat(m[1]);
+            }
+            if (!servGrams) servGrams = 100;
+            const servLabel = p.serving_size ? p.serving_size.trim() : (servGrams + "g");
+
+            // Always include 100g as an extra reference serving
+            const extraPortions = servGrams !== 100
+              ? [{ portionDescription: "100g", gramWeight: 100 }]
+              : [];
+
             return jsonRes({ foods: [{
               fdcId: "off-" + upc,
-              description: p.product_name || "Unknown Product",
-              brandOwner: p.brands || "", dataType: "Branded", gtinUpc: upc,
+              description: productName,
+              brandOwner: brand,
+              dataType: "Branded",
+              gtinUpc: upc,
               foodNutrients: [
-                { nutrientId: 1008, value: Math.round(n["energy-kcal_100g"] || 0) },
-                { nutrientId: 1003, value: Math.round(n.proteins_100g || 0) },
-                { nutrientId: 1005, value: Math.round(n.carbohydrates_100g || 0) },
-                { nutrientId: 1004, value: Math.round(n.fat_100g || 0) },
+                { nutrientId: 1008, value: kcal100 },
+                { nutrientId: 1003, value: Math.round(parseFloat(n.proteins_100g)      || 0) },
+                { nutrientId: 1005, value: Math.round(parseFloat(n.carbohydrates_100g) || 0) },
+                { nutrientId: 1004, value: Math.round(parseFloat(n.fat_100g)           || 0) },
               ],
-              foodPortions: [{ portionDescription: p.serving_size || "1 serving", gramWeight: servGrams }],
-              servingSize: servGrams, servingSizeUnit: "g",
+              servingSize: servGrams,
+              servingSizeUnit: "g",
+              householdServingFullText: servLabel,
+              foodPortions: extraPortions,
             }]}, 200, cors);
           }
         }
       } catch (e) {}
+
+      // ── 2. USDA FoodData Central (branded foods with GTINs) ─────────────
       try {
         const params = new URLSearchParams({ query: upc, pageSize: "5", api_key: env.USDA_API_KEY });
         const r = await fetch("https://api.nal.usda.gov/fdc/v1/foods/search?" + params.toString());
@@ -845,6 +881,40 @@ export default {
           if (match) return jsonRes({ foods: [match] }, 200, cors);
         }
       } catch (e) {}
+
+      // ── 3. AI fallback — Claude tries to identify from barcode digits ────
+      try {
+        const aiResult = await callClaude(env.ANTHROPIC_API_KEY,
+          "You are a product nutrition database. Return ONLY valid JSON.",
+          [{ role: "user", content: `Look up barcode/UPC "${upc}". If you recognise this product, return its nutrition facts as JSON:\n{"found":true,"name":"Product Name","brand":"Brand","serving":"1 serving (Xg)","servingGrams":X,"cal100":X,"p100":X,"c100":X,"f100":X}\nIf unknown, return {"found":false}.` }],
+          200
+        );
+        if (!aiResult.error) {
+          const txt = aiResult.text.replace(/```json|```/g, "").trim();
+          const ai = JSON.parse(txt);
+          if (ai.found && ai.name) {
+            const sg = Number(ai.servingGrams) || 100;
+            return jsonRes({ foods: [{
+              fdcId: "ai-upc-" + upc,
+              description: ai.name,
+              brandOwner: ai.brand || "",
+              dataType: "AI Identified",
+              gtinUpc: upc,
+              foodNutrients: [
+                { nutrientId: 1008, value: Number(ai.cal100) || 0 },
+                { nutrientId: 1003, value: Number(ai.p100)   || 0 },
+                { nutrientId: 1005, value: Number(ai.c100)   || 0 },
+                { nutrientId: 1004, value: Number(ai.f100)   || 0 },
+              ],
+              servingSize: sg,
+              servingSizeUnit: "g",
+              householdServingFullText: ai.serving || (sg + "g"),
+              foodPortions: sg !== 100 ? [{ portionDescription: "100g", gramWeight: 100 }] : [],
+            }]}, 200, cors);
+          }
+        }
+      } catch (e) {}
+
       return jsonRes({ foods: [] }, 200, cors);
     }
 
