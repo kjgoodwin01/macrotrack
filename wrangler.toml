@@ -2,8 +2,7 @@ name = "macrotrack-ai"
 main = "worker.js"
 compatibility_date = "2024-01-01"
 
-# Uncomment and fill in your account_id if needed:
-# account_id = "YOUR_ACCOUNT_ID"
+account_id = "29cdb77e808b3293e04b67b46f6ad633"
 
 # KV namespace — replace with your real binding IDs from the Cloudflare dashboard
 [[kv_namespaces]]
