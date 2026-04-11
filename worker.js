@@ -1276,6 +1276,58 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
       }
     }
 
+    // ── NATURAL LANGUAGE WORKOUT ENTRY ───────────────────────────────────
+    if (type === "nlp_workout") {
+      const { text } = body;
+      if (!text || !text.trim()) return jsonRes({ error: "Missing text" }, 400, cors);
+
+      const workoutPrompt = `Parse this workout description into individual exercises.
+
+Input: "${text.trim()}"
+
+Return ONLY a valid JSON array. Each item must have:
+- name: exercise name (e.g. "Flat Bench Press", "Lateral Raises", "Running")
+- sets: number of sets as integer (or null if not applicable)
+- reps: reps per set as string (e.g. "5", "8-12", or null)
+- weight: weight as string (e.g. "225 lbs", "60 lb DBs", "bodyweight", or null)
+- type: one of "strength", "cardio", "bodyweight"
+- duration: duration in minutes as integer (or null)
+- distance: distance as string (e.g. "3 miles", or null)
+- notes: any extra detail (or null)
+
+Rules:
+- Parse every exercise mentioned, including warmups if specified
+- If user writes "3x5" that means 3 sets of 5 reps
+- If user writes "60s" or "60 lb dumbbells" that means 60 lb dumbbells
+- Round numeric values to integers
+- Return ONLY the JSON array, no explanation, no markdown
+
+Example input: "flat bench 225 3x5, incline DB 60s 3x10, lateral raises 20s 3x15, 20 min treadmill"
+Example output: [{"name":"Flat Bench Press","sets":3,"reps":"5","weight":"225 lbs","type":"strength","duration":null,"distance":null,"notes":null},{"name":"Incline Dumbbell Press","sets":3,"reps":"10","weight":"60 lb DBs","type":"strength","duration":null,"distance":null,"notes":null},{"name":"Lateral Raises","sets":3,"reps":"15","weight":"20 lb DBs","type":"strength","duration":null,"distance":null,"notes":null},{"name":"Treadmill","sets":null,"reps":null,"weight":null,"type":"cardio","duration":20,"distance":null,"notes":null}]`;
+
+      const result = await callClaude(env.ANTHROPIC_API_KEY,
+        "You are a fitness tracking parser. Return ONLY valid JSON arrays. No markdown, no explanation. Be precise about sets, reps, and weights exactly as described.",
+        [{ role: "user", content: workoutPrompt }],
+        800
+      );
+
+      if (result.error) return jsonRes({ error: result.error }, 502, cors);
+
+      try {
+        let jsonStr = result.text.replace(/```json|```/g, "").trim();
+        const fb = jsonStr.indexOf("[");
+        const lb = jsonStr.lastIndexOf("]");
+        if (fb !== -1 && lb !== -1) jsonStr = jsonStr.slice(fb, lb + 1);
+        const exercises = JSON.parse(jsonStr);
+        if (!Array.isArray(exercises) || exercises.length === 0) {
+          return jsonRes({ error: "Could not parse any exercises from that description" }, 400, cors);
+        }
+        return jsonRes({ exercises: exercises }, 200, cors);
+      } catch (e) {
+        return jsonRes({ error: "Failed to parse AI response" }, 500, cors);
+      }
+    }
+
     return jsonRes({ error: "Unknown request type: " + type }, 400, cors);
   },
 };

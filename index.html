@@ -4422,7 +4422,20 @@ function CoachTab({
     const calDiff = avgCal - goals.calories;
     const adherence = loggedDays + "/7 days logged";
     const calAdherence = avgCal > 0 ? "Average " + avgCal + " kcal/day (" + (calDiff > 0 ? "+" : "") + calDiff + " vs " + goals.calories + " target)" : "Not enough data";
-    return "USER PROFILE:\n" + "Goal: " + goalTypeLabel + " | Target weight: " + (goals.targetWeight ? goals.targetWeight + " lbs" : "not set") + " | Progress: " + toGo + "\n" + "Daily targets: " + goals.calories + " kcal | Protein: " + goals.protein + "g | Carbs: " + goals.carbs + "g | Fat: " + goals.fat + "g\n\n" + "THIS WEEK ADHERENCE:\n" + adherence + "\n" + calAdherence + "\n\n" + "TODAY (" + today + "):\n" + "Consumed: " + todayTot.cal + "/" + goals.calories + " kcal (" + (remCal > 0 ? remCal + " kcal remaining" : Math.abs(remCal) + " kcal over") + ")\n" + "Protein: " + todayTot.p + "g/" + (remP > 0 ? remP + "g remaining" : Math.abs(remP) + "g over target") + "\n" + "Carbs: " + todayTot.c + "g | Fat: " + todayTot.f + "g\n" + "Foods logged today: " + (todayFoods || "nothing yet") + "\n\n" + "LAST 7 DAYS DETAIL:\n" + last7 + "\n\n" + "WEIGHT HISTORY:\n" + wLines + wTrend;
+    // Build recent training block
+    const last7TrainingDates = Array.from({ length: 7 }, function(_, i) {
+      const d = new Date(); d.setDate(d.getDate() - i); return isoDate(d);
+    }).reverse();
+    const trainingLines = last7TrainingDates.map(function(date) {
+      const dayEx = workouts[date] || [];
+      if (dayEx.length === 0) return date + ": rest day";
+      const summary = dayEx.map(function(ex) {
+        if (ex.type === "cardio") return ex.name + (ex.duration ? " " + ex.duration + "min" : "") + (ex.distance ? " " + ex.distance : "");
+        return ex.name + (ex.sets && ex.reps ? " " + ex.sets + "x" + ex.reps : "") + (ex.weight ? " @ " + ex.weight : "");
+      }).join(", ");
+      return date + ": " + summary;
+    }).join("\n");
+    return "USER PROFILE:\n" + "Goal: " + goalTypeLabel + " | Target weight: " + (goals.targetWeight ? goals.targetWeight + " lbs" : "not set") + " | Progress: " + toGo + "\n" + "Daily targets: " + goals.calories + " kcal | Protein: " + goals.protein + "g | Carbs: " + goals.carbs + "g | Fat: " + goals.fat + "g\n\n" + "THIS WEEK ADHERENCE:\n" + adherence + "\n" + calAdherence + "\n\n" + "TODAY (" + today + "):\n" + "Consumed: " + todayTot.cal + "/" + goals.calories + " kcal (" + (remCal > 0 ? remCal + " kcal remaining" : Math.abs(remCal) + " kcal over") + ")\n" + "Protein: " + todayTot.p + "g/" + (remP > 0 ? remP + "g remaining" : Math.abs(remP) + "g over target") + "\n" + "Carbs: " + todayTot.c + "g | Fat: " + todayTot.f + "g\n" + "Foods logged today: " + (todayFoods || "nothing yet") + "\n\n" + "LAST 7 DAYS DETAIL:\n" + last7 + "\n\n" + "WEIGHT HISTORY:\n" + wLines + wTrend + "\n\nRECENT TRAINING:\n" + trainingLines;
   }
 
   // Returns true if today is Sunday (day 0)
@@ -5120,12 +5133,138 @@ function CourseCorrection({logged, goals, entries, isToday}){
   );
 }
 
+/* ── Workout Section ── */
+function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl }) {
+  var _s = React.useState(""); var text = _s[0]; var setText = _s[1];
+  var _l = React.useState(false); var loading = _l[0]; var setLoading = _l[1];
+  var _e = React.useState(""); var error = _e[0]; var setError = _e[1];
+
+  var dateWorkouts = workouts[selectedDate] || [];
+
+  function fmtExercise(ex) {
+    if (ex.type === "cardio") {
+      var parts = [];
+      if (ex.duration) parts.push(ex.duration + " min");
+      if (ex.distance) parts.push(ex.distance);
+      return parts.length ? parts.join(" · ") : "cardio";
+    }
+    var parts = [];
+    if (ex.sets && ex.reps) parts.push(ex.sets + "\xD7" + ex.reps);
+    else if (ex.sets) parts.push(ex.sets + " sets");
+    if (ex.weight) parts.push("@ " + ex.weight);
+    return parts.join(" ");
+  }
+
+  async function handleParse() {
+    if (!text.trim() || loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      var res = await fetch(workerUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "nlp_workout", text: text.trim() })
+      });
+      var data = await res.json();
+      if (data.error) { setError(data.error); setLoading(false); return; }
+      var ts = Date.now();
+      var newEx = data.exercises.map(function(e, i) {
+        return Object.assign({}, e, { id: ts + i });
+      });
+      setWorkouts(function(prev) {
+        var updated = Object.assign({}, prev);
+        updated[selectedDate] = (prev[selectedDate] || []).concat(newEx);
+        return updated;
+      });
+      setText("");
+    } catch (e) {
+      setError("Network error — try again");
+    }
+    setLoading(false);
+  }
+
+  function delExercise(id) {
+    setWorkouts(function(prev) {
+      var updated = Object.assign({}, prev);
+      updated[selectedDate] = (prev[selectedDate] || []).filter(function(e) { return e.id !== id; });
+      return updated;
+    });
+  }
+
+  return /*#__PURE__*/React.createElement(React.Fragment, null,
+    /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "20px 0 8px" }
+    },
+      /*#__PURE__*/React.createElement("div", {
+        style: { fontSize: 11, color: "var(--mu)", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 700 }
+      }, "Training")
+    ),
+    dateWorkouts.length > 0 && /*#__PURE__*/React.createElement("div", { className: "meal-block" },
+      dateWorkouts.map(function(ex) {
+        return /*#__PURE__*/React.createElement("div", { className: "food-row", key: ex.id },
+          /*#__PURE__*/React.createElement("div", { className: "food-info" },
+            /*#__PURE__*/React.createElement("div", { className: "food-name" }, ex.name),
+            /*#__PURE__*/React.createElement("div", { className: "food-srv" }, fmtExercise(ex))
+          ),
+          /*#__PURE__*/React.createElement("button", {
+            className: "food-del",
+            onClick: function() { delExercise(ex.id); }
+          }, "\xD7")
+        );
+      })
+    ),
+    /*#__PURE__*/React.createElement("div", { style: { marginTop: 10 } },
+      /*#__PURE__*/React.createElement("textarea", {
+        style: {
+          width: "100%",
+          background: "var(--s2)",
+          border: "1px solid var(--b1)",
+          borderRadius: 12,
+          color: "var(--txt)",
+          fontSize: 14,
+          padding: "12px 14px",
+          resize: "none",
+          minHeight: 72,
+          fontFamily: "inherit",
+          outline: "none",
+          display: "block"
+        },
+        placeholder: "Describe your workout\u2026 e.g. flat bench 225 3\xD75, incline DB 60s 3\xD710, 30 min run",
+        value: text,
+        onChange: function(e) { setText(e.target.value); },
+        onKeyDown: function(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleParse(); } }
+      }),
+      /*#__PURE__*/React.createElement("button", {
+        style: {
+          width: "100%",
+          marginTop: 8,
+          padding: "12px 0",
+          background: loading ? "var(--s3)" : "linear-gradient(135deg,var(--ind),var(--vio))",
+          border: "none",
+          borderRadius: 12,
+          color: loading ? "var(--mu)" : "var(--txt)",
+          fontSize: 14,
+          fontWeight: 700,
+          letterSpacing: "0.5px",
+          cursor: loading ? "not-allowed" : "pointer"
+        },
+        onClick: handleParse,
+        disabled: loading
+      }, loading ? "Parsing workout\u2026" : "\uD83D\uDCAA Log Workout"),
+      error && /*#__PURE__*/React.createElement("div", {
+        style: { color: "var(--rose)", fontSize: 13, marginTop: 8, textAlign: "center" }
+      }, error)
+    )
+  );
+}
+
 /* ── App ── */
 function App() {
   const [tab, setTab] = useLocal("mt_tab", "log");
   const [goals, setGoalsRaw] = useLocal("mt_goals", DEFAULT_GOALS);
   const [entries, setEntriesRaw] = useLocal("mt_entries", {});
   const [wlog, setWlogRaw] = useLocal("mt_wlog", []);
+  const [workouts, setWorkoutsRaw] = useLocal("mt_workouts", {});
   const [usdaKey, setUsdaKeyRaw] = useLocal("mt_usda", "");
   const [workerUrl, setWorkerUrlRaw] = useLocal("mt_worker", "https://macrotrack-ai.kjgoodwin01.workers.dev");
   const [userName, setUserNameRaw] = useLocal("mt_name", "");
@@ -5830,6 +5969,11 @@ function App() {
       className: "food-del",
       onClick: (e) => { e.stopPropagation(); delEntry(item.id); }
     }, "\xD7")))));
+  }), /*#__PURE__*/React.createElement(WorkoutSection, {
+    workouts: workouts,
+    setWorkouts: setWorkoutsRaw,
+    selectedDate: selectedDate,
+    workerUrl: workerUrl
   }), /*#__PURE__*/React.createElement("button", {
     className: "fab",
     onClick: () => {
