@@ -15,7 +15,8 @@
   <link rel="preconnect" href="https://unpkg.com" crossorigin/>
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin/>
   <link rel="preconnect" href="https://macrotrack-ai.kjgoodwin01.workers.dev" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&family=Barlow:wght@500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&family=Barlow:wght@500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&family=Barlow:wght@500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/></noscript>
 
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -185,8 +186,9 @@
     @keyframes sup{from{transform:translateY(100%)}to{transform:translateY(0)}}
     .sheet-handle{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 20px}
     .sheet-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;margin-bottom:18px}
-    .tabs{display:flex;gap:6px;margin-bottom:18px}
-    .tab-btn{flex:1;padding:9px 2px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:11px;color:var(--mu);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+    .tabs{display:flex;gap:6px;margin-bottom:18px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab-btn{flex:0 0 auto;padding:9px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:11px;color:var(--mu);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap}
     .tab-btn.active{background:var(--ind);color:#fff;border-color:var(--ind)}
     .chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
     .chip{padding:7px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:22px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;display:flex;align-items:center;gap:5px}
@@ -683,8 +685,8 @@
   </style>
 </head>
 <body>
-<div id="root"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<style>@keyframes mt-spin{to{transform:rotate(360deg)}}</style>
+<div id="root"><div style="display:flex;flex-direction:column;height:100dvh;max-width:430px;margin:0 auto;background:#06060f"><div style="padding:calc(env(safe-area-inset-top,44px) + 14px) 20px 0;display:flex;align-items:center"><div style="font-size:22px;letter-spacing:3px;color:#f4f4ff;font-family:system-ui,sans-serif;font-weight:700">MACRO<span style="color:#818cf8">TRACK</span></div></div><div style="flex:1;display:flex;align-items:center;justify-content:center"><div style="width:44px;height:44px;border-radius:50%;border:3px solid rgba(99,102,241,0.2);border-top-color:#818cf8;animation:mt-spin 0.75s linear infinite"></div></div></div></div>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 <!-- Babel removed: JSX pre-compiled -->
@@ -1656,6 +1658,15 @@ function BarcodeScanner({
   useEffect(() => {
     let dead = false;
     async function go() {
+      // Lazy-load Quagga only when barcode scanner is first opened
+      if (!window.Quagga) {
+        await new Promise(function(res) {
+          var s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js";
+          s.onload = res; s.onerror = res;
+          document.head.appendChild(s);
+        });
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -2108,9 +2119,17 @@ function AddFoodModal({
   const [nlpResults, setNlpResults] = useState(null);
   const [nlpErr, setNlpErr] = useState("");
 
+  // ── Custom Meals state ──
+  var _cm = useLocal("mt_custom_meals", []); var customMeals = _cm[0]; var setCustomMeals = _cm[1];
+  var _smp = React.useState(false); var saveMealPrompt = _smp[0]; var setSaveMealPrompt = _smp[1];
+  var _smn = React.useState(""); var saveMealName = _smn[0]; var setSaveMealName = _smn[1];
+  var _em = React.useState(null); var editingMeal = _em[0]; var setEditingMeal = _em[1];
+  var _sf = React.useState(false); var savedFeedback = _sf[0]; var setSavedFeedback = _sf[1];
+
   async function submitNlp(){
     var text = nlpText.trim();
-    if(!text || !workerUrl) return;
+    if(!text) return;
+    if(!workerUrl) { setNlpErr("Add your Worker URL in Settings to use AI parsing."); return; }
     setNlpLoading(true); setNlpErr(""); setNlpResults(null);
     try {
       var r = await fetch(workerUrl.replace(/\/$/, ""), {
@@ -2189,7 +2208,7 @@ function AddFoodModal({
     setBErr("");
     setBFood(null);
     try {
-      const r = await fetch(DEFAULT_WORKER_URL, {
+      const r = await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -2260,10 +2279,75 @@ function AddFoodModal({
     onAdd(entry);
     onClose();
   }
+  function saveAsCustomMeal() {
+    if (!saveMealName.trim() || !nlpResults) return;
+    var newMeal = {
+      id: Date.now().toString(),
+      name: saveMealName.trim(),
+      items: nlpResults.map(function(item) {
+        return { name: item.name, serving: item.serving || "1 serving", cal: item.cal || 0, p: item.p || 0, c: item.c || 0, f: item.f || 0 };
+      })
+    };
+    setCustomMeals(function(prev) { return prev.concat([newMeal]); });
+    setSaveMealPrompt(false);
+    setSaveMealName("");
+    setSavedFeedback(true);
+    setTimeout(function() { setSavedFeedback(false); }, 2500);
+  }
+  function logCustomMeal(cm) {
+    cm.items.forEach(function(item) {
+      onAdd({ name: item.name, serving: item.serving || "1 serving", meal: meal, cal: item.cal || 0, p: item.p || 0, c: item.c || 0, f: item.f || 0 });
+    });
+    onClose();
+  }
+  function deleteCustomMeal(id) {
+    setCustomMeals(function(prev) { return prev.filter(function(m) { return m.id !== id; }); });
+    setEditingMeal(null);
+  }
+  function openEditMeal(cm) {
+    setEditingMeal(JSON.parse(JSON.stringify(cm)));
+  }
+  function openNewMeal() {
+    setEditingMeal({ id: "new", name: "", items: [{ name: "", serving: "1 serving", cal: "", p: "", c: "", f: "" }] });
+  }
+  function saveEditMeal() {
+    if (!editingMeal || !editingMeal.name.trim()) return;
+    var validItems = editingMeal.items.filter(function(it) { return it.name.trim(); });
+    if (validItems.length === 0) return;
+    var mealToSave = Object.assign({}, editingMeal, { items: validItems.map(function(it) {
+      return { name: it.name.trim(), serving: it.serving || "1 serving", cal: parseInt(it.cal)||0, p: parseInt(it.p)||0, c: parseInt(it.c)||0, f: parseInt(it.f)||0 };
+    })});
+    if (editingMeal.id === "new") {
+      mealToSave.id = Date.now().toString();
+      setCustomMeals(function(prev) { return prev.concat([mealToSave]); });
+    } else {
+      setCustomMeals(function(prev) { return prev.map(function(m) { return m.id === editingMeal.id ? mealToSave : m; }); });
+    }
+    setEditingMeal(null);
+    setSavedFeedback(true);
+    setTimeout(function() { setSavedFeedback(false); }, 2000);
+  }
+  function updateEditItem(idx, field, val) {
+    setEditingMeal(function(prev) {
+      var items = prev.items.map(function(it, i) { return i === idx ? Object.assign({}, it, { [field]: val }) : it; });
+      return Object.assign({}, prev, { items: items });
+    });
+  }
+  function addEditItem() {
+    setEditingMeal(function(prev) {
+      return Object.assign({}, prev, { items: prev.items.concat([{ name: "", serving: "1 serving", cal: "", p: "", c: "", f: "" }]) });
+    });
+  }
+  function removeEditItem(idx) {
+    setEditingMeal(function(prev) {
+      return Object.assign({}, prev, { items: prev.items.filter(function(_, i) { return i !== idx; }) });
+    });
+  }
   function switchTab(t) {
     setTab(t);
     setSelected(null);
     setBFood(null);
+    setSaveMealPrompt(false);
   }
   // Recents that match the live query — computed every render, zero cost
   var filteredRecents = query.length >= 2
@@ -2303,7 +2387,7 @@ function AddFoodModal({
     style: {
       marginBottom: 0
     }
-  }, [["search", "🔍 Search"], ["nlp", "💬 Describe"], ["barcode", "📦 Scan"], ["photo", "📷 AI"], ["custom", "✏️ Manual"]].map(t => /*#__PURE__*/React.createElement("button", {
+  }, [["search", "🔍 Search"], ["nlp", "💬 Describe"], ["barcode", "📦 Scan"], ["photo", "📷 AI"], ["saved", "⭐ Custom"], ["manual", "✏️ Manual"]].map(t => /*#__PURE__*/React.createElement("button", {
     key: t[0],
     className: "tab-btn" + (tab === t[0] ? " active" : ""),
     onClick: () => switchTab(t[0])
@@ -2470,7 +2554,36 @@ function AddFoodModal({
         className:"btn-ghost",
         style:{marginTop:6},
         onClick:function(){setNlpResults(null);setNlpText("");setNlpErr("");}
-      }, "Start Over")
+      }, "Start Over"),
+      !saveMealPrompt
+        ? /*#__PURE__*/React.createElement("button", {
+            className:"btn-ghost",
+            style:{marginTop:6},
+            onClick:function(){setSaveMealPrompt(true);setSaveMealName("");}
+          }, "\u2B50 Save as Custom Meal")
+        : /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:8,marginTop:8,alignItems:"center"}},
+            /*#__PURE__*/React.createElement("input", {
+              className:"field",
+              style:{flex:1},
+              placeholder:"Meal name\u2026",
+              value:saveMealName,
+              autoFocus:true,
+              onChange:function(e){setSaveMealName(e.target.value);},
+              onKeyDown:function(e){if(e.key==="Enter")saveAsCustomMeal();}
+            }),
+            /*#__PURE__*/React.createElement("button", {
+              className:"btn-sm",
+              disabled:!saveMealName.trim(),
+              onClick:saveAsCustomMeal
+            }, "Save"),
+            /*#__PURE__*/React.createElement("button", {
+              onClick:function(){setSaveMealPrompt(false);},
+              style:{background:"none",border:"none",color:"var(--mu)",fontSize:20,cursor:"pointer",padding:"0 4px"}
+            }, "\u00D7")
+          ),
+      savedFeedback && /*#__PURE__*/React.createElement("div", {
+        style:{marginTop:10,padding:"10px 14px",background:"rgba(16,185,129,0.12)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:10,color:"var(--eml)",fontSize:13,fontWeight:600,textAlign:"center"}
+      }, "\u2713 Saved to Custom Meals! Find it in the \u2B50 Custom tab.")
     )
   ), tab === "barcode" && /*#__PURE__*/React.createElement("div", null, !bFood ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(BarcodeScanner, {
     onDetected: c => {
@@ -2619,7 +2732,47 @@ function AddFoodModal({
       setAiRes(null);
       setAiErr("");
     }
-  }, "Retake"))), tab === "custom" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, "Retake"))), tab === "saved" && /*#__PURE__*/React.createElement("div", null,
+  customMeals.length === 0
+    ? /*#__PURE__*/React.createElement("div", {style:{textAlign:"center",padding:"30px 0",color:"var(--mu)"}},
+        /*#__PURE__*/React.createElement("div", {style:{fontSize:32,marginBottom:8}}, "\u2B50"),
+        /*#__PURE__*/React.createElement("div", {style:{fontSize:15,fontWeight:600,marginBottom:4,color:"var(--txt)"}}, "No custom meals yet"),
+        /*#__PURE__*/React.createElement("div", {style:{fontSize:13,marginBottom:20}}, "Save a parsed meal from the Describe tab, or build one from scratch."),
+        /*#__PURE__*/React.createElement("button", {className:"btn",onClick:openNewMeal}, "Create Meal")
+      )
+    : /*#__PURE__*/React.createElement("div", null,
+        customMeals.map(function(cm) {
+          var totCal=0, totP=0, totC=0, totF=0;
+          cm.items.forEach(function(it){totCal+=it.cal||0;totP+=it.p||0;totC+=it.c||0;totF+=it.f||0;});
+          return /*#__PURE__*/React.createElement("div", {key:cm.id, className:"bundle-card", style:{marginBottom:10}},
+            /*#__PURE__*/React.createElement("div", {className:"bundle-head"},
+              /*#__PURE__*/React.createElement("div", {className:"bundle-name"}, cm.name),
+              /*#__PURE__*/React.createElement("button", {
+                onClick:function(e){e.stopPropagation();openEditMeal(cm);},
+                style:{background:"none",border:"none",color:"var(--mu)",fontSize:13,cursor:"pointer",padding:"0 4px",fontFamily:"'DM Sans',sans-serif"}
+              }, "\u270F\uFE0F Edit")
+            ),
+            /*#__PURE__*/React.createElement("div", {className:"bundle-items"}, cm.items.map(function(it){return it.name;}).join(" + ")),
+            /*#__PURE__*/React.createElement("div", {className:"bundle-macros"},
+              /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", null, totCal), " kcal"),
+              /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", {style:{color:"var(--rosel)"}}, totP), "g P"),
+              /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", {style:{color:"var(--cyanl)"}}, totC), "g C"),
+              /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", {style:{color:"var(--ambl)"}}, totF), "g F")
+            ),
+            /*#__PURE__*/React.createElement("button", {
+              className:"btn",
+              style:{marginTop:10},
+              onClick:function(){logCustomMeal(cm);}
+            }, "Log All \u2014 ", cm.items.length, " item", cm.items.length>1?"s":"")
+          );
+        }),
+        /*#__PURE__*/React.createElement("button", {
+          className:"btn-ghost",
+          style:{marginTop:8,width:"100%"},
+          onClick:openNewMeal
+        }, "\uFF0B New Meal")
+      )
+), tab === "manual" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "fg"
   }, /*#__PURE__*/React.createElement("div", {
     className: "fl"
@@ -2691,7 +2844,85 @@ function AddFoodModal({
       c: parseInt(mCa, 10) || 0,
       f: parseInt(mF, 10) || 0
     })
-  }, "Add to ", meal)), /*#__PURE__*/React.createElement("div", {
+  }, "Add to ", meal)), editingMeal && /*#__PURE__*/React.createElement("div", {
+  className:"edit-sheet-overlay",
+  onClick:function(e){if(e.target===e.currentTarget)setEditingMeal(null);}
+}, /*#__PURE__*/React.createElement("div", {className:"edit-sheet",style:{maxHeight:"85vh",overflowY:"auto"}},
+  /*#__PURE__*/React.createElement("div", {style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}},
+    /*#__PURE__*/React.createElement("div", {style:{fontSize:17,fontWeight:700}}, editingMeal.id==="new" ? "New Custom Meal" : "Edit Meal"),
+    /*#__PURE__*/React.createElement("button", {onClick:function(){setEditingMeal(null);},style:{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"var(--txt)",lineHeight:1}}, "\u00D7")
+  ),
+  /*#__PURE__*/React.createElement("div", {className:"fg",style:{marginBottom:14}},
+    /*#__PURE__*/React.createElement("div", {className:"fl"}, "Meal Name"),
+    /*#__PURE__*/React.createElement("input", {
+      className:"field",
+      placeholder:"e.g. Pre-Workout Shake",
+      value:editingMeal.name,
+      onChange:function(e){setEditingMeal(function(prev){return Object.assign({},prev,{name:e.target.value});});}
+    })
+  ),
+  /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700,marginBottom:8}}, "Items"),
+  editingMeal.items.map(function(item, idx) {
+    return /*#__PURE__*/React.createElement("div", {key:idx,style:{background:"var(--card)",borderRadius:10,padding:12,marginBottom:8}},
+      /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:8,marginBottom:8}},
+        /*#__PURE__*/React.createElement("input", {
+          className:"field",
+          style:{flex:1},
+          placeholder:"Item name",
+          value:item.name,
+          onChange:function(e){updateEditItem(idx,"name",e.target.value);}
+        }),
+        /*#__PURE__*/React.createElement("button", {
+          onClick:function(){removeEditItem(idx);},
+          style:{background:"none",border:"none",color:"var(--rose)",fontSize:20,cursor:"pointer",padding:"0 6px",flexShrink:0}
+        }, "\u00D7")
+      ),
+      /*#__PURE__*/React.createElement("input", {
+        className:"field",
+        style:{marginBottom:8},
+        placeholder:"Serving (e.g. 1 cup)",
+        value:item.serving,
+        onChange:function(e){updateEditItem(idx,"serving",e.target.value);}
+      }),
+      /*#__PURE__*/React.createElement("div", {style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6}},
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("div", {className:"fl",style:{fontSize:11}}, "Cal"),
+          /*#__PURE__*/React.createElement("input", {className:"field",type:"number",placeholder:"0",value:item.cal,onChange:function(e){updateEditItem(idx,"cal",e.target.value);}})
+        ),
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("div", {className:"fl",style:{fontSize:11,color:"var(--rose)"}}, "P (g)"),
+          /*#__PURE__*/React.createElement("input", {className:"field fp",type:"number",placeholder:"0",value:item.p,onChange:function(e){updateEditItem(idx,"p",e.target.value);}})
+        ),
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("div", {className:"fl",style:{fontSize:11,color:"var(--cyan)"}}, "C (g)"),
+          /*#__PURE__*/React.createElement("input", {className:"field fc",type:"number",placeholder:"0",value:item.c,onChange:function(e){updateEditItem(idx,"c",e.target.value);}})
+        ),
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("div", {className:"fl",style:{fontSize:11,color:"var(--amb)"}}, "F (g)"),
+          /*#__PURE__*/React.createElement("input", {className:"field ff",type:"number",placeholder:"0",value:item.f,onChange:function(e){updateEditItem(idx,"f",e.target.value);}})
+        )
+      )
+    );
+  }),
+  /*#__PURE__*/React.createElement("button", {
+    className:"btn-ghost",
+    style:{marginBottom:14,width:"100%"},
+    onClick:addEditItem
+  }, "\uFF0B Add Item"),
+  /*#__PURE__*/React.createElement("div", {className:"edit-cal-row"},
+    editingMeal.id!=="new" && /*#__PURE__*/React.createElement("button", {
+      className:"btn-ghost",
+      style:{color:"var(--rose)",borderColor:"var(--rose)"},
+      onClick:function(){deleteCustomMeal(editingMeal.id);}
+    }, "Delete"),
+    /*#__PURE__*/React.createElement("button", {
+      className:"btn",
+      style:{flex:1},
+      disabled:!editingMeal.name.trim()||editingMeal.items.every(function(it){return !it.name.trim();}),
+      onClick:saveEditMeal
+    }, "Save Meal")
+  )
+)), /*#__PURE__*/React.createElement("div", {
     style: {
       height: 40
     }
@@ -3082,6 +3313,7 @@ function Onboarding({
       localStorage.setItem("mt_wlog", JSON.stringify(wlogArr));
       localStorage.setItem("mt_goals", JSON.stringify(goalsData));
       if (p.name) localStorage.setItem("mt_name", JSON.stringify(p.name));
+      if (p.email) localStorage.setItem("mt_linked_email", JSON.stringify(p.email));
       localStorage.setItem("mt_onboarded", "true");
       window.location.reload();
     } catch(e) { setRecoverError("Network error — try again"); }
@@ -4427,21 +4659,53 @@ function computeAdapt(wlog, goals) {
   if (wlog.length < 7) return null;
   const r = wlog.slice(-7);
   const ch = r[r.length - 1].weight - r[0].weight;
-  const tgt = -0.5,
-    diff = ch - tgt;
-  let adj = 0,
-    msg = "",
-    state = "normal";
-  if (Math.abs(diff) < 0.15) {
-    msg = "You're right on track — losing at your target pace. Keep doing exactly this.";
-    state = "ontrack";
-  } else if (diff > 0.15) {
-    adj = -75;
-    msg = "Lost " + Math.abs(ch).toFixed(1) + " lbs this week vs your 0.5 lb target. Dropping calories slightly.";
+  const goalType = goals.goalType || "cut";
+  const chAbs = Math.abs(ch).toFixed(1);
+  const direction = ch < 0 ? "Lost" : ch > 0 ? "Gained" : "No change";
+
+  let tgt, adj = 0, msg = "", state = "normal";
+
+  if (goalType === "bulk") {
+    tgt = 0.3; // target +0.3 lbs/week for lean bulk
+    const diff = ch - tgt;
+    if (Math.abs(diff) < 0.15) {
+      msg = "Lean bulk on track — gaining at your target pace. Keep doing exactly this.";
+      state = "ontrack";
+    } else if (diff < -0.15) {
+      adj = 75;
+      msg = direction + " " + chAbs + " lbs this week vs your 0.3 lb bulk target. Adding a small calorie bump to drive growth.";
+    } else {
+      adj = -75;
+      msg = direction + " " + chAbs + " lbs — gaining faster than target. Trim 75 kcal to keep the bulk lean.";
+    }
+  } else if (goalType === "maintain") {
+    tgt = 0;
+    if (Math.abs(ch) < 0.2) {
+      msg = "Weight is stable — maintenance calories are dialled in. Keep it up.";
+      state = "ontrack";
+    } else if (ch < -0.2) {
+      adj = 75;
+      msg = direction + " " + chAbs + " lbs this week. Add 75 kcal to bring weight back to maintenance.";
+    } else {
+      adj = -75;
+      msg = direction + " " + chAbs + " lbs this week. Drop 75 kcal to bring weight back to maintenance.";
+    }
   } else {
-    adj = 75;
-    msg = "Lost " + Math.abs(ch).toFixed(1) + " lbs — faster than target. A small calorie bump protects muscle mass.";
+    // cut (default)
+    tgt = -0.5;
+    const diff = ch - tgt;
+    if (Math.abs(diff) < 0.15) {
+      msg = "Right on track — losing at your 0.5 lb/week target. Keep doing exactly this.";
+      state = "ontrack";
+    } else if (diff > 0.15) {
+      adj = -75;
+      msg = direction + " " + chAbs + " lbs this week vs your 0.5 lb target. Dropping calories slightly to increase the deficit.";
+    } else {
+      adj = 75;
+      msg = direction + " " + chAbs + " lbs — faster than target. A small calorie bump protects muscle mass.";
+    }
   }
+
   return {
     ch: ch.toFixed(1),
     adj,
@@ -5349,19 +5613,51 @@ function calcExerciseCal(exercises, weightLbs) {
 }
 
 /* ── Workout Section ── */
-function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl }) {
+function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl, onAiCall, aiUsageToday, aiLimit }) {
   var _s = React.useState(""); var text = _s[0]; var setText = _s[1];
   var _l = React.useState(false); var loading = _l[0]; var setLoading = _l[1];
   var _e = React.useState(""); var error = _e[0]; var setError = _e[1];
+  var _ex = React.useState(null); var editEx = _ex[0]; var setEditEx = _ex[1];
+  var _eS = React.useState(""); var editSets = _eS[0]; var setEditSets = _eS[1];
+  var _eR = React.useState(""); var editReps = _eR[0]; var setEditReps = _eR[1];
+  var _eW = React.useState(""); var editWeight = _eW[0]; var setEditWeight = _eW[1];
+  var _eDu = React.useState(""); var editDuration = _eDu[0]; var setEditDuration = _eDu[1];
+  var _eDi = React.useState(""); var editDistance = _eDi[0]; var setEditDistance = _eDi[1];
 
   var dateWorkouts = workouts[selectedDate] || [];
+
+  function parseWeightNum(w) {
+    var m = (w || "").match(/(\d+(?:\.\d+)?)/);
+    return m ? parseFloat(m[1]) : 0;
+  }
+
+  // PR detection: mark exercises where weight exceeds all prior sessions for that name
+  var prSet = new Set();
+  dateWorkouts.forEach(function(ex) {
+    if (ex.type === "cardio" || !ex.weight) return;
+    var name = (ex.name || "").toLowerCase().trim();
+    var curW = parseWeightNum(ex.weight);
+    if (!curW) return;
+    var maxPrev = 0; var hasPrev = false;
+    Object.keys(workouts).sort().forEach(function(d) {
+      if (d >= selectedDate) return;
+      (workouts[d] || []).forEach(function(e) {
+        if ((e.name || "").toLowerCase().trim() === name && e.weight) {
+          hasPrev = true;
+          var w = parseWeightNum(e.weight);
+          if (w > maxPrev) maxPrev = w;
+        }
+      });
+    });
+    if (hasPrev && curW > maxPrev) prSet.add(ex.id);
+  });
 
   function fmtExercise(ex) {
     if (ex.type === "cardio") {
       var parts = [];
       if (ex.duration) parts.push(ex.duration + " min");
       if (ex.distance) parts.push(ex.distance);
-      return parts.length ? parts.join(" · ") : "cardio";
+      return parts.length ? parts.join(" \xB7 ") : "cardio";
     }
     var parts = [];
     if (ex.sets && ex.reps) parts.push(ex.sets + "\xD7" + ex.reps);
@@ -5370,8 +5666,52 @@ function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl }) {
     return parts.join(" ");
   }
 
+  function openEditEx(ex) {
+    setEditEx(ex);
+    setEditSets(ex.sets ? String(ex.sets) : "");
+    setEditReps(ex.reps || "");
+    setEditWeight(ex.weight || "");
+    setEditDuration(ex.duration ? String(ex.duration) : "");
+    setEditDistance(ex.distance || "");
+  }
+
+  function saveEditEx() {
+    if (!editEx) return;
+    var updated = Object.assign({}, editEx, {
+      sets: editSets ? (parseInt(editSets) || null) : null,
+      reps: editReps || null,
+      weight: editWeight || null,
+      duration: editDuration ? (parseInt(editDuration) || null) : null,
+      distance: editDistance || null,
+    });
+    setWorkouts(function(prev) {
+      var u = Object.assign({}, prev);
+      u[selectedDate] = (prev[selectedDate] || []).map(function(e) {
+        return e.id === editEx.id ? updated : e;
+      });
+      return u;
+    });
+    setEditEx(null);
+  }
+
+  // Returns last 10 sessions for a given exercise name across all logged dates
+  function getProgressionHistory(name) {
+    var norm = (name || "").toLowerCase().trim();
+    var history = [];
+    Object.keys(workouts).sort().forEach(function(date) {
+      (workouts[date] || []).forEach(function(ex) {
+        if ((ex.name || "").toLowerCase().trim() === norm) {
+          history.push({ date: date, ex: ex });
+        }
+      });
+    });
+    history.sort(function(a, b) { return b.date.localeCompare(a.date); });
+    return history.slice(0, 10);
+  }
+
   async function handleParse() {
     if (!text.trim() || loading) return;
+    if (aiUsageToday >= aiLimit) { setError("Weekly AI limit reached \u2014 resets next Monday."); return; }
     setLoading(true);
     setError("");
     try {
@@ -5382,6 +5722,7 @@ function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl }) {
       });
       var data = await res.json();
       if (data.error) { setError(data.error); setLoading(false); return; }
+      if (onAiCall) onAiCall();
       var ts = Date.now();
       var newEx = data.exercises.map(function(e, i) {
         return Object.assign({}, e, { id: ts + i });
@@ -5393,7 +5734,7 @@ function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl }) {
       });
       setText("");
     } catch (e) {
-      setError("Network error — try again");
+      setError("Network error \u2014 try again");
     }
     setLoading(false);
   }
@@ -5406,6 +5747,8 @@ function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl }) {
     });
   }
 
+  var prog = editEx ? getProgressionHistory(editEx.name) : [];
+
   return /*#__PURE__*/React.createElement(React.Fragment, null,
     /*#__PURE__*/React.createElement("div", {
       style: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "20px 0 8px" }
@@ -5416,14 +5759,23 @@ function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl }) {
     ),
     dateWorkouts.length > 0 && /*#__PURE__*/React.createElement("div", { className: "meal-block" },
       dateWorkouts.map(function(ex) {
-        return /*#__PURE__*/React.createElement("div", { className: "food-row", key: ex.id },
+        var isPR = prSet.has(ex.id);
+        return /*#__PURE__*/React.createElement("div", {
+          className: "food-row", key: ex.id,
+          onClick: function() { openEditEx(ex); }
+        },
           /*#__PURE__*/React.createElement("div", { className: "food-info" },
-            /*#__PURE__*/React.createElement("div", { className: "food-name" }, ex.name),
+            /*#__PURE__*/React.createElement("div", { className: "food-name", style: { display: "flex", alignItems: "center", gap: 6 } },
+              ex.name,
+              isPR && /*#__PURE__*/React.createElement("span", {
+                style: { fontSize: 9, fontWeight: 800, background: "var(--em)", color: "#fff", borderRadius: 4, padding: "1px 5px", letterSpacing: "0.5px", flexShrink: 0 }
+              }, "PR")
+            ),
             /*#__PURE__*/React.createElement("div", { className: "food-srv" }, fmtExercise(ex))
           ),
           /*#__PURE__*/React.createElement("button", {
             className: "food-del",
-            onClick: function() { delExercise(ex.id); }
+            onClick: function(e) { e.stopPropagation(); delExercise(ex.id); }
           }, "\xD7")
         );
       })
@@ -5469,6 +5821,109 @@ function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl }) {
       error && /*#__PURE__*/React.createElement("div", {
         style: { color: "var(--rose)", fontSize: 13, marginTop: 8, textAlign: "center" }
       }, error)
+    ),
+    editEx && /*#__PURE__*/React.createElement(React.Fragment, null,
+      /*#__PURE__*/React.createElement("div", {
+        className: "edit-sheet-overlay",
+        onClick: function() { setEditEx(null); }
+      }),
+      /*#__PURE__*/React.createElement("div", { className: "edit-sheet" },
+        /*#__PURE__*/React.createElement("div", { className: "edit-sheet-handle" }),
+        /*#__PURE__*/React.createElement("div", { className: "edit-sheet-title" }, editEx.name),
+        /*#__PURE__*/React.createElement("div", { className: "edit-sheet-sub" },
+          editEx.type === "cardio" ? "Cardio" : editEx.type === "bodyweight" ? "Bodyweight" : "Strength"
+        ),
+        editEx.type !== "cardio"
+          ? /*#__PURE__*/React.createElement(React.Fragment, null,
+              /*#__PURE__*/React.createElement("div", { className: "edit-macro-grid" },
+                /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
+                  /*#__PURE__*/React.createElement("div", { className: "edit-macro-label" }, "Sets"),
+                  /*#__PURE__*/React.createElement("input", {
+                    className: "edit-macro-input", type: "number", inputMode: "numeric",
+                    value: editSets,
+                    onChange: function(e) { setEditSets(e.target.value.replace(/[^0-9]/g, "")); }
+                  }),
+                  /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "sets")
+                ),
+                /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
+                  /*#__PURE__*/React.createElement("div", { className: "edit-macro-label" }, "Reps"),
+                  /*#__PURE__*/React.createElement("input", {
+                    className: "edit-macro-input", type: "text",
+                    value: editReps,
+                    onChange: function(e) { setEditReps(e.target.value); }
+                  }),
+                  /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "per set")
+                )
+              ),
+              /*#__PURE__*/React.createElement("div", { className: "edit-cal-row" },
+                /*#__PURE__*/React.createElement("div", { className: "edit-cal-label" }, "Weight"),
+                /*#__PURE__*/React.createElement("input", {
+                  className: "edit-cal-input", type: "text",
+                  style: { width: 180, textAlign: "right" },
+                  value: editWeight,
+                  onChange: function(e) { setEditWeight(e.target.value); }
+                }),
+                /*#__PURE__*/React.createElement("div", { className: "edit-cal-unit" }, "")
+              )
+            )
+          : /*#__PURE__*/React.createElement("div", { className: "edit-macro-grid" },
+              /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
+                /*#__PURE__*/React.createElement("div", { className: "edit-macro-label" }, "Duration"),
+                /*#__PURE__*/React.createElement("input", {
+                  className: "edit-macro-input", type: "number", inputMode: "numeric",
+                  value: editDuration,
+                  onChange: function(e) { setEditDuration(e.target.value.replace(/[^0-9]/g, "")); }
+                }),
+                /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "minutes")
+              ),
+              /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
+                /*#__PURE__*/React.createElement("div", { className: "edit-macro-label" }, "Distance"),
+                /*#__PURE__*/React.createElement("input", {
+                  className: "edit-macro-input", type: "text",
+                  value: editDistance,
+                  onChange: function(e) { setEditDistance(e.target.value); }
+                }),
+                /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "e.g. 3 miles")
+              )
+            ),
+        /*#__PURE__*/React.createElement("button", {
+          className: "edit-save-btn", style: { marginTop: 4 },
+          onClick: saveEditEx
+        }, "SAVE"),
+        prog.length > 1 && /*#__PURE__*/React.createElement("div", { style: { marginTop: 20 } },
+          /*#__PURE__*/React.createElement("div", {
+            style: { fontSize: 10, color: "var(--mu)", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 700, marginBottom: 10 }
+          }, "\uD83D\uDCCA Progression"),
+          prog.map(function(h, i) {
+            var isSelected = h.date === selectedDate;
+            var prevH = prog[i + 1];
+            var improved = false;
+            if (editEx.type !== "cardio" && h.ex.weight && prevH && prevH.ex.weight) {
+              improved = parseWeightNum(h.ex.weight) > parseWeightNum(prevH.ex.weight);
+            }
+            return /*#__PURE__*/React.createElement("div", {
+              key: i,
+              style: {
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "8px 0",
+                borderBottom: i < prog.length - 1 ? "1px solid var(--b1)" : "none"
+              }
+            },
+              /*#__PURE__*/React.createElement("div", {
+                style: { fontSize: 12, color: isSelected ? "var(--indll)" : "var(--txt2)", fontWeight: isSelected ? 700 : 400 }
+              }, isSelected ? "Today" : fmtShort(new Date(h.date + "T12:00:00"))),
+              /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+                improved && /*#__PURE__*/React.createElement("span", {
+                  style: { fontSize: 11, color: "var(--eml)", fontWeight: 800 }
+                }, "\u2191"),
+                /*#__PURE__*/React.createElement("div", {
+                  style: { fontSize: 12, color: "var(--txt)", fontFamily: "'JetBrains Mono',monospace" }
+                }, fmtExercise(h.ex))
+              )
+            );
+          })
+        )
+      )
     )
   );
 }
@@ -6191,7 +6646,10 @@ function App() {
     workouts: workouts,
     setWorkouts: setWorkoutsRaw,
     selectedDate: selectedDate,
-    workerUrl: workerUrl
+    workerUrl: workerUrl,
+    onAiCall: incrementAiUsage,
+    aiUsageToday: getAiUsageThisWeek(),
+    aiLimit: AI_WEEKLY_LIMIT
   }), /*#__PURE__*/React.createElement("button", {
     className: "fab",
     onClick: () => {

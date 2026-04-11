@@ -1,6 +1,6 @@
 // MacroTrack Service Worker
 // Bump this version number with every deploy to force an immediate update
-const VERSION = "mt-v14";
+const VERSION = "mt-v20";
 const CACHE = VERSION;
 
 // Files to precache on install
@@ -12,14 +12,35 @@ const PRECACHE = [
   "./icon-512.png",
 ];
 
-// ── Install: cache core files ─────────────────────────────────────────────
+// CDN scripts to cache — fetched and stored on first install
+// so repeat launches load React/ReactDOM from cache, not the network
+const CDN_CACHE = "mt-cdn-v1";
+const CDN_PRECACHE = [
+  "https://unpkg.com/react@18/umd/react.production.min.js",
+  "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js",
+];
+
+// ── Install: cache core files + CDN scripts ───────────────────────────────
 self.addEventListener("install", function(e) {
   // Skip waiting immediately — don't wait for old SW to die
   self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE).then(function(cache) {
-      return cache.addAll(PRECACHE);
-    })
+    Promise.all([
+      caches.open(CACHE).then(function(cache) {
+        return cache.addAll(PRECACHE);
+      }),
+      // Cache React/ReactDOM from CDN — these are big and don't change
+      caches.open(CDN_CACHE).then(function(cache) {
+        return Promise.all(CDN_PRECACHE.map(function(url) {
+          return cache.match(url).then(function(hit) {
+            if (hit) return; // already cached, skip the fetch
+            return fetch(url, { mode: "cors" }).then(function(res) {
+              if (res.ok) cache.put(url, res);
+            }).catch(function() {}); // don't fail install if CDN is down
+          });
+        }));
+      }),
+    ])
   );
 });
 
@@ -27,10 +48,10 @@ self.addEventListener("install", function(e) {
 self.addEventListener("activate", function(e) {
   e.waitUntil(
     Promise.all([
-      // Delete any old versioned caches
+      // Delete any old versioned caches (keep CDN cache — it's version-independent)
       caches.keys().then(function(keys) {
         return Promise.all(
-          keys.filter(function(key) { return key !== CACHE; })
+          keys.filter(function(key) { return key !== CACHE && key !== CDN_CACHE; })
               .map(function(key) { return caches.delete(key); })
         );
       }),
@@ -51,7 +72,23 @@ self.addEventListener("activate", function(e) {
 self.addEventListener("fetch", function(e) {
   var url = new URL(e.request.url);
 
-  // Only handle same-origin requests
+  // Serve cached CDN scripts (React, ReactDOM) from cache-first
+  if (url.hostname === "unpkg.com" || url.hostname === "cdnjs.cloudflare.com") {
+    e.respondWith(
+      caches.open(CDN_CACHE).then(function(cache) {
+        return cache.match(e.request).then(function(hit) {
+          if (hit) return hit;
+          return fetch(e.request).then(function(res) {
+            if (res.ok) cache.put(e.request, res.clone());
+            return res;
+          });
+        });
+      })
+    );
+    return;
+  }
+
+  // Only handle same-origin requests beyond this point
   if (url.origin !== self.location.origin) return;
 
   // Network-first for HTML — always try to get the freshest version
