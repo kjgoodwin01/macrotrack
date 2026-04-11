@@ -79,7 +79,98 @@ function getNutrientVal(nutrients, id) {
   return Math.round(n && n.value ? n.value : 0);
 }
 
-async function callSearchOrchestrator(apiKey, query, candidates, recentFoods) {
+// Comprehensive restaurant chain keyword list — lowercase substrings for partial matching
+// e.g. "mcdonald" matches "McDonald's", "mcdonalds nuggets", "mcdonald's big mac", etc.
+const CHAIN_KEYWORDS = [
+  // Burgers
+  "mcdonald","burger king","wendy's","wendy","five guys","shake shack","in-n-out",
+  "whataburger","culver's","culver","jack in the box","carl's jr","hardee's","hardee",
+  "sonic drive","checkers","rally's","steak 'n shake","steak n shake","fatburger",
+  "smashburger","burgerfi","back yard burgers","habit burger","the habit","freddy's",
+  "fuddruckers","steak escape","back yard burger",
+  // Chicken
+  "chick-fil-a","chick fil a","popeyes","popeye","kfc","raising cane","zaxby",
+  "wingstop","bojangles","church's chicken","el pollo loco","slim chickens",
+  "jollibee","dave's hot chicken","hattie b","gus's","golden chick",
+  "golden corral chicken","huey magoo",
+  // Sandwiches & Subs
+  "subway","jimmy john","jersey mike","firehouse subs","firehouse sub","quiznos",
+  "potbelly","which wich","penn station","charley's","charleys","goodcents",
+  "mr. hero","mr hero","blimpie","togos","togo's",
+  // Mexican
+  "chipotle","qdoba","moe's southwest","moe's","taco bell","del taco","taco bueno",
+  "taco cabana","on the border","fuzzy's taco","freebirds","chronic tacos",
+  "salsarita","tijuana flats","baja fresh","rubio's","rubio",
+  // Pizza
+  "pizza hut","domino's","domino","papa john","little caesar","papa murphy",
+  "sbarro","blaze pizza","mod pizza","pieology","round table","marco's pizza",
+  "marcos pizza","cicis","cici's","godfather's","hungry howie","jets pizza",
+  "jet's pizza","east of chicago","donatos","ledo pizza","stevi b",
+  "uno pizzeria","uno chicago","mellow mushroom","old chicago",
+  // Coffee, Bakery & Breakfast
+  "starbucks","dunkin","tim horton","panera","einstein bros","bruegger",
+  "caribou coffee","peet's","dutch bros","biggby","scooter's coffee",
+  "corner bakery","la madeleine","first watch","original pancake","ihop",
+  "denny's","denny","waffle house","cracker barrel","bob evans","perkins",
+  "friendly's","shoney's","big boy","huddle house","village inn",
+  // Casual & Family Dining
+  "applebee's","applebee","chili's","chili","tgi friday","tgi fridays",
+  "olive garden","red lobster","outback steakhouse","outback",
+  "longhorn steakhouse","longhorn","texas roadhouse","red robin",
+  "cheesecake factory","ruby tuesday","buffalo wild wings","bdubs","b-dubs",
+  "hooters","yard house","dave & buster","dave and buster","bahama breeze",
+  "seasons 52","bonefish grill","carrabba","maggiano","joe's crab","bubba gump",
+  "benihana","pf chang","p.f. chang","P.F. Chang","houlihan","fridays",
+  // Fine Dining Chains
+  "capital grille","the capital grille","eddie v","ruth's chris","morton's",
+  "fleming's","mastro's","ocean prime","del frisco","sullivan's steakhouse",
+  "black angus","lone star steakhouse","sizzler","western sizzlin",
+  // Fast Casual
+  "sweetgreen","noodles & company","noodles and company","cosi","freshii",
+  "tender greens","dig inn","honeygrow","lemonade restaurant","by chloe",
+  "just salad","salata","mcalister's deli","mcalister","jason's deli",
+  "corner bakery","zoes kitchen","zoës kitchen","cosi restaurant",
+  // Asian Fast Casual
+  "panda express","pei wei","yoshinoya","manchu wok","sarku japan",
+  "genghis grill","bd's mongolian","mongolian grill","hibachi-san",
+  // BBQ
+  "dickey's bbq","dickey","famous dave","smokey bones","mission bbq",
+  "jim 'n nick","rodizio grill","4 rivers","luby's","golden corral",
+  "ryan's grill","hometown buffet",
+  // Ice Cream & Dessert
+  "dairy queen","baskin-robbins","baskin robbins","cold stone","marble slab",
+  "yogurtland","pinkberry","menchie's","menchie","tcby","rita's italian ice",
+  "carvel","orange julius","insomnia cookies","krispy kreme","cinnabon",
+  "nothing bundt","great american cookies","rocky mountain chocolate",
+  "marble slab creamery","maggie moo","bruster's","culver's concrete",
+  // Smoothies & Juice
+  "jamba juice","jamba","smoothie king","tropical smoothie","clean juice",
+  "booster juice","robeks","nekter juice","pressed juicery",
+  // Seafood
+  "long john silver","captain d's","captain d","joe's crab shack",
+  "red lobster","legal sea foods","bubba gump shrimp","bonefish",
+  // Convenience & Snacks
+  "wawa","sheetz","7-eleven","auntie anne's","auntie anne","pretzelmaker",
+  "wetzel's pretzels","wetzel","hot dog on a stick","nathan's famous","nathans",
+  // Wings Specialists
+  "wingstop","wing zone","wild wing","anchor bar","pluckers","99 restaurant",
+  // Deli & Bakery
+  "jersey mike","jason's deli","schlotzksy's","schlotzsky","mcalister",
+  "bruegger's","einstein bagel","great harvest","Paradise bakery",
+  // Steak & Seafood Casual
+  "texas de brazil","texas de brasil","fogo de chao","fogo","brazeiro",
+  "saltgrass","longhorn","black bear diner","marie callender",
+  // Other Notable Chains
+  "noodles","qdoba","moes","cinco de mayo","del taco","taco john","taco time",
+  "taco mayo","del taco","bad daddy","smalls sliders","culver",
+];
+
+// Returns true if the query appears to reference a restaurant or chain
+function detectChain(q) {
+  return CHAIN_KEYWORDS.some(c => q.includes(c));
+}
+
+async function callSearchOrchestrator(apiKey, query, candidates, recentFoods, isChain) {
   // Compact candidate format — single-letter keys to minimise prompt tokens
   const slim = candidates.map(c => ({
     n: c.description,
@@ -99,16 +190,26 @@ async function callSearchOrchestrator(apiKey, query, candidates, recentFoods) {
     ? `User frequently logs: ${JSON.stringify(recentFoods.slice(0, 10))}. If any closely match "${query}", place them at index 0-2.\n`
     : "";
 
+  // Restaurant mode: tell Claude to use its knowledge of official published menu data
+  const restaurantBlock = isChain
+    ? `RESTAURANT QUERY: Use your knowledge of this chain's official published menu nutrition data. ` +
+      `Return specific named menu items (e.g. "Big Mac", "Chicken Burrito Bowl"). ` +
+      `For each item: total_cal/total_p/total_c/total_f are the whole-item values as published. ` +
+      `Calculate cal100=(total_cal/item_grams)*100, same for p100/c100/f100. ` +
+      `Primary serving must be the whole item e.g. {"label":"1 Big Mac (220g)","g":220}. ` +
+      `source="ai_generated". Ignore DB candidates if they contradict known menu data.\n`
+    : "";
+
   const result = await callClaude(
     apiKey,
     "Nutrition DB. Output raw JSON array only — no markdown, no text.",
     [{
       role: "user",
       content:
-        `Query:"${query}"\n${candidateBlock}${recentBlock}\n` +
+        `Query:"${query}"\n${candidateBlock}${recentBlock}${restaurantBlock}\n` +
         `Return exactly 8 objects. Rules:\n` +
-        `[0]=best generic match for "${query}", accurate macros, Title Case name.\n` +
-        `[1-7]=closely related variants/brands — every item must be unmistakably about "${query}".\n` +
+        `[0]=best match for "${query}", accurate macros, Title Case name.\n` +
+        `[1-7]=closely related variants — every item must be unmistakably about "${query}".\n` +
         `Discard any candidate unrelated to "${query}"; fill gaps from your knowledge instead.\n` +
         `cal100/p100/c100/f100=per 100g. source="ai_verified" if from candidates, "ai_generated" if new.\n` +
         `servings=array of 2-4 objects [{label,g}] with realistic human portions e.g. [{"label":"1 large egg","g":50},{"label":"2 eggs","g":100},{"label":"100g","g":100}].\n` +
@@ -581,13 +682,15 @@ export default {
 
       const q = query.trim().toLowerCase();
       const qWords = q.split(/\s+/);
+      const isChain = detectChain(q);
 
-      // ── KV cache check — common foods return in ~50ms instead of ~1.5s ──
+      // ── KV cache check — common foods ~50ms, chains cached 7 days ────────
       const cacheKey = "search:" + q;
+      const cacheTtl = isChain ? 604800 : 86400; // 7 days for chains, 24h for generic
       try {
         const cached = await env.CODES.get(cacheKey);
         if (cached) {
-          console.log(`[search-orchestrator] cache HIT "${q}"`);
+          console.log(`[search-orchestrator] cache HIT "${q}" (chain=${isChain})`);
           return jsonRes({ foods: JSON.parse(cached), cached: true }, 200, cors);
         }
       } catch (e) {
@@ -694,14 +797,14 @@ export default {
       if (env.ANTHROPIC_API_KEY) {
         try {
           const aiResult = await Promise.race([
-            callSearchOrchestrator(env.ANTHROPIC_API_KEY, q, candidates, recentFoods),
+            callSearchOrchestrator(env.ANTHROPIC_API_KEY, q, candidates, recentFoods, isChain),
             new Promise((_, reject) => setTimeout(() => reject(new Error("ai_timeout")), 2500)),
           ]);
 
           if (aiResult && Array.isArray(aiResult.foods) && aiResult.foods.length > 0) {
-            console.log(`[search-orchestrator] query="${q}" returned ${aiResult.foods.length} AI results, index-0="${aiResult.foods[0].description}" source="${aiResult.foods[0].source}"`);
-            // Cache successful AI result for 24h — non-blocking, doesn't slow response
-            env.CODES.put(cacheKey, JSON.stringify(aiResult.foods), { expirationTtl: 86400 }).catch(() => {});
+            console.log(`[search-orchestrator] query="${q}" chain=${isChain} returned ${aiResult.foods.length} AI results, index-0="${aiResult.foods[0].description}"`);
+            // Cache — chains for 7 days (menus rarely change), generic for 24h
+            env.CODES.put(cacheKey, JSON.stringify(aiResult.foods), { expirationTtl: cacheTtl }).catch(() => {});
             return jsonRes({ foods: aiResult.foods }, 200, cors);
           }
         } catch (e) {
