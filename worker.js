@@ -83,86 +83,75 @@ function getNutrientVal(nutrients, id) {
 // e.g. "mcdonald" matches "McDonald's", "mcdonalds nuggets", "mcdonald's big mac", etc.
 const CHAIN_KEYWORDS = [
   // Burgers
-  "mcdonald","burger king","wendy's","wendy","five guys","shake shack","in-n-out",
-  "whataburger","culver's","culver","jack in the box","carl's jr","hardee's","hardee",
-  "sonic drive","checkers","rally's","steak 'n shake","steak n shake","fatburger",
-  "smashburger","burgerfi","back yard burgers","habit burger","the habit","freddy's",
-  "fuddruckers","steak escape","back yard burger",
+  "mcdonald","burger king","wendy's","five guys","shake shack","in-n-out",
+  "whataburger","culver's","jack in the box","carl's jr","hardee's","hardee",
+  "sonic drive-in","checkers","rally's","steak 'n shake","steak n shake","fatburger",
+  "smashburger","burgerfi","habit burger","the habit","freddy's","fuddruckers",
   // Chicken
-  "chick-fil-a","chick fil a","popeyes","popeye","kfc","raising cane","zaxby",
+  "chick-fil-a","chick fil a","popeyes","kfc","raising cane","zaxby",
   "wingstop","bojangles","church's chicken","el pollo loco","slim chickens",
-  "jollibee","dave's hot chicken","hattie b","gus's","golden chick",
-  "golden corral chicken","huey magoo",
+  "jollibee","dave's hot chicken","hattie b","golden chick","huey magoo",
   // Sandwiches & Subs
   "subway","jimmy john","jersey mike","firehouse subs","firehouse sub","quiznos",
   "potbelly","which wich","penn station","charley's","charleys","goodcents",
-  "mr. hero","mr hero","blimpie","togos","togo's",
+  "mr. hero","blimpie","togo's",
   // Mexican
-  "chipotle","qdoba","moe's southwest","moe's","taco bell","del taco","taco bueno",
+  "chipotle","qdoba","moe's southwest","taco bell","del taco","taco bueno",
   "taco cabana","on the border","fuzzy's taco","freebirds","chronic tacos",
-  "salsarita","tijuana flats","baja fresh","rubio's","rubio",
+  "salsarita","tijuana flats","baja fresh","rubio's",
   // Pizza
-  "pizza hut","domino's","domino","papa john","little caesar","papa murphy",
-  "sbarro","blaze pizza","mod pizza","pieology","round table","marco's pizza",
-  "marcos pizza","cicis","cici's","godfather's","hungry howie","jets pizza",
-  "jet's pizza","east of chicago","donatos","ledo pizza","stevi b",
-  "uno pizzeria","uno chicago","mellow mushroom","old chicago",
+  "pizza hut","domino's","papa john","little caesar","papa murphy",
+  "sbarro","blaze pizza","mod pizza","pieology","round table pizza","marco's pizza",
+  "cicis","cici's","godfather's pizza","hungry howie","jet's pizza",
+  "east of chicago","donatos","ledo pizza","uno pizzeria","mellow mushroom",
   // Coffee, Bakery & Breakfast
-  "starbucks","dunkin","tim horton","panera","einstein bros","bruegger",
-  "caribou coffee","peet's","dutch bros","biggby","scooter's coffee",
-  "corner bakery","la madeleine","first watch","original pancake","ihop",
-  "denny's","denny","waffle house","cracker barrel","bob evans","perkins",
-  "friendly's","shoney's","big boy","huddle house","village inn",
+  "starbucks","dunkin'","tim horton","panera bread","einstein bros","bruegger's",
+  "caribou coffee","peet's coffee","dutch bros","biggby","scooter's coffee",
+  "corner bakery cafe","la madeleine","first watch","waffle house","cracker barrel",
+  "bob evans","village inn","ihop","denny's","huddle house","shoney's",
   // Casual & Family Dining
-  "applebee's","applebee","chili's","chili","tgi friday","tgi fridays",
-  "olive garden","red lobster","outback steakhouse","outback",
-  "longhorn steakhouse","longhorn","texas roadhouse","red robin",
-  "cheesecake factory","ruby tuesday","buffalo wild wings","bdubs","b-dubs",
-  "hooters","yard house","dave & buster","dave and buster","bahama breeze",
-  "seasons 52","bonefish grill","carrabba","maggiano","joe's crab","bubba gump",
-  "benihana","pf chang","p.f. chang","P.F. Chang","houlihan","fridays",
+  "applebee's","chili's restaurant","tgi friday","olive garden","red lobster",
+  "outback steakhouse","longhorn steakhouse","texas roadhouse","red robin",
+  "cheesecake factory","ruby tuesday","buffalo wild wings","bdubs",
+  "hooters","yard house","dave & buster","bahama breeze","seasons 52",
+  "bonefish grill","carrabba","maggiano","joe's crab shack","bubba gump",
+  "benihana","pf chang","p.f. chang","houlihan's",
   // Fine Dining Chains
-  "capital grille","the capital grille","eddie v","ruth's chris","morton's",
-  "fleming's","mastro's","ocean prime","del frisco","sullivan's steakhouse",
-  "black angus","lone star steakhouse","sizzler","western sizzlin",
+  "capital grille","ruth's chris","morton's steakhouse","fleming's steakhouse",
+  "mastro's","ocean prime","del frisco","sullivan's steakhouse",
+  "black angus","lone star steakhouse","sizzler",
   // Fast Casual
-  "sweetgreen","noodles & company","noodles and company","cosi","freshii",
-  "tender greens","dig inn","honeygrow","lemonade restaurant","by chloe",
-  "just salad","salata","mcalister's deli","mcalister","jason's deli",
-  "corner bakery","zoes kitchen","zoës kitchen","cosi restaurant",
+  "sweetgreen","noodles & company","noodles and company","freshii",
+  "tender greens","dig inn","honeygrow","lemonade restaurant",
+  "just salad","salata","mcalister's deli","jason's deli",
+  "zoes kitchen","zoës kitchen",
   // Asian Fast Casual
-  "panda express","pei wei","yoshinoya","manchu wok","sarku japan",
-  "genghis grill","bd's mongolian","mongolian grill","hibachi-san",
+  "panda express","pei wei","manchu wok","genghis grill","bd's mongolian",
   // BBQ
-  "dickey's bbq","dickey","famous dave","smokey bones","mission bbq",
-  "jim 'n nick","rodizio grill","4 rivers","luby's","golden corral",
+  "dickey's bbq","famous dave's","smokey bones","mission bbq",
+  "jim 'n nick","rodizio grill","4 rivers smokehouse","golden corral",
   "ryan's grill","hometown buffet",
   // Ice Cream & Dessert
-  "dairy queen","baskin-robbins","baskin robbins","cold stone","marble slab",
-  "yogurtland","pinkberry","menchie's","menchie","tcby","rita's italian ice",
+  "dairy queen","baskin-robbins","baskin robbins","cold stone creamery","marble slab",
+  "yogurtland","pinkberry","menchie's","tcby","rita's italian ice",
   "carvel","orange julius","insomnia cookies","krispy kreme","cinnabon",
-  "nothing bundt","great american cookies","rocky mountain chocolate",
-  "marble slab creamery","maggie moo","bruster's","culver's concrete",
+  "nothing bundt cakes","great american cookies",
   // Smoothies & Juice
-  "jamba juice","jamba","smoothie king","tropical smoothie","clean juice",
+  "jamba juice","smoothie king","tropical smoothie","clean juice",
   "booster juice","robeks","nekter juice","pressed juicery",
   // Seafood
-  "long john silver","captain d's","captain d","joe's crab shack",
-  "red lobster","legal sea foods","bubba gump shrimp","bonefish",
+  "long john silver","captain d's","legal sea foods","bubba gump shrimp",
   // Convenience & Snacks
-  "wawa","sheetz","7-eleven","auntie anne's","auntie anne","pretzelmaker",
-  "wetzel's pretzels","wetzel","hot dog on a stick","nathan's famous","nathans",
-  // Wings Specialists
-  "wingstop","wing zone","wild wing","anchor bar","pluckers","99 restaurant",
+  "wawa","sheetz","auntie anne's","pretzelmaker","wetzel's pretzels",
+  "hot dog on a stick","nathan's famous",
+  // Wing Specialists
+  "wing zone","wild wing cafe","anchor bar","pluckers",
   // Deli & Bakery
-  "jersey mike","jason's deli","schlotzksy's","schlotzsky","mcalister",
-  "bruegger's","einstein bagel","great harvest","Paradise bakery",
-  // Steak & Seafood Casual
-  "texas de brazil","texas de brasil","fogo de chao","fogo","brazeiro",
-  "saltgrass","longhorn","black bear diner","marie callender",
-  // Other Notable Chains
-  "noodles","qdoba","moes","cinco de mayo","del taco","taco john","taco time",
-  "taco mayo","del taco","bad daddy","smalls sliders","culver",
+  "schlotzksy's","great harvest","paradise bakery",
+  // Steak & Upscale
+  "texas de brazil","fogo de chao","saltgrass","black bear diner","marie callender",
+  // Other
+  "taco john's","taco time","bad daddy's","smalls sliders",
 ];
 
 // Returns true if the query appears to reference a restaurant or chain
