@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wrangler --version)",
+      "Bash(npx wrangler:*)",
+      "Bash(wrangler kv:*)",
+      "Read(//c/Users/kjgoo/.wrangler/config/**)",
+      "Read(//c/Users/kjgoo/AppData/Roaming/xdg.config/.wrangler/config/**)",
+      "Bash(curl -s \"http://localhost:8787/__scheduled?cron=0+16+*+*+*\")",
+      "Bash(pkill -f \"wrangler dev\")",
+      "Read(//tmp/**)",
+      "Bash(curl:*)",
+      "Bash(npx web-push:*)",
+      "Bash(CLOUDFLARE_API_TOKEN=cfat_OfBkDGvOpmkqt7y2soID6Iff8U0aYYRnGeZ7cJRH34c7e62d npx wrangler deploy)"
+    ]
+  }
+}
