@@ -1346,6 +1346,90 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
       }
     }
 
+    // ── ACCOUNT RECOVERY: Link email ─────────────────────────────────────
+    if (type === "link_email") {
+      const { deviceId, email } = body;
+      if (!deviceId || !email) return jsonRes({ error: "Missing data" }, 400, cors);
+      const emailClean = email.trim().toLowerCase();
+      if (!emailClean.includes("@")) return jsonRes({ error: "Invalid email" }, 400, cors);
+
+      // Check if this email is already linked to a different device
+      const existing = await sb(env, "GET",
+        "profiles?email=eq." + encodeURIComponent(emailClean) + "&limit=1");
+      if (existing.data && existing.data.length > 0 &&
+          existing.data[0].device_id !== deviceId) {
+        return jsonRes({ error: "Email already linked to another account" }, 409, cors);
+      }
+
+      const result = await sb(env, "PATCH",
+        "profiles?device_id=eq." + encodeURIComponent(deviceId), { email: emailClean });
+      if (!result.ok) return jsonRes({ error: "Failed to save email" }, 500, cors);
+      return jsonRes({ ok: true }, 200, cors);
+    }
+
+    // ── ACCOUNT RECOVERY: Request OTP ────────────────────────────────────
+    if (type === "request_recovery") {
+      const { email } = body;
+      if (!email) return jsonRes({ error: "Missing email" }, 400, cors);
+      const emailClean = email.trim().toLowerCase();
+
+      const result = await sb(env, "GET",
+        "profiles?email=eq." + encodeURIComponent(emailClean) + "&limit=1");
+      if (!result.data || result.data.length === 0) {
+        return jsonRes({ error: "No account found with that email" }, 404, cors);
+      }
+
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      await env.CODES.put("recovery:" + emailClean, JSON.stringify({
+        code, deviceId: result.data[0].device_id
+      }), { expirationTtl: 900 });
+
+      if (env.RESEND_API_KEY) {
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + env.RESEND_API_KEY },
+          body: JSON.stringify({
+            from: "MacroTrack <onboarding@resend.dev>",
+            to: [emailClean],
+            subject: "Your MacroTrack recovery code",
+            html: `<div style="font-family:'DM Sans',Arial,sans-serif;max-width:480px;margin:0 auto;background:#08080f;color:#f0f0fa;padding:40px 32px;border-radius:16px;"><div style="font-family:Georgia,serif;font-size:28px;letter-spacing:4px;margin-bottom:24px;">MACRO<span style="color:#6366f1;">TRACK</span></div><p style="font-size:16px;color:#a0a0c0;margin-bottom:24px;">Your account recovery code:</p><div style="background:#0d0d1a;border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:28px;text-align:center;margin-bottom:24px;"><div style="font-family:'Courier New',monospace;font-size:40px;font-weight:700;letter-spacing:10px;color:#6366f1;">${code}</div><div style="font-size:12px;color:#5a5a7a;margin-top:10px;">Expires in 15 minutes</div></div><p style="font-size:12px;color:#5a5a7a;">If you didn't request this, you can safely ignore this email.</p></div>`,
+          }),
+        });
+      }
+      return jsonRes({ ok: true }, 200, cors);
+    }
+
+    // ── ACCOUNT RECOVERY: Verify OTP + return full data snapshot ─────────
+    if (type === "verify_recovery") {
+      const { email, code } = body;
+      if (!email || !code) return jsonRes({ error: "Missing data" }, 400, cors);
+      const emailClean = email.trim().toLowerCase();
+
+      const stored = await env.CODES.get("recovery:" + emailClean);
+      if (!stored) return jsonRes({ error: "Code expired. Request a new one." }, 400, cors);
+      let rec;
+      try { rec = JSON.parse(stored); } catch (e) {
+        return jsonRes({ error: "Invalid recovery data" }, 500, cors);
+      }
+      if (rec.code !== code.trim()) return jsonRes({ error: "Incorrect code — try again" }, 400, cors);
+
+      await env.CODES.delete("recovery:" + emailClean); // one-time use
+      const deviceId = rec.deviceId;
+
+      const [profile, entries, wlog] = await Promise.all([
+        sb(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1"),
+        sb(env, "GET", "food_entries?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=500"),
+        sb(env, "GET", "weight_log?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=200"),
+      ]);
+
+      return jsonRes({
+        deviceId,
+        profile: (profile.data && profile.data[0]) || null,
+        entries: entries.data || [],
+        wlog: wlog.data || [],
+      }, 200, cors);
+    }
+
     // ── NATURAL LANGUAGE WORKOUT ENTRY ───────────────────────────────────
     if (type === "nlp_workout") {
       const { text } = body;

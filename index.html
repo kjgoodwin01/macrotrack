@@ -2947,9 +2947,67 @@ function ftToCm(ft, inches) {
   return Math.round((parseInt(ft) || 0) * 30.48 + (parseInt(inches) || 0) * 2.54);
 }
 
+/* ── Account Recovery Card (Settings) ── */
+function AccountRecoveryCard({ workerUrl }) {
+  var _se = useLocal("mt_linked_email", ""); var savedEmail = _se[0]; var setSavedEmail = _se[1];
+  var _d = React.useState(savedEmail || ""); var draft = _d[0]; var setDraft = _d[1];
+  var _l = React.useState(false); var loading = _l[0]; var setLoading = _l[1];
+  var _sv = React.useState(!!savedEmail); var saved = _sv[0]; var setSaved = _sv[1];
+  var _er = React.useState(""); var error = _er[0]; var setError = _er[1];
+  var WORKER = workerUrl || "https://macrotrack-ai.kjgoodwin01.workers.dev";
+
+  async function linkEmail() {
+    var email = draft.trim().toLowerCase();
+    if (!email || !email.includes("@")) { setError("Enter a valid email address"); return; }
+    setLoading(true); setError("");
+    try {
+      var deviceId = localStorage.getItem("mt_device_id") || "";
+      var r = await fetch(WORKER, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "link_email", deviceId: deviceId, email: email })
+      });
+      var d = await r.json();
+      if (d.error) { setError(d.error); setLoading(false); return; }
+      setSavedEmail(email); setSaved(true);
+    } catch(e) { setError("Network error — try again"); }
+    setLoading(false);
+  }
+
+  return /*#__PURE__*/React.createElement("div", { className: "scard" },
+    /*#__PURE__*/React.createElement("div", { className: "stitle" }, "Account Recovery"),
+    /*#__PURE__*/React.createElement("div", { className: "muted-t", style: { marginBottom: 14 } },
+      "Link your email so you can restore all your data if you switch phones or clear your browser."
+    ),
+    saved
+      ? /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("div", { className: "ok-text" }, "\u2713 " + savedEmail),
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: "var(--mu)", marginTop: 6, lineHeight: 1.5 } },
+            "Your account is recoverable. On a new device, tap \u201CRestore existing account\u201D at setup."
+          ),
+          /*#__PURE__*/React.createElement("button", {
+            style: { background: "none", border: "none", color: "var(--mu)", fontSize: 12, cursor: "pointer", marginTop: 10, padding: 0, textDecoration: "underline" },
+            onClick: function() { setSaved(false); setDraft(savedEmail); }
+          }, "Change email")
+        )
+      : /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("input", {
+            className: "field", type: "email", placeholder: "your@email.com",
+            value: draft,
+            onChange: function(e) { setDraft(e.target.value); setError(""); }
+          }),
+          error && /*#__PURE__*/React.createElement("div", { className: "err", style: { marginTop: 6 } }, error),
+          /*#__PURE__*/React.createElement("button", {
+            className: "btn", style: { marginTop: 10 },
+            onClick: linkEmail, disabled: loading
+          }, loading ? "LINKING\u2026" : "LINK EMAIL")
+        )
+  );
+}
+
 /* ── Onboarding ── */
 function Onboarding({
-  onComplete
+  onComplete,
+  workerUrl
 }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
@@ -2966,6 +3024,70 @@ function Onboarding({
   const [editProt, setEditProt] = useState("");
   const [editCarb, setEditCarb] = useState("");
   const [editFat, setEditFat] = useState("");
+  // ── Account restore state ──
+  const [restoreMode, setRestoreMode] = useState(false);
+  const [recoverEmail, setRecoverEmail] = useState("");
+  const [recoverCode, setRecoverCode] = useState("");
+  const [recoverStep, setRecoverStep] = useState(0); // 0=email 1=code
+  const [recoverLoading, setRecoverLoading] = useState(false);
+  const [recoverError, setRecoverError] = useState("");
+  const WORKER = workerUrl || "https://macrotrack-ai.kjgoodwin01.workers.dev";
+
+  async function handleRequestCode() {
+    var email = recoverEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) { setRecoverError("Enter a valid email address"); return; }
+    setRecoverLoading(true); setRecoverError("");
+    try {
+      var r = await fetch(WORKER, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "request_recovery", email: email })
+      });
+      var d = await r.json();
+      if (d.error) { setRecoverError(d.error); setRecoverLoading(false); return; }
+      setRecoverStep(1);
+    } catch(e) { setRecoverError("Network error — try again"); }
+    setRecoverLoading(false);
+  }
+
+  async function handleVerifyCode() {
+    var email = recoverEmail.trim().toLowerCase();
+    var code = recoverCode.trim();
+    if (!code || code.length < 4) { setRecoverError("Enter the 6-digit code from your email"); return; }
+    setRecoverLoading(true); setRecoverError("");
+    try {
+      var r = await fetch(WORKER, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "verify_recovery", email: email, code: code })
+      });
+      var d = await r.json();
+      if (d.error) { setRecoverError(d.error); setRecoverLoading(false); return; }
+      // Transform Supabase format → localStorage format
+      var entriesMap = {};
+      (d.entries || []).forEach(function(e) {
+        var date = e.log_date;
+        if (!entriesMap[date]) entriesMap[date] = [];
+        entriesMap[date].push({ id: e.id, name: e.name, serving: e.serving || "",
+          cal: e.cal || 0, p: e.protein || 0, c: e.carbs || 0, f: e.fat || 0,
+          meal: e.meal || "Breakfast", date: date });
+      });
+      var wlogArr = (d.wlog || []).map(function(e) {
+        return { date: e.log_date, weight: e.weight };
+      });
+      var p = d.profile || {};
+      var goalsData = { calories: p.calories || 2100, protein: p.protein || 180,
+        carbs: p.carbs || 210, fat: p.fat || 60,
+        goalType: p.goal_type || "cut", targetWeight: p.target_weight || null };
+      localStorage.setItem("mt_device_id", d.deviceId);
+      localStorage.setItem("mt_entries", JSON.stringify(entriesMap));
+      localStorage.setItem("mt_wlog", JSON.stringify(wlogArr));
+      localStorage.setItem("mt_goals", JSON.stringify(goalsData));
+      if (p.name) localStorage.setItem("mt_name", JSON.stringify(p.name));
+      localStorage.setItem("mt_onboarded", "true");
+      window.location.reload();
+    } catch(e) { setRecoverError("Network error — try again"); }
+    setRecoverLoading(false);
+  }
+
   const TOTAL_STEPS = 5;
   const pct = step / TOTAL_STEPS * 100;
   const heightCm = ftToCm(heightFt, heightIn);
@@ -3019,6 +3141,59 @@ function Onboarding({
     sub: "2x/day or labor"
   }];
   const canNext = [name.trim().length > 0, age && weight && heightFt, true, targetWeight.length > 0, true][step];
+
+  // ── Restore mode: replaces normal onboarding ──────────────────────────
+  if (restoreMode) return /*#__PURE__*/React.createElement("div", { className: "ob-wrap" },
+    /*#__PURE__*/React.createElement("div", { className: "ob-body" },
+      /*#__PURE__*/React.createElement("div", { style: { marginBottom: 32, marginTop: 16 } },
+        /*#__PURE__*/React.createElement("div", { style: { fontFamily: "'Bebas Neue',sans-serif", fontSize: 28, letterSpacing: 3 } }, "Restore Account"),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, color: "var(--mu)", marginTop: 4 } },
+          "Recover your data from a previous device"
+        )
+      ),
+      recoverStep === 0
+        ? /*#__PURE__*/React.createElement("div", null,
+            /*#__PURE__*/React.createElement("div", { className: "ob-field-label" }, "Your email address"),
+            /*#__PURE__*/React.createElement("input", {
+              className: "ob-field", type: "email", placeholder: "you@email.com",
+              value: recoverEmail, autoFocus: true,
+              onChange: function(e) { setRecoverEmail(e.target.value); setRecoverError(""); }
+            }),
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: "var(--mu)", marginTop: 8, lineHeight: 1.5 } },
+              "We\u2019ll send a 6-digit code to verify it\u2019s you."
+            ),
+            recoverError && /*#__PURE__*/React.createElement("div", { className: "err", style: { marginTop: 10 } }, recoverError)
+          )
+        : /*#__PURE__*/React.createElement("div", null,
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, color: "var(--txt2)", marginBottom: 20, lineHeight: 1.6,
+              background: "var(--s2)", borderRadius: 12, padding: "12px 14px" } },
+              "Code sent to ", /*#__PURE__*/React.createElement("strong", { style: { color: "var(--indll)" } }, recoverEmail),
+              ". Check your inbox \u2014 it expires in 15 minutes."
+            ),
+            /*#__PURE__*/React.createElement("div", { className: "ob-field-label" }, "6-digit code"),
+            /*#__PURE__*/React.createElement("input", {
+              className: "ob-field", type: "number", inputMode: "numeric",
+              placeholder: "123456", maxLength: 6,
+              value: recoverCode, autoFocus: true,
+              onChange: function(e) { setRecoverCode(e.target.value); setRecoverError(""); }
+            }),
+            recoverError && /*#__PURE__*/React.createElement("div", { className: "err", style: { marginTop: 10 } }, recoverError)
+          )
+    ),
+    /*#__PURE__*/React.createElement("div", { className: "ob-footer" },
+      /*#__PURE__*/React.createElement("button", {
+        className: "ob-btn", disabled: recoverLoading,
+        onClick: recoverStep === 0 ? handleRequestCode : handleVerifyCode
+      }, recoverLoading ? "Please wait\u2026" : recoverStep === 0 ? "SEND CODE" : "RESTORE MY ACCOUNT"),
+      /*#__PURE__*/React.createElement("button", { className: "ob-back",
+        onClick: function() {
+          if (recoverStep === 1) { setRecoverStep(0); setRecoverCode(""); setRecoverError(""); }
+          else { setRestoreMode(false); setRecoverError(""); }
+        }
+      }, "\u2190 Back")
+    )
+  );
+
   return /*#__PURE__*/React.createElement("div", {
     className: "ob-wrap"
   }, /*#__PURE__*/React.createElement("div", {
@@ -3118,7 +3293,18 @@ function Onboarding({
         setSex(o[0]);
       }
     }, o[1]);
-  }))), step === 1 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }))), step === 0 && /*#__PURE__*/React.createElement("div", {
+    style: { textAlign: "center", marginTop: 28, paddingTop: 20, borderTop: "1px solid var(--b1)" }
+  },
+    /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: "var(--mu)", marginBottom: 10 } },
+      "Already have a MacroTrack account?"
+    ),
+    /*#__PURE__*/React.createElement("button", {
+      style: { background: "none", border: "none", color: "var(--indll)", fontSize: 14,
+        fontWeight: 600, cursor: "pointer", padding: 0 },
+      onClick: function() { setRestoreMode(true); }
+    }, "Restore existing account \u2192")
+  ), step === 1 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "ob-title"
   }, "Your ", /*#__PURE__*/React.createElement("em", null, "Stats")), /*#__PURE__*/React.createElement("div", {
     className: "ob-sub"
@@ -5768,7 +5954,8 @@ function App() {
   const isToday = selectedDate === todayISO();
   if (!onboarded) {
     return React.createElement(Onboarding, {
-      onComplete: completeOnboarding
+      onComplete: completeOnboarding,
+      workerUrl: workerUrl
     });
   }
 
@@ -6442,7 +6629,9 @@ function App() {
     style: {
       marginTop: 8
     }
-  }, "Powered by Claude AI. Photo scanning, coaching, and the full food database work automatically \u2014 no setup required.")), /*#__PURE__*/React.createElement("div", {
+  }, "Powered by Claude AI. Photo scanning, coaching, and the full food database work automatically \u2014 no setup required.")), /*#__PURE__*/React.createElement(AccountRecoveryCard, {
+    workerUrl: workerUrl
+  }), /*#__PURE__*/React.createElement("div", {
     className: "scard"
   }, /*#__PURE__*/React.createElement("div", {
     className: "stitle"
