@@ -7693,27 +7693,30 @@ try {
   localStorage.setItem("mt_keepalive", Date.now());
 } catch (e) {}
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+
+// Layout handled by CSS only
+}
+if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",_initApp);}else{_initApp();}
+
+</script>
+<script>
+// Service worker registration lives outside _initApp so it runs even if React
+// crashes or the page is still loading — this guarantees updates always propagate.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", function () {
     navigator.serviceWorker.register("./sw.js").then(function (reg) {
-      // Check for updates every time the page loads
-      reg.update();
-
-      // When a new SW is waiting, activate it immediately
+      reg.update(); // Check for a new SW on every page load
       reg.addEventListener("updatefound", function () {
-        const newWorker = reg.installing;
-        newWorker.addEventListener("statechange", function () {
-          if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-            // New version available — reload to get it
+        var nw = reg.installing;
+        nw.addEventListener("statechange", function () {
+          if (nw.state === "activated") {
             window.location.reload();
           }
         });
       });
-    }).catch(function (e) {
-      console.log("SW:", e);
-    });
+    }).catch(function (e) { console.log("SW registration failed:", e); });
 
-    // Listen for SW_UPDATED message from the new service worker
+    // Also reload when the active SW sends SW_UPDATED (handles already-waiting SW case)
     navigator.serviceWorker.addEventListener("message", function (e) {
       if (e.data && e.data.type === "SW_UPDATED") {
         window.location.reload();
@@ -7721,10 +7724,6 @@ if ("serviceWorker" in navigator) {
     });
   });
 }
-
-// Layout handled by CSS only
-}
-if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",_initApp);}else{_initApp();}
 </script>
 </body>
 </html>
