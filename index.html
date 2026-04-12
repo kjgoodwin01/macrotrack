@@ -3286,30 +3286,40 @@ function useAuth() {
   return { user: user, authLoading: authLoading, signOut: signOut };
 }
 
-/* ── AuthModal — magic link sign-in / sign-up ── */
+/* ── AuthModal — email OTP sign-in (6-digit code, no magic link redirect) ── */
 function AuthModal({ onClose, onSignedIn, mode }) {
   var _step = React.useState(0); var step = _step[0]; var setStep = _step[1];
   var _email = React.useState(""); var email = _email[0]; var setEmail = _email[1];
+  var _code = React.useState(""); var code = _code[0]; var setCode = _code[1];
   var _loading = React.useState(false); var loading = _loading[0]; var setLoading = _loading[1];
   var _error = React.useState(""); var error = _error[0]; var setError = _error[1];
 
-  async function handleSendLink() {
+  async function handleSendCode() {
     var emailClean = email.trim().toLowerCase();
     if (!emailClean.includes("@")) { setError("Enter a valid email address"); return; }
     var sb = _initSupabase();
-    if (!sb) { setError("Auth not configured — check Supabase credentials"); return; }
+    if (!sb) { setError("Auth not configured"); return; }
     setLoading(true); setError("");
     try {
-      var r = await sb.auth.signInWithOtp({
-        email: emailClean,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: window.location.origin + window.location.pathname
-        }
-      });
+      var r = await sb.auth.signInWithOtp({ email: emailClean, options: { shouldCreateUser: true } });
       if (r.error) { setError(r.error.message); setLoading(false); return; }
       setStep(1);
-    } catch(e) { setError("Network error — try again"); }
+    } catch(e) { setError("Network error \u2014 try again"); }
+    setLoading(false);
+  }
+
+  async function handleVerifyCode() {
+    var emailClean = email.trim().toLowerCase();
+    var codeClean = code.trim();
+    if (codeClean.length !== 6) { setError("Enter the 6-digit code from your email"); return; }
+    var sb = _initSupabase();
+    if (!sb) { setError("Auth not configured"); return; }
+    setLoading(true); setError("");
+    try {
+      var r = await sb.auth.verifyOtp({ email: emailClean, token: codeClean, type: "email" });
+      if (r.error) { setError("Invalid or expired code \u2014 try again"); setLoading(false); return; }
+      if (r.data && r.data.user) onSignedIn(r.data.user);
+    } catch(e) { setError("Network error \u2014 try again"); }
     setLoading(false);
   }
 
@@ -3325,11 +3335,11 @@ function AuthModal({ onClose, onSignedIn, mode }) {
       /*#__PURE__*/React.createElement("div", { style: { marginBottom: 28 } },
         /*#__PURE__*/React.createElement("div", {
           style: { fontFamily: "'Bebas Neue',sans-serif", fontSize: 26, letterSpacing: 3 }
-        }, step === 0 ? (mode === "signin" ? "Sign In" : "Create Account") : "Check Your Email"),
+        }, step === 0 ? (mode === "signin" ? "Sign In" : "Create Account") : "Enter Your Code"),
         /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, color: "var(--mu)", marginTop: 4 } },
           step === 0
-            ? "Enter your email \u2014 we\u2019ll send you a sign-in link."
-            : "Link sent to " + email + ". Tap it to sign in \u2014 then come back here."
+            ? "Enter your email \u2014 we\u2019ll send you a 6-digit code."
+            : "We sent a code to " + email + ". Enter it below."
         )
       ),
       step === 0
@@ -3338,32 +3348,33 @@ function AuthModal({ onClose, onSignedIn, mode }) {
               className: "field", type: "email", placeholder: "you@email.com",
               value: email, autoFocus: true,
               onChange: function(e) { setEmail(e.target.value); setError(""); },
-              onKeyDown: function(e) { if (e.key === "Enter") handleSendLink(); }
+              onKeyDown: function(e) { if (e.key === "Enter") handleSendCode(); }
             }),
             error && /*#__PURE__*/React.createElement("div", { className: "err", style: { marginTop: 8 } }, error),
             /*#__PURE__*/React.createElement("button", {
               className: "btn", style: { marginTop: 14, width: "100%" },
-              onClick: handleSendLink, disabled: loading
-            }, loading ? "SENDING\u2026" : "SEND SIGN-IN LINK")
+              onClick: handleSendCode, disabled: loading
+            }, loading ? "SENDING\u2026" : "SEND CODE")
           )
         : /*#__PURE__*/React.createElement("div", null,
-            /*#__PURE__*/React.createElement("div", {
-              style: { background: "var(--s2)", borderRadius: 14, padding: "20px 18px",
-                fontSize: 13, color: "var(--txt2)", lineHeight: 1.7, marginBottom: 20 }
-            },
-              "1. Open the email from MacroTrack", /*#__PURE__*/React.createElement("br", null),
-              "2. Tap \u201CConfirm your email\u201D", /*#__PURE__*/React.createElement("br", null),
-              "3. It will bring you back here, signed in"
-            ),
+            /*#__PURE__*/React.createElement("input", {
+              className: "field", type: "text", inputMode: "numeric", pattern: "[0-9]*",
+              placeholder: "123456", maxLength: 6, autoFocus: true,
+              value: code,
+              onChange: function(e) { setCode(e.target.value.replace(/\D/g,"")); setError(""); },
+              onKeyDown: function(e) { if (e.key === "Enter") handleVerifyCode(); },
+              style: { fontSize: 28, letterSpacing: 8, textAlign: "center" }
+            }),
+            error && /*#__PURE__*/React.createElement("div", { className: "err", style: { marginTop: 8 } }, error),
             /*#__PURE__*/React.createElement("button", {
-              className: "btn", style: { width: "100%" },
-              onClick: function() { setStep(0); setEmail(""); setError(""); }
-            }, "RESEND LINK"),
+              className: "btn", style: { marginTop: 14, width: "100%" },
+              onClick: handleVerifyCode, disabled: loading
+            }, loading ? "VERIFYING\u2026" : "VERIFY CODE"),
             /*#__PURE__*/React.createElement("button", {
               style: { background: "none", border: "none", color: "var(--mu)", fontSize: 13,
-                cursor: "pointer", marginTop: 12, width: "100%", textAlign: "center" },
-              onClick: onClose
-            }, "Close")
+                cursor: "pointer", marginTop: 16, width: "100%", textAlign: "center" },
+              onClick: function() { setStep(0); setCode(""); setError(""); }
+            }, "Resend code")
           )
     )
   );
