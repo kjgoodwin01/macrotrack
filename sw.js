@@ -1,6 +1,6 @@
 // MacroTrack Service Worker
 // Bump this version number with every deploy to force an immediate update
-const VERSION = "mt-v23";
+const VERSION = "mt-v24";
 const CACHE = VERSION;
 
 // Files to precache on install
@@ -13,11 +13,12 @@ const PRECACHE = [
 ];
 
 // CDN scripts to cache — fetched and stored on first install
-// so repeat launches load React/ReactDOM from cache, not the network
-const CDN_CACHE = "mt-cdn-v1";
+// so repeat launches load React/ReactDOM/Supabase from cache, not the network
+const CDN_CACHE = "mt-cdn-v2";
 const CDN_PRECACHE = [
   "https://unpkg.com/react@18/umd/react.production.min.js",
   "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js",
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js",
 ];
 
 // ── Install: cache core files + CDN scripts ───────────────────────────────
@@ -72,8 +73,8 @@ self.addEventListener("activate", function(e) {
 self.addEventListener("fetch", function(e) {
   var url = new URL(e.request.url);
 
-  // Serve cached CDN scripts (React, ReactDOM) from cache-first
-  if (url.hostname === "unpkg.com" || url.hostname === "cdnjs.cloudflare.com") {
+  // Serve cached CDN scripts (React, ReactDOM, Supabase) from cache-first
+  if (url.hostname === "unpkg.com" || url.hostname === "cdnjs.cloudflare.com" || url.hostname === "cdn.jsdelivr.net") {
     e.respondWith(
       caches.open(CDN_CACHE).then(function(cache) {
         return cache.match(e.request).then(function(hit) {
