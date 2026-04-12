@@ -36,9 +36,10 @@
       /* Legacy aliases used throughout the app */
       --st:env(safe-area-inset-top,0px);
       --sb:env(safe-area-inset-bottom,0px);
-      /* Nav: content height + safe area bottom */
+      /* Nav: content height + inset (min 16px so labels clear home indicator / non-safe UAs) */
       --nav-content-h:53px;
-      --nav-h:calc(var(--nav-content-h) + env(safe-area-inset-bottom,0px));
+      --nav-pad-b:max(16px, env(safe-area-inset-bottom, 0px));
+      --nav-h:calc(var(--nav-content-h) + var(--nav-pad-b));
       /* FAB: sits above nav with 8px breathing room */
       --fab-h:52px;
       --fab-gap:8px;
@@ -164,12 +165,11 @@
     .edit-save-btn:active{transform:scale(0.98)}
 
     /* FAB */
-    .fab{position:fixed;bottom:58px;left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab{position:fixed;bottom:var(--fab-bottom);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:scale(0.97)}
 
-    /* Nav — native iOS tab bar: icons at bottom, background extends behind home indicator via ::after */
-    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:stretch;justify-content:space-around;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50;padding-bottom:0}
-    .nav::after{content:'';position:absolute;bottom:0;left:0;right:0;height:env(safe-area-inset-bottom,0px);background:rgba(6,6,15,0.97);transform:translateY(100%);z-index:50}
+    /* Nav — padding lifts labels/icons above home indicator; background fills inset automatically */
+    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:stretch;justify-content:space-around;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50;padding-bottom:var(--nav-pad-b)}
     
     
     .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;padding:8px 0 6px;position:relative;-webkit-tap-highlight-color:transparent}
@@ -488,7 +488,6 @@
     .light .ob-wrap{background:var(--bg)}
     .light .ob-result{background:linear-gradient(145deg,#eaeaf5,#e4e4f0)}
     .light .nav{background:rgba(244,244,248,0.97);border-top-color:rgba(0,0,0,0.1)}
-    .light .nav::after{background:rgba(244,244,248,0.97)}
 
     /* Settings panel */
     .settings-panel{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:300;background:var(--s1);border-bottom:1px solid var(--b2);padding:calc(var(--st) + 56px) 20px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.25);animation:slideDown 0.25s cubic-bezier(0.4,0,0.2,1)}
