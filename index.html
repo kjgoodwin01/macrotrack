@@ -3296,12 +3296,7 @@ function AuthModal({ onClose, onSignedIn, mode }) {
             /*#__PURE__*/React.createElement("button", {
               className: "btn", style: { marginTop: 14, width: "100%" },
               onClick: handleSendLink, disabled: loading
-            }, loading ? "SENDING\u2026" : "SEND SIGN-IN LINK"),
-            /*#__PURE__*/React.createElement("button", {
-              style: { background: "none", border: "none", color: "var(--mu)", fontSize: 13,
-                cursor: "pointer", marginTop: 16, width: "100%", textAlign: "center" },
-              onClick: onClose
-            }, "Continue without an account")
+            }, loading ? "SENDING\u2026" : "SEND SIGN-IN LINK")
           )
         : /*#__PURE__*/React.createElement("div", null,
             /*#__PURE__*/React.createElement("div", {
@@ -3587,12 +3582,7 @@ function Onboarding({
         className: "btn", style: { width: "100%", background: "var(--s2)",
           color: "var(--indll)", border: "1px solid rgba(99,102,241,0.4)" },
         onClick: function() { setAuthModalMode("signin"); setShowAuthModal(true); }
-      }, "SIGN IN"),
-      /*#__PURE__*/React.createElement("button", {
-        style: { background: "none", border: "none", color: "var(--mu)", fontSize: 12,
-          cursor: "pointer", marginTop: 20, width: "100%", textAlign: "center" },
-        onClick: function() { setAuthChosen(true); }
-      }, "Continue without an account")
+      }, "SIGN IN")
     )
   );
 
