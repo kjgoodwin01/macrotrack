@@ -3240,7 +3240,7 @@ function useAuth() {
 }
 
 /* ── AuthModal — magic link sign-in / sign-up ── */
-function AuthModal({ onClose, onSignedIn }) {
+function AuthModal({ onClose, onSignedIn, mode }) {
   var _step = React.useState(0); var step = _step[0]; var setStep = _step[1];
   var _email = React.useState(""); var email = _email[0]; var setEmail = _email[1];
   var _loading = React.useState(false); var loading = _loading[0]; var setLoading = _loading[1];
@@ -3277,7 +3277,7 @@ function AuthModal({ onClose, onSignedIn }) {
       /*#__PURE__*/React.createElement("div", { style: { marginBottom: 28 } },
         /*#__PURE__*/React.createElement("div", {
           style: { fontFamily: "'Bebas Neue',sans-serif", fontSize: 26, letterSpacing: 3 }
-        }, step === 0 ? "Sign In or Create Account" : "Check Your Email"),
+        }, step === 0 ? (mode === "signin" ? "Sign In" : "Create Account") : "Check Your Email"),
         /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, color: "var(--mu)", marginTop: 4 } },
           step === 0
             ? "Enter your email \u2014 we\u2019ll send you a sign-in link."
@@ -3372,6 +3372,9 @@ function Onboarding({
   const [editCarb, setEditCarb] = useState("");
   const [editFat, setEditFat] = useState("");
   // ── Account auth/restore state ──
+  // authChosen = true once user signs in, creates account, or explicitly skips
+  const [authChosen, setAuthChosen] = useState(!!_authUserId);
+  const [authModalMode, setAuthModalMode] = useState("create"); // "create" | "signin"
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [restoreMode, setRestoreMode] = useState(false);
   const [recoverEmail, setRecoverEmail] = useState("");
@@ -3482,8 +3485,9 @@ function Onboarding({
       }
     } catch(e) {}
 
-    // New user — just close the modal and continue through onboarding
+    // New user — account created, proceed through onboarding
     setShowAuthModal(false);
+    setAuthChosen(true);
   }
 
   const TOTAL_STEPS = 5;
@@ -3543,8 +3547,54 @@ function Onboarding({
   // ── Auth modal overlay during onboarding ─────────────────────────────
   if (showAuthModal) return /*#__PURE__*/React.createElement(AuthModal, {
     onClose: function() { setShowAuthModal(false); },
-    onSignedIn: handleAuthSignedIn
+    onSignedIn: handleAuthSignedIn,
+    mode: authModalMode
   });
+
+  // ── Auth gate: must choose before entering any data ───────────────────
+  if (!authChosen) return /*#__PURE__*/React.createElement("div", { className: "ob-wrap" },
+    /*#__PURE__*/React.createElement("div", { className: "ob-body" },
+      /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } },
+        /*#__PURE__*/React.createElement("div", { style: { width: 40, height: 40, borderRadius: 10, background: "#161628",
+          display: "flex", alignItems: "center", justifyContent: "center" } },
+          /*#__PURE__*/React.createElement("svg", { width: "22", height: "21", viewBox: "0 0 68 62", fill: "none" },
+            /*#__PURE__*/React.createElement("defs", null,
+              /*#__PURE__*/React.createElement("linearGradient", { id: "mGradA", x1: "4", y1: "56", x2: "64", y2: "4", gradientUnits: "userSpaceOnUse" },
+                /*#__PURE__*/React.createElement("stop", { offset: "0%", stopColor: "#6366f1" }),
+                /*#__PURE__*/React.createElement("stop", { offset: "50%", stopColor: "#a78bfa" }),
+                /*#__PURE__*/React.createElement("stop", { offset: "100%", stopColor: "#c084fc" })
+              )
+            ),
+            /*#__PURE__*/React.createElement("path", { d: "M6 56 L6 8 L34 42 L62 8 L62 56",
+              stroke: "url(#mGradA)", strokeWidth: "5.5", strokeLinejoin: "round", strokeLinecap: "round", fill: "none" })
+          )
+        ),
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("div", { className: "wm-text", style: { fontSize: 24 } }, "MACROTRACK"),
+          /*#__PURE__*/React.createElement("div", { style: { height: 1, marginTop: 3, borderRadius: 1,
+            background: "linear-gradient(90deg,#6366f1,#a78bfa 50%,transparent 100%)" } }),
+          /*#__PURE__*/React.createElement("div", { className: "tg" }, "Your AI Nutrition Coach")
+        )
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 14, color: "var(--txt2)", marginTop: 20, marginBottom: 32, lineHeight: 1.6 } },
+        "The smartest way to hit your macros. Let\u2019s get you set up."
+      ),
+      /*#__PURE__*/React.createElement("button", {
+        className: "btn", style: { width: "100%", marginBottom: 12 },
+        onClick: function() { setAuthModalMode("create"); setShowAuthModal(true); }
+      }, "CREATE FREE ACCOUNT"),
+      /*#__PURE__*/React.createElement("button", {
+        className: "btn", style: { width: "100%", background: "var(--s2)",
+          color: "var(--indll)", border: "1px solid rgba(99,102,241,0.4)" },
+        onClick: function() { setAuthModalMode("signin"); setShowAuthModal(true); }
+      }, "SIGN IN"),
+      /*#__PURE__*/React.createElement("button", {
+        style: { background: "none", border: "none", color: "var(--mu)", fontSize: 12,
+          cursor: "pointer", marginTop: 20, width: "100%", textAlign: "center" },
+        onClick: function() { setAuthChosen(true); }
+      }, "Continue without an account")
+    )
+  );
 
   // ── Legacy restore mode (device_id OTP — fallback for pre-auth users) ─
   if (restoreMode) return /*#__PURE__*/React.createElement("div", { className: "ob-wrap" },
@@ -3697,23 +3747,7 @@ function Onboarding({
         setSex(o[0]);
       }
     }, o[1]);
-  }))), step === 0 && /*#__PURE__*/React.createElement("div", {
-    style: { marginTop: 28, paddingTop: 20, borderTop: "1px solid var(--b1)" }
-  },
-    /*#__PURE__*/React.createElement("button", {
-      className: "btn",
-      style: { width: "100%", background: "var(--s2)", color: "var(--indll)",
-        border: "1px solid rgba(99,102,241,0.4)" },
-      onClick: function() { setShowAuthModal(true); }
-    }, "SIGN IN / RESTORE ACCOUNT"),
-    /*#__PURE__*/React.createElement("div", { style: { textAlign: "center", marginTop: 12 } },
-      /*#__PURE__*/React.createElement("button", {
-        style: { background: "none", border: "none", color: "var(--mu)", fontSize: 11,
-          cursor: "pointer", padding: 0, textDecoration: "underline" },
-        onClick: function() { setRestoreMode(true); }
-      }, "Restore from old device (legacy)")
-    )
-  ), step === 1 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }))), step === 1 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "ob-title"
   }, "Your ", /*#__PURE__*/React.createElement("em", null, "Stats")), /*#__PURE__*/React.createElement("div", {
     className: "ob-sub"
