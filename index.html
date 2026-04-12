@@ -3286,23 +3286,24 @@ function useAuth() {
   return { user: user, authLoading: authLoading, signOut: signOut };
 }
 
-/* ── AuthModal — email OTP sign-in (6-digit code, no magic link redirect) ── */
-function AuthModal({ onClose, onSignedIn, mode }) {
+/* ── AuthModal — email OTP sign-in (6-digit code via Worker + Resend) ── */
+function AuthModal({ onClose, onSignedIn, mode, workerUrl }) {
   var _step = React.useState(0); var step = _step[0]; var setStep = _step[1];
   var _email = React.useState(""); var email = _email[0]; var setEmail = _email[1];
   var _code = React.useState(""); var code = _code[0]; var setCode = _code[1];
   var _loading = React.useState(false); var loading = _loading[0]; var setLoading = _loading[1];
   var _error = React.useState(""); var error = _error[0]; var setError = _error[1];
+  var url = (workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, "");
 
   async function handleSendCode() {
     var emailClean = email.trim().toLowerCase();
     if (!emailClean.includes("@")) { setError("Enter a valid email address"); return; }
-    var sb = _initSupabase();
-    if (!sb) { setError("Auth not configured"); return; }
     setLoading(true); setError("");
     try {
-      var r = await sb.auth.signInWithOtp({ email: emailClean, options: { shouldCreateUser: true } });
-      if (r.error) { setError(r.error.message); setLoading(false); return; }
+      var r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "send_auth_otp", email: emailClean }) });
+      var data = await r.json();
+      if (!r.ok || data.error) { setError(data.error || "Failed to send code"); setLoading(false); return; }
       setStep(1);
     } catch(e) { setError("Network error \u2014 try again"); }
     setLoading(false);
@@ -3312,13 +3313,15 @@ function AuthModal({ onClose, onSignedIn, mode }) {
     var emailClean = email.trim().toLowerCase();
     var codeClean = code.trim();
     if (codeClean.length !== 6) { setError("Enter the 6-digit code from your email"); return; }
-    var sb = _initSupabase();
-    if (!sb) { setError("Auth not configured"); return; }
     setLoading(true); setError("");
     try {
-      var r = await sb.auth.verifyOtp({ email: emailClean, token: codeClean, type: "email" });
-      if (r.error) { setError("Invalid or expired code \u2014 try again"); setLoading(false); return; }
-      if (r.data && r.data.user) onSignedIn(r.data.user);
+      var deviceId = localStorage.getItem("mt_device_id") || effectiveUserId();
+      var r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "verify_auth_otp", email: emailClean, code: codeClean, deviceId: deviceId }) });
+      var data = await r.json();
+      if (!r.ok || data.error) { setError(data.error || "Invalid code"); setLoading(false); return; }
+      localStorage.setItem("mt_linked_email", JSON.stringify(emailClean));
+      onSignedIn({ email: emailClean, returning: data.returning, profile: data.profile, entries: data.entries, wlog: data.wlog });
     } catch(e) { setError("Network error \u2014 try again"); }
     setLoading(false);
   }
@@ -3494,50 +3497,33 @@ function Onboarding({
     setRecoverLoading(false);
   }
 
-  // ── Called when Supabase auth OTP succeeds during onboarding ──
-  async function handleAuthSignedIn(user) {
-    if (!user) return;
-    var oldDeviceId = localStorage.getItem("mt_device_id");
-    var newId = user.id;
+  // ── Called when Worker OTP auth succeeds during onboarding ──
+  async function handleAuthSignedIn(result) {
+    if (!result) return;
 
-    // Migrate any existing anonymous data in Supabase to the real auth UID
-    if (oldDeviceId && oldDeviceId !== newId) {
-      try {
-        await fetch((workerUrl || "https://macrotrack-ai.kjgoodwin01.workers.dev").replace(/\/$/, ""), {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "auth_migrate", oldDeviceId: oldDeviceId, newUserId: newId })
-        });
-      } catch(e) {}
-      localStorage.setItem("mt_device_id", newId);
-      _authUserId = newId;
+    if (result.returning && result.profile) {
+      // Returning user — restore their cloud data and skip onboarding
+      var p = result.profile;
+      var entriesMap = {};
+      (result.entries || []).forEach(function(e) {
+        var d = e.log_date;
+        if (!entriesMap[d]) entriesMap[d] = [];
+        entriesMap[d].push({ id: e.id, name: e.name, serving: e.serving || "",
+          cal: e.cal || 0, p: e.protein || 0, c: e.carbs || 0, f: e.fat || 0,
+          meal: e.meal || "Breakfast", date: d });
+      });
+      var wlogArr = (result.wlog || []).map(function(e) { return { date: e.log_date, weight: e.weight }; });
+      localStorage.setItem("mt_entries", JSON.stringify(entriesMap));
+      localStorage.setItem("mt_wlog", JSON.stringify(wlogArr));
+      localStorage.setItem("mt_goals", JSON.stringify({ calories: p.calories || 2100,
+        protein: p.protein || 180, carbs: p.carbs || 210, fat: p.fat || 60,
+        goalType: p.goal_type || "cut", targetWeight: p.target_weight || null }));
+      if (p.name) localStorage.setItem("mt_name", JSON.stringify(p.name));
+      if (result.email) localStorage.setItem("mt_linked_email", JSON.stringify(result.email));
+      localStorage.setItem("mt_onboarded", "true");
+      window.location.reload();
+      return;
     }
-
-    // Try to load existing cloud data for this account
-    try {
-      var cloud = await loadFromCloud(workerUrl);
-      if (cloud && cloud.profile) {
-        // Returning user — restore their data and skip onboarding
-        var entriesMap = {};
-        (cloud.entries || []).forEach(function(e) {
-          var d = e.log_date;
-          if (!entriesMap[d]) entriesMap[d] = [];
-          entriesMap[d].push({ id: e.id, name: e.name, serving: e.serving || "",
-            cal: e.cal || 0, p: e.protein || 0, c: e.carbs || 0, f: e.fat || 0,
-            meal: e.meal || "Breakfast", date: d });
-        });
-        var wlogArr = (cloud.wlog || []).map(function(e) { return { date: e.log_date, weight: e.weight }; });
-        var p = cloud.profile;
-        localStorage.setItem("mt_entries", JSON.stringify(entriesMap));
-        localStorage.setItem("mt_wlog", JSON.stringify(wlogArr));
-        localStorage.setItem("mt_goals", JSON.stringify({ calories: p.calories || 2100,
-          protein: p.protein || 180, carbs: p.carbs || 210, fat: p.fat || 60,
-          goalType: p.goal_type || "cut", targetWeight: p.target_weight || null }));
-        if (p.name) localStorage.setItem("mt_name", JSON.stringify(p.name));
-        localStorage.setItem("mt_onboarded", "true");
-        window.location.reload();
-        return;
-      }
-    } catch(e) {}
 
     // New user — account created, proceed through onboarding
     setShowAuthModal(false);
@@ -3602,7 +3588,8 @@ function Onboarding({
   if (showAuthModal) return /*#__PURE__*/React.createElement(AuthModal, {
     onClose: function() { setShowAuthModal(false); },
     onSignedIn: handleAuthSignedIn,
-    mode: authModalMode
+    mode: authModalMode,
+    workerUrl: workerUrl
   });
 
   // ── Auth gate: must choose before entering any data ───────────────────
@@ -6259,6 +6246,10 @@ function App() {
 
   // ── Supabase Auth ──
   const { user: authUser, signOut: authSignOut } = useAuth();
+  // Email set after OTP verification (stored in mt_linked_email)
+  const linkedEmail = (function() { try { return JSON.parse(localStorage.getItem("mt_linked_email") || "null"); } catch(e) { return null; } })();
+  // Compose display user: prefer Supabase session, fall back to linked email
+  const displayUser = authUser || (linkedEmail ? { email: linkedEmail } : null);
 
   // ── Push notification state ──
   const [pushEnabled, setPushEnabledRaw] = useLocal("mt_push_enabled", false);
@@ -6285,14 +6276,15 @@ function App() {
     }
   }, [authUser]);
 
-  async function handleAuthSignedIn(user) {
-    if (!user) return;
-    showToast("\u2713 Signed in as " + user.email);
+  async function handleAuthSignedIn(result) {
+    if (!result) return;
+    showToast("\u2713 Signed in as " + result.email);
     setShowAuthModal(false);
   }
 
   async function handleAuthSignOut() {
     await authSignOut();
+    localStorage.removeItem("mt_linked_email");
     showToast("Signed out");
   }
 
@@ -7477,7 +7469,7 @@ function App() {
       marginTop: 8
     }
   }, "Powered by Claude AI. Photo scanning, coaching, and the full food database work automatically \u2014 no setup required.")), /*#__PURE__*/React.createElement(AccountCard, {
-    user: authUser,
+    user: displayUser,
     onSignIn: function() { setShowAuthModal(true); },
     onSignOut: handleAuthSignOut
   }), /*#__PURE__*/React.createElement("div", {
@@ -7577,10 +7569,11 @@ function App() {
       fontFamily: "'JetBrains Mono',monospace",
       wordBreak: "break-all"
     }
-  }, authUser ? ("Account: " + authUser.email) : ("Device ID: " + DEVICE_ID)))),
+  }, displayUser ? ("Account: " + displayUser.email) : ("Device ID: " + DEVICE_ID)))),
   showAuthModal && /*#__PURE__*/React.createElement(AuthModal, {
     onClose: function() { setShowAuthModal(false); },
-    onSignedIn: handleAuthSignedIn
+    onSignedIn: handleAuthSignedIn,
+    workerUrl: workerUrl
   }), /*#__PURE__*/React.createElement("div", {
     className: "nav",
     style: {

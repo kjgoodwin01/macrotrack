@@ -1430,6 +1430,77 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
       }, 200, cors);
     }
 
+    // ── AUTH OTP: Send 6-digit code via Resend (no Supabase email needed) ──
+    if (type === "send_auth_otp") {
+      const { email } = body;
+      if (!email) return jsonRes({ error: "Missing email" }, 400, cors);
+      const emailClean = email.trim().toLowerCase();
+      if (!emailClean.includes("@")) return jsonRes({ error: "Invalid email" }, 400, cors);
+
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      await env.CODES.put("auth_otp:" + emailClean, JSON.stringify({
+        code, createdAt: Date.now()
+      }), { expirationTtl: 300 }); // 5 minutes
+
+      if (!env.RESEND_API_KEY) return jsonRes({ error: "Email not configured" }, 500, cors);
+      const emailRes = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + env.RESEND_API_KEY },
+        body: JSON.stringify({
+          from: "MacroTrack <onboarding@resend.dev>",
+          to: [emailClean],
+          subject: "Your MacroTrack sign-in code",
+          html: `<div style="font-family:'DM Sans',Arial,sans-serif;max-width:480px;margin:0 auto;background:#08080f;color:#f0f0fa;padding:40px 32px;border-radius:16px;"><div style="font-family:Georgia,serif;font-size:28px;letter-spacing:4px;margin-bottom:24px;">MACRO<span style="color:#6366f1;">TRACK</span></div><p style="font-size:16px;color:#a0a0c0;margin-bottom:24px;">Your sign-in code:</p><div style="background:#0d0d1a;border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:28px;text-align:center;margin-bottom:24px;"><div style="font-family:'Courier New',monospace;font-size:40px;font-weight:700;letter-spacing:10px;color:#6366f1;">${code}</div><div style="font-size:12px;color:#5a5a7a;margin-top:10px;">Expires in 5 minutes</div></div><p style="font-size:12px;color:#5a5a7a;">If you didn't request this, you can safely ignore this email.</p></div>`,
+        }),
+      });
+      if (!emailRes.ok) {
+        const errText = await emailRes.text();
+        return jsonRes({ error: "Failed to send email: " + errText }, 500, cors);
+      }
+      return jsonRes({ ok: true }, 200, cors);
+    }
+
+    // ── AUTH OTP: Verify code, link email to device, return cloud data ────
+    if (type === "verify_auth_otp") {
+      const { email, code, deviceId } = body;
+      if (!email || !code || !deviceId) return jsonRes({ error: "Missing data" }, 400, cors);
+      const emailClean = email.trim().toLowerCase();
+
+      const stored = await env.CODES.get("auth_otp:" + emailClean);
+      if (!stored) return jsonRes({ error: "Code expired — request a new one" }, 400, cors);
+      let rec;
+      try { rec = JSON.parse(stored); } catch(e) { return jsonRes({ error: "Invalid code data" }, 500, cors); }
+      if (rec.code !== code.trim()) return jsonRes({ error: "Incorrect code — try again" }, 400, cors);
+      await env.CODES.delete("auth_otp:" + emailClean); // one-time use
+
+      // Check if this email is already linked to an existing account
+      const existing = await sb(env, "GET",
+        "profiles?email=eq." + encodeURIComponent(emailClean) + "&limit=1");
+
+      if (existing.data && existing.data.length > 0) {
+        // Returning user — migrate their data to the current device if needed
+        const existingDeviceId = existing.data[0].device_id;
+        if (existingDeviceId !== deviceId) {
+          await Promise.all([
+            sb(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId }),
+            sb(env, "PATCH", "food_entries?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId }),
+            sb(env, "PATCH", "weight_log?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId }),
+          ]);
+        }
+        // Load their data
+        const [profile, entries, wlog] = await Promise.all([
+          sb(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1"),
+          sb(env, "GET", "food_entries?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=500"),
+          sb(env, "GET", "weight_log?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=200"),
+        ]);
+        return jsonRes({ ok: true, returning: true, profile: (profile.data && profile.data[0]) || null, entries: entries.data || [], wlog: wlog.data || [] }, 200, cors);
+      }
+
+      // New user — link email to their current device profile
+      await sb(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(deviceId), { email: emailClean });
+      return jsonRes({ ok: true, returning: false }, 200, cors);
+    }
+
     // ── AUTH MIGRATE: move all rows from anonymous device_id to auth UID ─
     if (type === "auth_migrate") {
       const { oldDeviceId, newUserId } = body;
