@@ -3239,39 +3239,28 @@ function useAuth() {
   return { user: user, authLoading: authLoading, signOut: signOut };
 }
 
-/* ── AuthModal — email OTP sign-in / sign-up ── */
+/* ── AuthModal — magic link sign-in / sign-up ── */
 function AuthModal({ onClose, onSignedIn }) {
   var _step = React.useState(0); var step = _step[0]; var setStep = _step[1];
   var _email = React.useState(""); var email = _email[0]; var setEmail = _email[1];
-  var _code = React.useState(""); var code = _code[0]; var setCode = _code[1];
   var _loading = React.useState(false); var loading = _loading[0]; var setLoading = _loading[1];
   var _error = React.useState(""); var error = _error[0]; var setError = _error[1];
 
-  async function handleSendOTP() {
+  async function handleSendLink() {
     var emailClean = email.trim().toLowerCase();
     if (!emailClean.includes("@")) { setError("Enter a valid email address"); return; }
-    if (!_supabase) { setError("Auth not configured — check SUPABASE_URL and SUPABASE_ANON_KEY"); return; }
+    if (!_supabase) { setError("Auth not configured — check Supabase credentials"); return; }
     setLoading(true); setError("");
     try {
       var r = await _supabase.auth.signInWithOtp({
         email: emailClean,
-        options: { shouldCreateUser: true }
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: window.location.origin + window.location.pathname
+        }
       });
       if (r.error) { setError(r.error.message); setLoading(false); return; }
       setStep(1);
-    } catch(e) { setError("Network error — try again"); }
-    setLoading(false);
-  }
-
-  async function handleVerifyOTP() {
-    var emailClean = email.trim().toLowerCase();
-    var token = code.trim();
-    if (!token || token.length < 4) { setError("Enter the 6-digit code from your email"); return; }
-    setLoading(true); setError("");
-    try {
-      var r = await _supabase.auth.verifyOtp({ email: emailClean, token: token, type: "email" });
-      if (r.error) { setError(r.error.message); setLoading(false); return; }
-      onSignedIn(r.data.user);
     } catch(e) { setError("Network error — try again"); }
     setLoading(false);
   }
@@ -3291,8 +3280,8 @@ function AuthModal({ onClose, onSignedIn }) {
         }, step === 0 ? "Sign In or Create Account" : "Check Your Email"),
         /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, color: "var(--mu)", marginTop: 4 } },
           step === 0
-            ? "Enter your email \u2014 we\u2019ll send a 6-digit code."
-            : "We sent a 6-digit code to " + email
+            ? "Enter your email \u2014 we\u2019ll send you a sign-in link."
+            : "Link sent to " + email + ". Tap it to sign in \u2014 then come back here."
         )
       ),
       step === 0
@@ -3301,13 +3290,13 @@ function AuthModal({ onClose, onSignedIn }) {
               className: "field", type: "email", placeholder: "you@email.com",
               value: email, autoFocus: true,
               onChange: function(e) { setEmail(e.target.value); setError(""); },
-              onKeyDown: function(e) { if (e.key === "Enter") handleSendOTP(); }
+              onKeyDown: function(e) { if (e.key === "Enter") handleSendLink(); }
             }),
             error && /*#__PURE__*/React.createElement("div", { className: "err", style: { marginTop: 8 } }, error),
             /*#__PURE__*/React.createElement("button", {
               className: "btn", style: { marginTop: 14, width: "100%" },
-              onClick: handleSendOTP, disabled: loading
-            }, loading ? "SENDING\u2026" : "SEND CODE"),
+              onClick: handleSendLink, disabled: loading
+            }, loading ? "SENDING\u2026" : "SEND SIGN-IN LINK"),
             /*#__PURE__*/React.createElement("button", {
               style: { background: "none", border: "none", color: "var(--mu)", fontSize: 13,
                 cursor: "pointer", marginTop: 16, width: "100%", textAlign: "center" },
@@ -3315,23 +3304,23 @@ function AuthModal({ onClose, onSignedIn }) {
             }, "Continue without an account")
           )
         : /*#__PURE__*/React.createElement("div", null,
-            /*#__PURE__*/React.createElement("input", {
-              className: "field", type: "number", inputMode: "numeric",
-              placeholder: "123456", maxLength: 6,
-              value: code, autoFocus: true,
-              onChange: function(e) { setCode(e.target.value); setError(""); },
-              onKeyDown: function(e) { if (e.key === "Enter") handleVerifyOTP(); }
-            }),
-            error && /*#__PURE__*/React.createElement("div", { className: "err", style: { marginTop: 8 } }, error),
+            /*#__PURE__*/React.createElement("div", {
+              style: { background: "var(--s2)", borderRadius: 14, padding: "20px 18px",
+                fontSize: 13, color: "var(--txt2)", lineHeight: 1.7, marginBottom: 20 }
+            },
+              "1. Open the email from MacroTrack", /*#__PURE__*/React.createElement("br", null),
+              "2. Tap \u201CConfirm your email\u201D", /*#__PURE__*/React.createElement("br", null),
+              "3. It will bring you back here, signed in"
+            ),
             /*#__PURE__*/React.createElement("button", {
-              className: "btn", style: { marginTop: 14, width: "100%" },
-              onClick: handleVerifyOTP, disabled: loading
-            }, loading ? "VERIFYING\u2026" : "VERIFY & SIGN IN"),
+              className: "btn", style: { width: "100%" },
+              onClick: function() { setStep(0); setEmail(""); setError(""); }
+            }, "RESEND LINK"),
             /*#__PURE__*/React.createElement("button", {
               style: { background: "none", border: "none", color: "var(--mu)", fontSize: 13,
-                cursor: "pointer", marginTop: 16, width: "100%", textAlign: "center" },
-              onClick: function() { setStep(0); setCode(""); setError(""); }
-            }, "\u2190 Back")
+                cursor: "pointer", marginTop: 12, width: "100%", textAlign: "center" },
+              onClick: onClose
+            }, "Close")
           )
     )
   );
