@@ -14,6 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link rel="preconnect" href="https://unpkg.com" crossorigin/>
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin/>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin/>
   <link rel="preconnect" href="https://macrotrack-ai.kjgoodwin01.workers.dev" crossorigin/>
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&family=Barlow:wght@500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" onload="this.onload=null;this.rel='stylesheet'"/>
   <noscript><link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&family=Barlow:wght@500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/></noscript>
@@ -689,6 +690,7 @@
 <div id="root"><div style="display:flex;flex-direction:column;height:100dvh;max-width:430px;margin:0 auto;background:#06060f"><div style="padding:calc(env(safe-area-inset-top,44px) + 14px) 20px 0;display:flex;align-items:center"><div style="font-size:22px;letter-spacing:3px;color:#f4f4ff;font-family:system-ui,sans-serif;font-weight:700">MACRO<span style="color:#818cf8">TRACK</span></div></div><div style="flex:1;display:flex;align-items:center;justify-content:center"><div style="width:44px;height:44px;border-radius:50%;border:3px solid rgba(99,102,241,0.2);border-top-color:#818cf8;animation:mt-spin 0.75s linear infinite"></div></div></div></div>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin></script>
 <!-- Babel removed: JSX pre-compiled -->
 <script>
 function _initApp(){
@@ -786,6 +788,25 @@ function getDeviceId() {
 }
 const DEVICE_ID = getDeviceId();
 
+/* ── Supabase Auth ─────────────────────────────────────────────────────── */
+// TODO: Fill in your Supabase project URL and anon key from your Supabase dashboard
+// (Settings → API). These are safe to put in client code.
+const SUPABASE_URL = "https://hyfcmoprhgkykbupkbrp.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5ZmNtb3ByaGdreWtidXBrYnJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzgzNzEsImV4cCI6MjA5MDcxNDM3MX0.G9ACBgAACHWjmLvnPsUY77OrSgQQ4ZMr2H9NCzYZq8s";
+const _supabase = (window.supabase && SUPABASE_URL !== "YOUR_SUPABASE_URL")
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+// The Supabase auth user ID, set when signed in. Module-level so sync helpers can read it.
+let _authUserId = null;
+
+// Returns the best available user ID for sync:
+// - Supabase auth UID when signed in (stable across devices)
+// - Falls back to anonymous device ID (existing behaviour)
+function effectiveUserId() {
+  return _authUserId || DEVICE_ID;
+}
+
 /* ── Sync helper — fire and forget, localStorage is source of truth ── */
 async function syncToCloud(workerUrl, type, payload) {
   const url = workerUrl || DEFAULT_WORKER_URL;
@@ -798,7 +819,7 @@ async function syncToCloud(workerUrl, type, payload) {
       },
       body: JSON.stringify(Object.assign({
         type: type,
-        deviceId: DEVICE_ID
+        deviceId: effectiveUserId()
       }, payload))
     });
   } catch (e) {}
@@ -817,7 +838,7 @@ async function loadFromCloud(workerUrl) {
       },
       body: JSON.stringify({
         type: "sync_load",
-        deviceId: DEVICE_ID
+        deviceId: effectiveUserId()
       })
     });
     if (!r.ok) return null;
@@ -3178,59 +3199,165 @@ function ftToCm(ft, inches) {
   return Math.round((parseInt(ft) || 0) * 30.48 + (parseInt(inches) || 0) * 2.54);
 }
 
-/* ── Account Recovery Card (Settings) ── */
-function AccountRecoveryCard({ workerUrl }) {
-  var _se = useLocal("mt_linked_email", ""); var savedEmail = _se[0]; var setSavedEmail = _se[1];
-  var _d = React.useState(savedEmail || ""); var draft = _d[0]; var setDraft = _d[1];
-  var _l = React.useState(false); var loading = _l[0]; var setLoading = _l[1];
-  var _sv = React.useState(!!savedEmail); var saved = _sv[0]; var setSaved = _sv[1];
-  var _er = React.useState(""); var error = _er[0]; var setError = _er[1];
-  var WORKER = workerUrl || "https://macrotrack-ai.kjgoodwin01.workers.dev";
+/* ── useAuth — Supabase auth state hook ── */
+function useAuth() {
+  var _u = React.useState(null); var user = _u[0]; var setUser = _u[1];
+  var _l = React.useState(true); var authLoading = _l[0]; var setAuthLoading = _l[1];
 
-  async function linkEmail() {
-    var email = draft.trim().toLowerCase();
-    if (!email || !email.includes("@")) { setError("Enter a valid email address"); return; }
+  useEffect(function() {
+    if (!_supabase) { setAuthLoading(false); return; }
+    // Restore existing session on mount
+    _supabase.auth.getSession().then(function(r) {
+      var session = r.data && r.data.session;
+      if (session && session.user) {
+        _authUserId = session.user.id;
+        setUser(session.user);
+      }
+      setAuthLoading(false);
+    });
+    // Listen for sign-in / sign-out events
+    var sub = _supabase.auth.onAuthStateChange(function(event, session) {
+      if (session && session.user) {
+        _authUserId = session.user.id;
+        setUser(session.user);
+      } else {
+        _authUserId = null;
+        setUser(null);
+      }
+    });
+    return function() {
+      if (sub && sub.data && sub.data.subscription) sub.data.subscription.unsubscribe();
+    };
+  }, []);
+
+  async function signOut() {
+    if (_supabase) await _supabase.auth.signOut();
+    _authUserId = null;
+    setUser(null);
+  }
+
+  return { user: user, authLoading: authLoading, signOut: signOut };
+}
+
+/* ── AuthModal — email OTP sign-in / sign-up ── */
+function AuthModal({ onClose, onSignedIn }) {
+  var _step = React.useState(0); var step = _step[0]; var setStep = _step[1];
+  var _email = React.useState(""); var email = _email[0]; var setEmail = _email[1];
+  var _code = React.useState(""); var code = _code[0]; var setCode = _code[1];
+  var _loading = React.useState(false); var loading = _loading[0]; var setLoading = _loading[1];
+  var _error = React.useState(""); var error = _error[0]; var setError = _error[1];
+
+  async function handleSendOTP() {
+    var emailClean = email.trim().toLowerCase();
+    if (!emailClean.includes("@")) { setError("Enter a valid email address"); return; }
+    if (!_supabase) { setError("Auth not configured — check SUPABASE_URL and SUPABASE_ANON_KEY"); return; }
     setLoading(true); setError("");
     try {
-      var deviceId = localStorage.getItem("mt_device_id") || "";
-      var r = await fetch(WORKER, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "link_email", deviceId: deviceId, email: email })
+      var r = await _supabase.auth.signInWithOtp({
+        email: emailClean,
+        options: { shouldCreateUser: true }
       });
-      var d = await r.json();
-      if (d.error) { setError(d.error); setLoading(false); return; }
-      setSavedEmail(email); setSaved(true);
+      if (r.error) { setError(r.error.message); setLoading(false); return; }
+      setStep(1);
     } catch(e) { setError("Network error — try again"); }
     setLoading(false);
   }
 
+  async function handleVerifyOTP() {
+    var emailClean = email.trim().toLowerCase();
+    var token = code.trim();
+    if (!token || token.length < 4) { setError("Enter the 6-digit code from your email"); return; }
+    setLoading(true); setError("");
+    try {
+      var r = await _supabase.auth.verifyOtp({ email: emailClean, token: token, type: "email" });
+      if (r.error) { setError(r.error.message); setLoading(false); return; }
+      onSignedIn(r.data.user);
+    } catch(e) { setError("Network error — try again"); }
+    setLoading(false);
+  }
+
+  return /*#__PURE__*/React.createElement("div", {
+    style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9999,
+      display: "flex", alignItems: "flex-end", justifyContent: "center" },
+    onClick: function(e) { if (e.target === e.currentTarget) onClose(); }
+  },
+    /*#__PURE__*/React.createElement("div", {
+      style: { background: "var(--s1)", borderRadius: "24px 24px 0 0",
+        padding: "32px 24px 48px", width: "100%", maxWidth: 430 }
+    },
+      /*#__PURE__*/React.createElement("div", { style: { marginBottom: 28 } },
+        /*#__PURE__*/React.createElement("div", {
+          style: { fontFamily: "'Bebas Neue',sans-serif", fontSize: 26, letterSpacing: 3 }
+        }, step === 0 ? "Sign In or Create Account" : "Check Your Email"),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, color: "var(--mu)", marginTop: 4 } },
+          step === 0
+            ? "Enter your email \u2014 we\u2019ll send a 6-digit code."
+            : "We sent a 6-digit code to " + email
+        )
+      ),
+      step === 0
+        ? /*#__PURE__*/React.createElement("div", null,
+            /*#__PURE__*/React.createElement("input", {
+              className: "field", type: "email", placeholder: "you@email.com",
+              value: email, autoFocus: true,
+              onChange: function(e) { setEmail(e.target.value); setError(""); },
+              onKeyDown: function(e) { if (e.key === "Enter") handleSendOTP(); }
+            }),
+            error && /*#__PURE__*/React.createElement("div", { className: "err", style: { marginTop: 8 } }, error),
+            /*#__PURE__*/React.createElement("button", {
+              className: "btn", style: { marginTop: 14, width: "100%" },
+              onClick: handleSendOTP, disabled: loading
+            }, loading ? "SENDING\u2026" : "SEND CODE"),
+            /*#__PURE__*/React.createElement("button", {
+              style: { background: "none", border: "none", color: "var(--mu)", fontSize: 13,
+                cursor: "pointer", marginTop: 16, width: "100%", textAlign: "center" },
+              onClick: onClose
+            }, "Continue without an account")
+          )
+        : /*#__PURE__*/React.createElement("div", null,
+            /*#__PURE__*/React.createElement("input", {
+              className: "field", type: "number", inputMode: "numeric",
+              placeholder: "123456", maxLength: 6,
+              value: code, autoFocus: true,
+              onChange: function(e) { setCode(e.target.value); setError(""); },
+              onKeyDown: function(e) { if (e.key === "Enter") handleVerifyOTP(); }
+            }),
+            error && /*#__PURE__*/React.createElement("div", { className: "err", style: { marginTop: 8 } }, error),
+            /*#__PURE__*/React.createElement("button", {
+              className: "btn", style: { marginTop: 14, width: "100%" },
+              onClick: handleVerifyOTP, disabled: loading
+            }, loading ? "VERIFYING\u2026" : "VERIFY & SIGN IN"),
+            /*#__PURE__*/React.createElement("button", {
+              style: { background: "none", border: "none", color: "var(--mu)", fontSize: 13,
+                cursor: "pointer", marginTop: 16, width: "100%", textAlign: "center" },
+              onClick: function() { setStep(0); setCode(""); setError(""); }
+            }, "\u2190 Back")
+          )
+    )
+  );
+}
+
+/* ── AccountCard — shows auth status in settings, replaces AccountRecoveryCard ── */
+function AccountCard({ user, onSignIn, onSignOut }) {
   return /*#__PURE__*/React.createElement("div", { className: "scard" },
-    /*#__PURE__*/React.createElement("div", { className: "stitle" }, "Account Recovery"),
-    /*#__PURE__*/React.createElement("div", { className: "muted-t", style: { marginBottom: 14 } },
-      "Link your email so you can restore all your data if you switch phones or clear your browser."
-    ),
-    saved
+    /*#__PURE__*/React.createElement("div", { className: "stitle" }, "Account"),
+    user
       ? /*#__PURE__*/React.createElement("div", null,
-          /*#__PURE__*/React.createElement("div", { className: "ok-text" }, "\u2713 " + savedEmail),
+          /*#__PURE__*/React.createElement("div", { className: "ok-text" }, "\u2713 " + (user.email || "Signed in")),
           /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: "var(--mu)", marginTop: 6, lineHeight: 1.5 } },
-            "Your account is recoverable. On a new device, tap \u201CRestore existing account\u201D at setup."
+            "Your data syncs automatically across all your devices."
           ),
           /*#__PURE__*/React.createElement("button", {
-            style: { background: "none", border: "none", color: "var(--mu)", fontSize: 12, cursor: "pointer", marginTop: 10, padding: 0, textDecoration: "underline" },
-            onClick: function() { setSaved(false); setDraft(savedEmail); }
-          }, "Change email")
+            style: { background: "none", border: "none", color: "var(--mu)", fontSize: 12,
+              cursor: "pointer", marginTop: 10, padding: 0, textDecoration: "underline" },
+            onClick: onSignOut
+          }, "Sign Out")
         )
       : /*#__PURE__*/React.createElement("div", null,
-          /*#__PURE__*/React.createElement("input", {
-            className: "field", type: "email", placeholder: "your@email.com",
-            value: draft,
-            onChange: function(e) { setDraft(e.target.value); setError(""); }
-          }),
-          error && /*#__PURE__*/React.createElement("div", { className: "err", style: { marginTop: 6 } }, error),
-          /*#__PURE__*/React.createElement("button", {
-            className: "btn", style: { marginTop: 10 },
-            onClick: linkEmail, disabled: loading
-          }, loading ? "LINKING\u2026" : "LINK EMAIL")
+          /*#__PURE__*/React.createElement("div", { className: "muted-t", style: { marginBottom: 14 } },
+            "Create a free account to sync your data across all your devices and unlock premium features."
+          ),
+          /*#__PURE__*/React.createElement("button", { className: "btn", onClick: onSignIn }, "SIGN IN / CREATE ACCOUNT")
         )
   );
 }
@@ -3255,7 +3382,8 @@ function Onboarding({
   const [editProt, setEditProt] = useState("");
   const [editCarb, setEditCarb] = useState("");
   const [editFat, setEditFat] = useState("");
-  // ── Account restore state ──
+  // ── Account auth/restore state ──
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [restoreMode, setRestoreMode] = useState(false);
   const [recoverEmail, setRecoverEmail] = useState("");
   const [recoverCode, setRecoverCode] = useState("");
@@ -3320,6 +3448,55 @@ function Onboarding({
     setRecoverLoading(false);
   }
 
+  // ── Called when Supabase auth OTP succeeds during onboarding ──
+  async function handleAuthSignedIn(user) {
+    if (!user) return;
+    var oldDeviceId = localStorage.getItem("mt_device_id");
+    var newId = user.id;
+
+    // Migrate any existing anonymous data in Supabase to the real auth UID
+    if (oldDeviceId && oldDeviceId !== newId) {
+      try {
+        await fetch((workerUrl || "https://macrotrack-ai.kjgoodwin01.workers.dev").replace(/\/$/, ""), {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "auth_migrate", oldDeviceId: oldDeviceId, newUserId: newId })
+        });
+      } catch(e) {}
+      localStorage.setItem("mt_device_id", newId);
+      _authUserId = newId;
+    }
+
+    // Try to load existing cloud data for this account
+    try {
+      var cloud = await loadFromCloud(workerUrl);
+      if (cloud && cloud.profile) {
+        // Returning user — restore their data and skip onboarding
+        var entriesMap = {};
+        (cloud.entries || []).forEach(function(e) {
+          var d = e.log_date;
+          if (!entriesMap[d]) entriesMap[d] = [];
+          entriesMap[d].push({ id: e.id, name: e.name, serving: e.serving || "",
+            cal: e.cal || 0, p: e.protein || 0, c: e.carbs || 0, f: e.fat || 0,
+            meal: e.meal || "Breakfast", date: d });
+        });
+        var wlogArr = (cloud.wlog || []).map(function(e) { return { date: e.log_date, weight: e.weight }; });
+        var p = cloud.profile;
+        localStorage.setItem("mt_entries", JSON.stringify(entriesMap));
+        localStorage.setItem("mt_wlog", JSON.stringify(wlogArr));
+        localStorage.setItem("mt_goals", JSON.stringify({ calories: p.calories || 2100,
+          protein: p.protein || 180, carbs: p.carbs || 210, fat: p.fat || 60,
+          goalType: p.goal_type || "cut", targetWeight: p.target_weight || null }));
+        if (p.name) localStorage.setItem("mt_name", JSON.stringify(p.name));
+        localStorage.setItem("mt_onboarded", "true");
+        window.location.reload();
+        return;
+      }
+    } catch(e) {}
+
+    // New user — just close the modal and continue through onboarding
+    setShowAuthModal(false);
+  }
+
   const TOTAL_STEPS = 5;
   const pct = step / TOTAL_STEPS * 100;
   const heightCm = ftToCm(heightFt, heightIn);
@@ -3374,7 +3551,13 @@ function Onboarding({
   }];
   const canNext = [name.trim().length > 0, age && weight && heightFt, true, targetWeight.length > 0, true][step];
 
-  // ── Restore mode: replaces normal onboarding ──────────────────────────
+  // ── Auth modal overlay during onboarding ─────────────────────────────
+  if (showAuthModal) return /*#__PURE__*/React.createElement(AuthModal, {
+    onClose: function() { setShowAuthModal(false); },
+    onSignedIn: handleAuthSignedIn
+  });
+
+  // ── Legacy restore mode (device_id OTP — fallback for pre-auth users) ─
   if (restoreMode) return /*#__PURE__*/React.createElement("div", { className: "ob-wrap" },
     /*#__PURE__*/React.createElement("div", { className: "ob-body" },
       /*#__PURE__*/React.createElement("div", { style: { marginBottom: 32, marginTop: 16 } },
@@ -3526,16 +3709,21 @@ function Onboarding({
       }
     }, o[1]);
   }))), step === 0 && /*#__PURE__*/React.createElement("div", {
-    style: { textAlign: "center", marginTop: 28, paddingTop: 20, borderTop: "1px solid var(--b1)" }
+    style: { marginTop: 28, paddingTop: 20, borderTop: "1px solid var(--b1)" }
   },
-    /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: "var(--mu)", marginBottom: 10 } },
-      "Already have a MacroTrack account?"
-    ),
     /*#__PURE__*/React.createElement("button", {
-      style: { background: "none", border: "none", color: "var(--indll)", fontSize: 14,
-        fontWeight: 600, cursor: "pointer", padding: 0 },
-      onClick: function() { setRestoreMode(true); }
-    }, "Restore existing account \u2192")
+      className: "btn",
+      style: { width: "100%", background: "var(--s2)", color: "var(--indll)",
+        border: "1px solid rgba(99,102,241,0.4)" },
+      onClick: function() { setShowAuthModal(true); }
+    }, "SIGN IN / RESTORE ACCOUNT"),
+    /*#__PURE__*/React.createElement("div", { style: { textAlign: "center", marginTop: 12 } },
+      /*#__PURE__*/React.createElement("button", {
+        style: { background: "none", border: "none", color: "var(--mu)", fontSize: 11,
+          cursor: "pointer", padding: 0, textDecoration: "underline" },
+        onClick: function() { setRestoreMode(true); }
+      }, "Restore from old device (legacy)")
+    )
   ), step === 1 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "ob-title"
   }, "Your ", /*#__PURE__*/React.createElement("em", null, "Stats")), /*#__PURE__*/React.createElement("div", {
@@ -5942,6 +6130,10 @@ function App() {
   const [aiUsage, setAiUsageRaw] = useLocal("mt_ai_usage", {});
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [installDismissed, setInstallDismissedRaw] = useLocal("mt_install_dismissed", false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // ── Supabase Auth ──
+  const { user: authUser, signOut: authSignOut } = useAuth();
 
   // ── Push notification state ──
   const [pushEnabled, setPushEnabledRaw] = useLocal("mt_push_enabled", false);
@@ -5951,11 +6143,39 @@ function App() {
   const [coachMode, setCoachMode] = useLocal("mt_coach_mode", "balanced");
   const [pushLoading, setPushLoading] = useState(false);
 
+  // ── When user signs in, migrate anonymous data to their auth account ──
+  const prevAuthUserRef = useRef(null);
+  useEffect(function() {
+    if (!authUser) return;
+    if (prevAuthUserRef.current === authUser.id) return;
+    prevAuthUserRef.current = authUser.id;
+    var oldDeviceId = localStorage.getItem("mt_device_id");
+    if (oldDeviceId && oldDeviceId !== authUser.id) {
+      // Migrate Supabase rows from anonymous device_id to auth UID
+      fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "auth_migrate", oldDeviceId: oldDeviceId, newUserId: authUser.id })
+      }).catch(function(){});
+      localStorage.setItem("mt_device_id", authUser.id);
+    }
+  }, [authUser]);
+
+  async function handleAuthSignedIn(user) {
+    if (!user) return;
+    showToast("\u2713 Signed in as " + user.email);
+    setShowAuthModal(false);
+  }
+
+  async function handleAuthSignOut() {
+    await authSignOut();
+    showToast("Signed out");
+  }
+
   async function togglePush() {
     if (pushLoading) return;
     setPushLoading(true);
     if (!pushEnabled) {
-      var result = await subscribeToPush(workerUrl, DEVICE_ID, pushPrefs);
+      var result = await subscribeToPush(workerUrl, effectiveUserId(), pushPrefs);
       if (result.ok) {
         setPushEnabledRaw(true);
         showToast("✓ Notifications enabled");
@@ -5967,7 +6187,7 @@ function App() {
       try {
         await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
           method: "POST", headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({type: "push_unsubscribe", deviceId: DEVICE_ID}),
+          body: JSON.stringify({type: "push_unsubscribe", deviceId: effectiveUserId()}),
         });
       } catch(e){}
       showToast("Notifications disabled");
@@ -5979,7 +6199,7 @@ function App() {
     var newPrefs = Object.assign({}, pushPrefs);
     newPrefs[key] = value;
     setPushPrefsRaw(newPrefs);
-    if (pushEnabled) updatePushPrefs(workerUrl, DEVICE_ID, newPrefs);
+    if (pushEnabled) updatePushPrefs(workerUrl, effectiveUserId(), newPrefs);
   }
   useEffect(function () {
     const isInstalled = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: fullscreen)").matches;
@@ -6034,10 +6254,10 @@ function App() {
     setAccessChecked(true);
   }, []);
 
-  // DEBUG: log device ID to console so it can be found easily
+  // DEBUG: log user ID to console so it can be found easily
   useEffect(function () {
-    console.log("MacroTrack Device ID:", DEVICE_ID);
-  }, []);
+    console.log("MacroTrack User ID:", effectiveUserId(), authUser ? "(authenticated)" : "(anonymous)");
+  }, [authUser]);
   const [theme, setThemeRaw] = useLocal("mt_theme", "dark");
   const [settingsOpen, setSettingsOpen] = useState(false);
   function setTheme(t) {
@@ -7087,8 +7307,10 @@ function App() {
     style: {
       marginTop: 8
     }
-  }, "Powered by Claude AI. Photo scanning, coaching, and the full food database work automatically \u2014 no setup required.")), /*#__PURE__*/React.createElement(AccountRecoveryCard, {
-    workerUrl: workerUrl
+  }, "Powered by Claude AI. Photo scanning, coaching, and the full food database work automatically \u2014 no setup required.")), /*#__PURE__*/React.createElement(AccountCard, {
+    user: authUser,
+    onSignIn: function() { setShowAuthModal(true); },
+    onSignOut: handleAuthSignOut
   }), /*#__PURE__*/React.createElement("div", {
     className: "scard"
   }, /*#__PURE__*/React.createElement("div", {
@@ -7186,7 +7408,11 @@ function App() {
       fontFamily: "'JetBrains Mono',monospace",
       wordBreak: "break-all"
     }
-  }, "Device ID: ", DEVICE_ID))), /*#__PURE__*/React.createElement("div", {
+  }, authUser ? ("Account: " + authUser.email) : ("Device ID: " + DEVICE_ID)))),
+  showAuthModal && /*#__PURE__*/React.createElement(AuthModal, {
+    onClose: function() { setShowAuthModal(false); },
+    onSignedIn: handleAuthSignedIn
+  }), /*#__PURE__*/React.createElement("div", {
     className: "nav",
     style: {
       display: chatFullscreen ? "none" : "flex"

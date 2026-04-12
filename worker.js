@@ -1430,6 +1430,32 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
       }, 200, cors);
     }
 
+    // ── AUTH MIGRATE: move all rows from anonymous device_id to auth UID ─
+    if (type === "auth_migrate") {
+      const { oldDeviceId, newUserId } = body;
+      if (!oldDeviceId || !newUserId) return jsonRes({ error: "Missing data" }, 400, cors);
+      if (oldDeviceId === newUserId) return jsonRes({ ok: true, noop: true }, 200, cors);
+
+      // Check the old device actually has data before migrating
+      const profileCheck = await sb(env, "GET",
+        "profiles?device_id=eq." + encodeURIComponent(oldDeviceId) + "&limit=1");
+      if (!profileCheck.data || profileCheck.data.length === 0) {
+        return jsonRes({ ok: true, noop: true }, 200, cors);
+      }
+
+      // Migrate all three tables atomically (best-effort)
+      await Promise.all([
+        sb(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(oldDeviceId),
+          { device_id: newUserId }),
+        sb(env, "PATCH", "food_entries?device_id=eq." + encodeURIComponent(oldDeviceId),
+          { device_id: newUserId }),
+        sb(env, "PATCH", "weight_log?device_id=eq." + encodeURIComponent(oldDeviceId),
+          { device_id: newUserId }),
+      ]);
+
+      return jsonRes({ ok: true }, 200, cors);
+    }
+
     // ── NATURAL LANGUAGE WORKOUT ENTRY ───────────────────────────────────
     if (type === "nlp_workout") {
       const { text } = body;
