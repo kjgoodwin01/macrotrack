@@ -63,8 +63,10 @@
     .hdr-date{font-size:11px;color:var(--mu);font-family:'JetBrains Mono',monospace}
 
     /* Toast */
-    .toast{position:fixed;top:calc(var(--st) + 12px);left:50%;transform:translateX(-50%) translateY(-80px);z-index:999;background:var(--em);color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:30px;box-shadow:0 4px 20px rgba(16,185,129,0.4);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1),opacity 0.35s;opacity:0;white-space:nowrap;pointer-events:none}
+    .toast{position:fixed;top:calc(var(--st) + 12px);left:50%;transform:translateX(-50%) translateY(-80px);z-index:999;background:var(--em);color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:30px;box-shadow:0 4px 20px rgba(16,185,129,0.4);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1),opacity 0.35s;opacity:0;white-space:nowrap;pointer-events:none;display:flex;align-items:center;gap:10px}
     .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+    .toast.show.action{pointer-events:auto}
+    .toast-undo{background:rgba(255,255,255,0.25);border:none;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;letter-spacing:0.5px;white-space:nowrap}
 
     /* Page */
     .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px var(--page-pb);-webkit-overflow-scrolling:touch}
@@ -1283,19 +1285,23 @@ function scaleMacros(food, grams, qty) {
 }
 
 /* ── Toast ── */
-function Toast({
-  msg
-}) {
+function Toast({ msg, action }) {
   const [show, setShow] = useState(false);
-  useEffect(() => {
+  useEffect(function() {
     if (!msg) return;
     setShow(true);
-    const t = setTimeout(() => setShow(false), 2200);
-    return () => clearTimeout(t);
+    var t = setTimeout(function() { setShow(false); }, action ? 5000 : 2200);
+    return function() { clearTimeout(t); };
   }, [msg]);
   return /*#__PURE__*/React.createElement("div", {
-    className: "toast" + (show ? " show" : "")
-  }, msg);
+    className: "toast" + (show ? " show" : "") + (action ? " action" : "")
+  },
+    msg,
+    action && /*#__PURE__*/React.createElement("button", {
+      className: "toast-undo",
+      onClick: function() { action.onClick(); setShow(false); }
+    }, action.label)
+  );
 }
 
 /* ── CalHero ── */
@@ -6357,6 +6363,7 @@ function App() {
   });
   const [targetMeal, setTargetMeal] = useState("Breakfast");
   const [toastMsg, setToastMsg] = useState("");
+  const [toastAction, setToastAction] = useState(null);
   const toastKey = useRef(0);
 
   // Week navigation state
@@ -6374,10 +6381,11 @@ function App() {
       setSelectedDate(isoDate(mon));
     }
   }
-  function showToast(msg) {
+  function showToast(msg, action) {
     toastKey.current++;
+    setToastAction(action || null);
     setToastMsg(msg + "  ");
-    setTimeout(() => setToastMsg(msg), 10);
+    setTimeout(function() { setToastMsg(msg); }, 10);
   }
 
   // Wrapped setters that show a toast on save
@@ -6704,6 +6712,40 @@ function App() {
   const wDelta = latW && prevW ? (latW.weight - prevW.weight).toFixed(1) : null;
   const exerciseCal = calcExerciseCal(workouts[selectedDate] || [], latW ? latW.weight : null);
   const adapt = computeAdaptiveTDEE(sorted, entries, goals);
+
+  // ── Auto-adjust calories when TDEE confidence is high ───────────────
+  // Fires at most once per 7 days. Shows a toast with an Undo button.
+  useEffect(function() {
+    if (!onboarded) return;
+    var a = computeAdaptiveTDEE(sorted, entries, goals);
+    if (!a || a.adj === 0 || a.state === "ontrack" || a.dataQuality !== "high") return;
+
+    // Don't fire more than once per week
+    var lastAdj = null;
+    try { lastAdj = JSON.parse(localStorage.getItem("mt_last_auto_adjust")); } catch(e) {}
+    if (lastAdj) {
+      var daysSince = (Date.now() - new Date(lastAdj.date).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSince < 7) return;
+    }
+
+    var oldCal = goals.calories;
+    var newCal = a.newCal;
+    var updatedGoals = Object.assign({}, goals, { calories: newCal });
+
+    setGoals(updatedGoals);
+    localStorage.setItem("mt_last_auto_adjust", JSON.stringify({
+      date: new Date().toISOString(), oldCal: oldCal, newCal: newCal
+    }));
+
+    showToast("Target updated to " + newCal + " kcal", {
+      label: "Undo",
+      onClick: function() {
+        setGoals(Object.assign({}, goals, { calories: oldCal }));
+        localStorage.removeItem("mt_last_auto_adjust");
+      }
+    });
+  }, [sorted.length, onboarded]); // re-check whenever a new weight entry is logged
+
   const isToday = selectedDate === todayISO();
   if (!onboarded) {
     return React.createElement(Onboarding, {
@@ -6741,7 +6783,8 @@ function App() {
   return /*#__PURE__*/React.createElement("div", {
     className: "app"
   }, /*#__PURE__*/React.createElement(Toast, {
-    msg: toastMsg
+    msg: toastMsg,
+    action: toastAction
   }), showInstallBanner && function () {
     const info = getBrowserInstructions();
     return /*#__PURE__*/React.createElement("div", {
@@ -7103,16 +7146,13 @@ function App() {
     style: {
       color: adapt.adj < 0 ? "var(--rosel)" : "var(--eml)"
     }
-  }, adapt.adj > 0 ? "+" : "", adapt.adj))), /*#__PURE__*/React.createElement("button", {
+  }, adapt.adj > 0 ? "+" : "", adapt.adj)),
+  // High confidence = auto-adjusted already. Medium = show manual button.
+  adapt.dataQuality !== "high" && /*#__PURE__*/React.createElement("button", {
     className: "btn",
-    style: {
-      marginTop: 14
-    },
-    onClick: () => {
-      setGoals({
-        ...goals,
-        calories: adapt.newCal
-      });
+    style: { marginTop: 14 },
+    onClick: function() {
+      setGoals(Object.assign({}, goals, { calories: adapt.newCal }));
     }
   }, "Apply Adjustment"))) : /*#__PURE__*/React.createElement("div", {
     className: "adapt"
