@@ -275,6 +275,15 @@
     .unlock-dots{display:flex;gap:6px;margin-top:12px}
     .udot{height:5px;border-radius:3px;flex:1;background:rgba(255,255,255,0.07)}
     .udot.on{background:var(--ind)}
+    /* TDEE estimate banner */
+    .tdee-banner{background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(251,191,36,0.06));border:1px solid rgba(245,158,11,0.25);border-radius:14px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+    .tdee-banner-val{font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--ambl);letter-spacing:1px;line-height:1}
+    .tdee-banner-lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:0.8px;margin-top:3px}
+    .tdee-banner-badge{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:600}
+    .tdee-banner-badge.high{background:rgba(16,185,129,0.15);color:var(--eml)}
+    .tdee-banner-badge.medium{background:rgba(245,158,11,0.15);color:var(--ambl)}
+    /* Trend weight pill in hero */
+    .w-trend{font-size:12px;color:var(--ambl);margin-top:4px;font-weight:600}
 
     /* Settings */
     .scard{background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:20px;margin-bottom:12px}
@@ -1433,66 +1442,69 @@ function WeekSelector({
 }
 
 /* ── WeightChart ── */
-function WeightChart({
-  data
-}) {
+function WeightChart({ data, trendData }) {
   if (data.length < 2) return /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: "16px 0",
-      textAlign: "center",
-      color: "var(--mu)",
-      fontSize: 12
-    }
+    style: { padding: "16px 0", textAlign: "center", color: "var(--mu)", fontSize: 12 }
   }, "Log 2+ entries to see your trend");
-  const vals = data.map(d => d.weight);
-  const lo = Math.min(...vals) - 2,
-    hi = Math.max(...vals) + 2;
-  const W = 370,
-    H = 110,
-    xs = W / (data.length - 1);
-  const ys = v => H - (v - lo) / (hi - lo) * H;
-  const pts = data.map((d, i) => `${i * xs},${ys(d.weight)}`).join(" ");
-  const area = `0,${H} ${pts} ${(data.length - 1) * xs},${H}`;
-  return /*#__PURE__*/React.createElement("div", {
-    className: "chart-area"
-  }, /*#__PURE__*/React.createElement("svg", {
-    width: "100%",
-    height: "100%",
-    viewBox: `0 0 ${W} ${H}`,
-    preserveAspectRatio: "none"
-  }, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("linearGradient", {
-    id: "cg",
-    x1: "0",
-    y1: "0",
-    x2: "0",
-    y2: "1"
-  }, /*#__PURE__*/React.createElement("stop", {
-    offset: "0%",
-    stopColor: "#6366f1",
-    stopOpacity: "0.35"
-  }), /*#__PURE__*/React.createElement("stop", {
-    offset: "100%",
-    stopColor: "#6366f1",
-    stopOpacity: "0"
-  }))), /*#__PURE__*/React.createElement("polygon", {
-    points: area,
-    fill: "url(#cg)"
-  }), /*#__PURE__*/React.createElement("polyline", {
-    points: pts,
-    fill: "none",
-    stroke: "#818cf8",
-    strokeWidth: "2.5",
-    strokeLinecap: "round",
-    strokeLinejoin: "round"
-  }), data.map((d, i) => /*#__PURE__*/React.createElement("circle", {
-    key: i,
-    cx: i * xs,
-    cy: ys(d.weight),
-    r: "4",
-    fill: "#6366f1",
-    stroke: "#a5b4fc",
-    strokeWidth: "1.5"
-  }))));
+  const W = 370, H = 110;
+  const xs = W / (data.length - 1);
+  // Scale includes both raw and trend values so both fit
+  const allVals = data.map(function(d) { return d.weight; }).concat(
+    trendData ? trendData.map(function(t) { return t.trend; }) : []
+  );
+  const lo = Math.min.apply(null, allVals) - 1.5;
+  const hi = Math.max.apply(null, allVals) + 1.5;
+  function ys(v) { return H - (v - lo) / (hi - lo) * H; }
+  const rawPts = data.map(function(d, i) { return (i * xs) + "," + ys(d.weight); }).join(" ");
+  const area = "0," + H + " " + rawPts + " " + ((data.length - 1) * xs) + "," + H;
+  const trendPts = trendData
+    ? trendData.map(function(t, i) { return (i * xs) + "," + ys(t.trend); }).join(" ")
+    : null;
+  return /*#__PURE__*/React.createElement("div", { className: "chart-area" },
+    /*#__PURE__*/React.createElement("svg", {
+      width: "100%", height: "100%",
+      viewBox: "0 0 " + W + " " + H,
+      preserveAspectRatio: "none"
+    },
+      /*#__PURE__*/React.createElement("defs", null,
+        /*#__PURE__*/React.createElement("linearGradient", { id: "cg", x1: "0", y1: "0", x2: "0", y2: "1" },
+          /*#__PURE__*/React.createElement("stop", { offset: "0%", stopColor: "#6366f1", stopOpacity: "0.25" }),
+          /*#__PURE__*/React.createElement("stop", { offset: "100%", stopColor: "#6366f1", stopOpacity: "0" })
+        )
+      ),
+      /*#__PURE__*/React.createElement("polygon", { points: area, fill: "url(#cg)" }),
+      // Raw weight line — dots + line, slightly muted
+      /*#__PURE__*/React.createElement("polyline", {
+        points: rawPts, fill: "none", stroke: "#818cf8",
+        strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round",
+        strokeOpacity: "0.5"
+      }),
+      data.map(function(d, i) {
+        return /*#__PURE__*/React.createElement("circle", {
+          key: i, cx: i * xs, cy: ys(d.weight), r: "3",
+          fill: "#6366f1", stroke: "#a5b4fc", strokeWidth: "1", opacity: "0.6"
+        });
+      }),
+      // Trend line — smooth, amber, no dots — this is the signal
+      trendPts && /*#__PURE__*/React.createElement("polyline", {
+        points: trendPts, fill: "none", stroke: "#f59e0b",
+        strokeWidth: "2.5", strokeLinecap: "round", strokeLinejoin: "round"
+      })
+    ),
+    // Legend
+    trendData && /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", gap: 14, marginTop: 6, paddingLeft: 2 }
+    },
+      /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "var(--mu)" } },
+        /*#__PURE__*/React.createElement("div", { style: { width: 14, height: 2, background: "#818cf8", opacity: 0.6, borderRadius: 1 } }),
+        "Raw"
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "var(--ambl)" } },
+        /*#__PURE__*/React.createElement("div", { style: { width: 14, height: 2.5, background: "#f59e0b", borderRadius: 1 } }),
+        "Trend"
+      )
+    )
+  );
 }
 
 /* ── FoodDetail ── */
@@ -4856,63 +4868,116 @@ function DataBackup({
 }
 
 /* ── Adapt Engine ── */
-function computeAdapt(wlog, goals) {
+/* ── Adaptive TDEE Engine ── */
+// Uses EMA trend weight + reverse-engineered TDEE from real calorie/weight data.
+// Falls back to simple 7-day heuristic while data is still accumulating.
+function computeAdaptiveTDEE(wlog, entries, goals) {
   if (wlog.length < 7) return null;
-  const r = wlog.slice(-7);
-  const ch = r[r.length - 1].weight - r[0].weight;
   const goalType = goals.goalType || "cut";
-  const chAbs = Math.abs(ch).toFixed(1);
-  const direction = ch < 0 ? "Lost" : ch > 0 ? "Gained" : "No change";
 
-  let tgt, adj = 0, msg = "", state = "normal";
+  // ── Step 1: EMA trend weight (α=0.1 → ~10-day smoothing) ────────────
+  // Smooths out water weight / meal weight noise so the signal is clear.
+  const ALPHA = 0.1;
+  var ema = wlog[0].weight;
+  var trendData = wlog.map(function(w) {
+    ema = ALPHA * w.weight + (1 - ALPHA) * ema;
+    return { date: w.date, raw: w.weight, trend: Math.round(ema * 100) / 100 };
+  });
+  var latestTrend = trendData[trendData.length - 1].trend;
 
-  if (goalType === "bulk") {
-    tgt = 0.3; // target +0.3 lbs/week for lean bulk
-    const diff = ch - tgt;
-    if (Math.abs(diff) < 0.15) {
-      msg = "Lean bulk on track — gaining at your target pace. Keep doing exactly this.";
-      state = "ontrack";
-    } else if (diff < -0.15) {
-      adj = 75;
-      msg = direction + " " + chAbs + " lbs this week vs your 0.3 lb bulk target. Adding a small calorie bump to drive growth.";
-    } else {
-      adj = -75;
-      msg = direction + " " + chAbs + " lbs — gaining faster than target. Trim 75 kcal to keep the bulk lean.";
+  // ── Step 2: Reverse-engineer TDEE from calories in + trend weight change
+  // Formula: TDEE = (ΣCalories - ΔTrendWeight_lbs × 3500) / days
+  // 1 lb body mass ≈ 3500 kcal. Uses trend weight so noise doesn't corrupt it.
+  var estimatedTDEE = null;
+  var dataQuality = "low";
+  var windowDays = null;
+
+  if (wlog.length >= 14) {
+    var win = Math.min(wlog.length, 28); // up to 28 days for accuracy
+    windowDays = win;
+    var winData = trendData.slice(-win);
+    var weightChangeLbs = winData[win - 1].trend - winData[0].trend;
+
+    var totalCals = 0, loggedDays = 0;
+    winData.forEach(function(w) {
+      var dayCals = (entries[w.date] || []).reduce(function(s, e) { return s + (e.cal || 0); }, 0);
+      if (dayCals > 500) { // ignore days with very low logging (likely incomplete)
+        totalCals += dayCals;
+        loggedDays++;
+      }
+    });
+
+    var coverage = loggedDays / win;
+    if (coverage >= 0.6 && loggedDays >= 8) {
+      // Scale to fill estimated missing days using the logged average
+      var avgDayCals = totalCals / loggedDays;
+      var scaledCals = avgDayCals * win;
+      var raw = (scaledCals - weightChangeLbs * 3500) / win;
+      if (raw > 1200 && raw < 6000) { // sanity bounds
+        estimatedTDEE = Math.round(raw / 10) * 10;
+        dataQuality = coverage >= 0.85 ? "high" : "medium";
+      }
     }
-  } else if (goalType === "maintain") {
-    tgt = 0;
-    if (Math.abs(ch) < 0.2) {
-      msg = "Weight is stable — maintenance calories are dialled in. Keep it up.";
+  }
+
+  // ── Step 3: Compute target adjustment ───────────────────────────────
+  var adj = 0, msg = "", state = "normal";
+
+  if (estimatedTDEE) {
+    // TDEE-based: compute what the ideal target should be for this goal type
+    var idealTarget = goalType === "cut" ? estimatedTDEE - 400
+      : goalType === "bulk" ? estimatedTDEE + 250
+      : estimatedTDEE;
+    idealTarget = Math.round(idealTarget / 25) * 25;
+    var diff = idealTarget - goals.calories;
+
+    if (Math.abs(diff) < 50) {
       state = "ontrack";
-    } else if (ch < -0.2) {
-      adj = 75;
-      msg = direction + " " + chAbs + " lbs this week. Add 75 kcal to bring weight back to maintenance.";
+      msg = "Your target is perfectly calibrated to your actual metabolism. Keep doing exactly this.";
     } else {
-      adj = -75;
-      msg = direction + " " + chAbs + " lbs this week. Drop 75 kcal to bring weight back to maintenance.";
+      // Cap single adjustment at 200 kcal, round to nearest 25
+      adj = Math.sign(diff) * Math.min(Math.round(Math.abs(diff) / 25) * 25, 200);
+      var qLabel = dataQuality === "high" ? windowDays + " days" : "~" + windowDays + " days";
+      msg = "Based on " + qLabel + " of real data, your body is burning " +
+        estimatedTDEE.toLocaleString() + " kcal/day. " +
+        (adj > 0
+          ? "Your current target is creating less " + (goalType === "cut" ? "deficit" : "surplus") + " than intended."
+          : "Your target is slightly aggressive for your " + goalType + " goal.") +
+        " Adjusting by " + (adj > 0 ? "+" : "") + adj + " kcal aligns it with your true TDEE.";
     }
   } else {
-    // cut (default)
-    tgt = -0.5;
-    const diff = ch - tgt;
-    if (Math.abs(diff) < 0.15) {
-      msg = "Right on track — losing at your 0.5 lb/week target. Keep doing exactly this.";
-      state = "ontrack";
-    } else if (diff > 0.15) {
-      adj = -75;
-      msg = direction + " " + chAbs + " lbs this week vs your 0.5 lb target. Dropping calories slightly to increase the deficit.";
+    // Simple 7-day fallback while TDEE data accumulates
+    var r7 = wlog.slice(-7);
+    var ch = r7[r7.length - 1].weight - r7[0].weight;
+    var chAbs = Math.abs(ch).toFixed(1);
+    var dir = ch < 0 ? "Lost" : ch > 0 ? "Gained" : "No change";
+
+    if (goalType === "bulk") {
+      if (Math.abs(ch - 0.3) < 0.15) { state = "ontrack"; msg = "Lean bulk on track — gaining at your 0.3 lb/week target. Keep doing exactly this."; }
+      else if (ch < 0.15) { adj = 75; msg = dir + " " + chAbs + " lbs this week vs your 0.3 lb bulk target. Adding calories to drive growth."; }
+      else { adj = -75; msg = dir + " " + chAbs + " lbs — gaining faster than target. Trimming 75 kcal to keep the bulk lean."; }
+    } else if (goalType === "maintain") {
+      if (Math.abs(ch) < 0.2) { state = "ontrack"; msg = "Weight is stable — maintenance calories are dialled in. Keep it up."; }
+      else if (ch < -0.2) { adj = 75; msg = dir + " " + chAbs + " lbs this week. Adding 75 kcal to bring weight back to maintenance."; }
+      else { adj = -75; msg = dir + " " + chAbs + " lbs this week. Dropping 75 kcal to bring weight back to maintenance."; }
     } else {
-      adj = 75;
-      msg = direction + " " + chAbs + " lbs — faster than target. A small calorie bump protects muscle mass.";
+      var d7 = ch - (-0.5);
+      if (Math.abs(d7) < 0.15) { state = "ontrack"; msg = "Right on track — losing at your 0.5 lb/week target. Keep doing exactly this."; }
+      else if (d7 > 0.15) { adj = -75; msg = dir + " " + chAbs + " lbs this week vs your 0.5 lb target. Dropping calories slightly to increase the deficit."; }
+      else { adj = 75; msg = dir + " " + chAbs + " lbs — faster than target. A small calorie bump protects muscle mass."; }
     }
   }
 
   return {
-    ch: ch.toFixed(1),
-    adj,
+    estimatedTDEE: estimatedTDEE,
+    dataQuality: dataQuality,
+    trendData: trendData,
+    latestTrend: latestTrend,
+    windowDays: windowDays,
+    adj: adj,
     newCal: goals.calories + adj,
-    msg,
-    state
+    msg: msg,
+    state: state
   };
 }
 
@@ -6638,7 +6703,7 @@ function App() {
   const prevW = sorted[sorted.length - 2];
   const wDelta = latW && prevW ? (latW.weight - prevW.weight).toFixed(1) : null;
   const exerciseCal = calcExerciseCal(workouts[selectedDate] || [], latW ? latW.weight : null);
-  const adapt = computeAdapt(sorted, goals);
+  const adapt = computeAdaptiveTDEE(sorted, entries, goals);
   const isToday = selectedDate === todayISO();
   if (!onboarded) {
     return React.createElement(Onboarding, {
@@ -6964,8 +7029,13 @@ function App() {
     }
   }, "Not logged yet")), wDelta && /*#__PURE__*/React.createElement("div", {
     className: "w-delta " + (parseFloat(wDelta) <= 0 ? "dn" : "up")
-  }, parseFloat(wDelta) <= 0 ? "↓" : "↑", " ", Math.abs(wDelta), " lbs from last entry"), /*#__PURE__*/React.createElement(WeightChart, {
-    data: sorted
+  }, parseFloat(wDelta) <= 0 ? "↓" : "↑", " ", Math.abs(wDelta), " lbs from last entry"),
+  adapt && adapt.latestTrend && latW && Math.abs(adapt.latestTrend - latW.weight) > 0.1 && /*#__PURE__*/React.createElement("div", {
+    className: "w-trend"
+  }, "Trend: ", adapt.latestTrend, " lbs"),
+  /*#__PURE__*/React.createElement(WeightChart, {
+    data: sorted,
+    trendData: adapt && adapt.trendData ? adapt.trendData : null
   }), sorted.length > 1 && /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -6990,17 +7060,25 @@ function App() {
     }
   }, "Log Today's Weight"), /*#__PURE__*/React.createElement(LogWeightInline, {
     onLog: logWeight
-  })), adapt ? /*#__PURE__*/React.createElement("div", {
+  })),
+  adapt && adapt.estimatedTDEE && /*#__PURE__*/React.createElement("div", { className: "tdee-banner" },
+    /*#__PURE__*/React.createElement("div", null,
+      /*#__PURE__*/React.createElement("div", { className: "tdee-banner-val" }, adapt.estimatedTDEE.toLocaleString()),
+      /*#__PURE__*/React.createElement("div", { className: "tdee-banner-lbl" }, "kcal/day \u2014 your actual TDEE")
+    ),
+    /*#__PURE__*/React.createElement("div", { className: "tdee-banner-badge " + adapt.dataQuality },
+      adapt.dataQuality === "high" ? "\u2713 High confidence" : "~" + adapt.windowDays + " days data"
+    )
+  ),
+  adapt ? /*#__PURE__*/React.createElement("div", {
     className: "adapt" + (adapt.state === "ontrack" ? " ontrack" : "")
   }, /*#__PURE__*/React.createElement("div", {
     className: "adapt-head"
   }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 22
-    }
-  }, adapt.state === "ontrack" ? "✅" : "🧠"), /*#__PURE__*/React.createElement("span", {
+    style: { fontSize: 22 }
+  }, adapt.state === "ontrack" ? "\u2705" : "\uD83E\uDDE0"), /*#__PURE__*/React.createElement("span", {
     className: "adapt-title"
-  }, adapt.state === "ontrack" ? "On Track!" : "Weekly Adjustment")), /*#__PURE__*/React.createElement("div", {
+  }, adapt.state === "ontrack" ? "On Track!" : adapt.estimatedTDEE ? "Target Recalibration" : "Weekly Adjustment")), /*#__PURE__*/React.createElement("div", {
     className: "adapt-body"
   }, adapt.msg), adapt.adj !== 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "adapt-stats"
@@ -7046,31 +7124,28 @@ function App() {
     }
   }, "\uD83D\uDCCA"), /*#__PURE__*/React.createElement("span", {
     className: "adapt-title"
-  }, "Adaptive Engine")), /*#__PURE__*/React.createElement("div", {
+  }, "Adaptive TDEE Engine")), /*#__PURE__*/React.createElement("div", {
     className: "adapt-body",
-    style: {
-      marginBottom: 12
-    }
-  }, "Log your weight for ", /*#__PURE__*/React.createElement("strong", {
-    style: {
-      color: "var(--indll)"
-    }
-  }, Math.max(0, 7 - sorted.length), " more day", 7 - sorted.length !== 1 ? "s" : ""), " to unlock personalized weekly calorie adjustments."), /*#__PURE__*/React.createElement("div", {
+    style: { marginBottom: 12 }
+  },
+    sorted.length < 7
+      ? /*#__PURE__*/React.createElement("span", null, "Log your weight for ", /*#__PURE__*/React.createElement("strong", { style: { color: "var(--indll)" } }, 7 - sorted.length, " more day", 7 - sorted.length !== 1 ? "s" : ""), " to unlock weekly calorie adjustments.")
+      : /*#__PURE__*/React.createElement("span", null, "Weekly adjustments are active. Log for ", /*#__PURE__*/React.createElement("strong", { style: { color: "var(--ambl)" } }, Math.max(0, 14 - sorted.length), " more day", (14 - sorted.length) !== 1 ? "s" : ""), " to unlock your exact TDEE.")
+  ), /*#__PURE__*/React.createElement("div", {
     className: "unlock-dots"
-  }, Array.from({
-    length: 7
-  }, (_, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    className: "udot" + (i < sorted.length ? " on" : "")
-  }))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      fontSize: 10,
-      color: "var(--mu)",
-      marginTop: 6
-    }
-  }, /*#__PURE__*/React.createElement("span", null, sorted.length, "/7 days"), /*#__PURE__*/React.createElement("span", null, "Need 7"))), /*#__PURE__*/React.createElement("div", {
+  }, Array.from({ length: 14 }, function(_, i) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      className: "udot" + (i < sorted.length ? " on" : ""),
+      style: i === 6 ? { borderRight: "2px solid rgba(99,102,241,0.4)" } : {}
+    });
+  })), /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--mu)", marginTop: 6 }
+  },
+    /*#__PURE__*/React.createElement("span", null, sorted.length, "/14 days"),
+    /*#__PURE__*/React.createElement("span", { style: { color: "var(--ambl)" } }, sorted.length >= 7 ? "\u2713 Adjustments active" : "Need 7"),
+    /*#__PURE__*/React.createElement("span", null, "TDEE unlock: 14")
+  )), /*#__PURE__*/React.createElement("div", {
     style: {
       background: "var(--s1)",
       border: "1px solid var(--b1)",

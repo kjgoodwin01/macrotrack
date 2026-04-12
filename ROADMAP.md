@@ -18,7 +18,7 @@ Goal: downloadable app store app generating subscription revenue, beating MFP an
 
 ## Phase 2 — Competitive Parity
 
-- [ ] Adaptive TDEE algorithm — MacroFactor's core differentiator; uses logged weight trend to reverse-engineer actual calorie burn and auto-adjust targets
+- [x] Adaptive TDEE algorithm — EMA trend weight + reverse-engineered TDEE from real calorie/weight data; falls back to 7-day heuristic while data accumulates; trend line on chart
 - [ ] Apple Health / Google Fit sync — required for serious fitness app users
 - [ ] Recipe builder — log multi-ingredient meals
 - [ ] Capacitor wrapper — wraps existing web code as a native iOS + Android app for app store submission
