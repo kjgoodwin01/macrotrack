@@ -6504,7 +6504,7 @@ function App() {
       // Migrate Supabase rows from anonymous device_id to auth UID
       fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "auth_migrate", oldDeviceId: oldDeviceId, newUserId: authUser.id })
+        body: JSON.stringify({ type: "auth_migrate", oldDeviceId: oldDeviceId, newUserId: authUser.id, email: authUser.email || "" })
       }).catch(function(){});
       localStorage.setItem("mt_device_id", authUser.id);
     }
