@@ -5496,8 +5496,7 @@ function CoachTab({
       setReport(d.text || d.message || "");
       setReportDate(key);
     } catch (e) {
-      setReport("Could not generate report. Please try again.");
-      setReportDate(key);
+      setReport("Could not generate report. Check your Worker URL in Goals.");
     } finally {
       setReportLoading(false);
     }
