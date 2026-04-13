@@ -6454,7 +6454,7 @@ function getWeeklyVolume(workouts, mondayDate) {
         : (parseInt(ex.sets) || 1);
       result[g] = (result[g] || 0) + sets;
     });
-  });
+  }
   return result;
 }
 
