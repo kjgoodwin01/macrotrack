@@ -137,10 +137,16 @@ async function verifyStripeSignature(rawBody, sigHeader, secret) {
   return hex === sig;
 }
 
-async function getSubscriptionTier(env, deviceId) {
+async function getSubscriptionTier(env, deviceId, email) {
   if (!deviceId) return "free";
   const r = await sb(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
-  return (r.data && r.data[0] && r.data[0].subscription_status) || "free";
+  if (r.data && r.data[0]) return r.data[0].subscription_status || "free";
+  // Fallback: look up by email if device_id didn't match any profile
+  if (email) {
+    const byEmail = await sb(env, "GET", "profiles?email=eq." + encodeURIComponent(email.trim().toLowerCase()) + "&limit=1");
+    if (byEmail.data && byEmail.data[0]) return byEmail.data[0].subscription_status || "free";
+  }
+  return "free";
 }
 
 function getMondayISO() {
@@ -856,14 +862,20 @@ export default {
 
     // ── SYNC: Load ────────────────────────────────────────────────────────
     if (type === "sync_load") {
-      const { deviceId } = body;
+      const { deviceId, email } = body;
       if (!deviceId) return jsonRes({ error: "Missing deviceId" }, 400, cors);
       const [profile, entries, wlog] = await Promise.all([
         sb(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1"),
         sb(env, "GET", "food_entries?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=500"),
         sb(env, "GET", "weight_log?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=200"),
       ]);
-      const profileRow = (profile.data && profile.data[0]) || null;
+      let profileRow = (profile.data && profile.data[0]) || null;
+      // If device_id lookup found nothing and we have an email, try email fallback
+      // (handles cases where device_id shifted after auth migration)
+      if (!profileRow && email) {
+        const byEmail = await sb(env, "GET", "profiles?email=eq." + encodeURIComponent(email.trim().toLowerCase()) + "&limit=1");
+        profileRow = (byEmail.data && byEmail.data[0]) || null;
+      }
       return jsonRes({
         profile: profileRow,
         entries: entries.data || [],
@@ -1273,9 +1285,9 @@ export default {
 
     // ── MEAL PLAN ─────────────────────────────────────────────────────────
     if (type === "meal_plan") {
-      const { days, calories, protein, carbs, fat, goalType, preferences, context, deviceId } = body;
+      const { days, calories, protein, carbs, fat, goalType, preferences, context, deviceId, email } = body;
       if (!days || !calories) return jsonRes({ error: "Missing plan parameters" }, 400, cors);
-      const tier = await getSubscriptionTier(env, deviceId || "");
+      const tier = await getSubscriptionTier(env, deviceId || "", email || "");
       if (tier === "free") return jsonRes({ error: "pro_required" }, 403, cors);
       if (tier === "pro") {
         const usage = await getWeeklyUsage(env, deviceId, "mealplan");
@@ -1325,6 +1337,33 @@ export default {
           return jsonRes({ error: "Invalid plan structure — try again" }, 500, cors);
         }
 
+        // Recalculate day totals from actual item values — don't trust AI math
+        plan.days.forEach(function(day) {
+          var cal = 0, prot = 0, carbs = 0, fat = 0;
+          Object.values(day.meals || {}).forEach(function(items) {
+            (items || []).forEach(function(item) {
+              cal   += parseFloat(item.cal) || 0;
+              prot  += parseFloat(item.p)   || 0;
+              carbs += parseFloat(item.c)   || 0;
+              fat   += parseFloat(item.f)   || 0;
+            });
+          });
+          day.totalCal     = Math.round(cal);
+          day.totalProtein = Math.round(prot);
+          day.totalCarbs   = Math.round(carbs);
+          day.totalFat     = Math.round(fat);
+        });
+
+        // Strip cooking adjectives so "Grilled Chicken Breast" and "Chicken Breast"
+        // consolidate into a single shopping list entry
+        function normalizeFood(name) {
+          return (name || "").toLowerCase()
+            .replace(/\b(grilled|baked|roasted|steamed|boiled|raw|diced|sliced|chopped|cooked|fried|sauteed|sautéed|fresh|frozen|canned|plain|whole|lean|ground|shredded|minced|mashed)\b/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+
+        // totals: key = normalized name, value = { grams, displayName }
         const totals = {};
         plan.days.forEach(function(day) {
           Object.values(day.meals || {}).forEach(function(items) {
@@ -1332,7 +1371,12 @@ export default {
               const name = item.food;
               const grams = parseFloat(String(item.amount).replace(/[^0-9.]/g, "")) || 0;
               if (name && grams > 0) {
-                totals[name] = (totals[name] || 0) + grams;
+                const key = normalizeFood(name);
+                if (totals[key]) {
+                  totals[key].grams += grams;
+                } else {
+                  totals[key] = { grams, displayName: name };
+                }
               }
             });
           });
@@ -1393,12 +1437,12 @@ export default {
         }
 
         const shoppingList = { "Proteins": [], "Grains & Carbs": [], "Fruits & Vegetables": [], "Dairy & Eggs": [], "Other": [] };
-        Object.keys(totals).forEach(function(foodName) {
-          const totalGrams = totals[foodName];
-          const withBuffer = totalGrams * 1.1;
-          const qty = gramsToUS(withBuffer, foodName);
-          const cat = categorize(foodName);
-          shoppingList[cat].push({ item: foodName, qty: qty });
+        Object.keys(totals).forEach(function(key) {
+          const { grams, displayName } = totals[key];
+          const withBuffer = grams * 1.1;
+          const qty = gramsToUS(withBuffer, displayName);
+          const cat = categorize(displayName);
+          shoppingList[cat].push({ item: displayName, qty: qty });
         });
 
         Object.keys(shoppingList).forEach(function(k) {
@@ -1416,9 +1460,9 @@ export default {
 
     // ── COACH REPORT ──────────────────────────────────────────────────────
     if (type === "coach_report") {
-      const { context, prompt, coachMode, deviceId } = body;
+      const { context, prompt, coachMode, deviceId, email } = body;
       if (!context) return jsonRes({ error: "Missing context" }, 400, cors);
-      const tier = await getSubscriptionTier(env, deviceId || "");
+      const tier = await getSubscriptionTier(env, deviceId || "", email || "");
       if (tier === "free") return jsonRes({ error: "pro_required" }, 403, cors);
       const model = tier === "max" ? "claude-sonnet-4-6" : "claude-haiku-4-5-20251001";
       const system = getCoachSystem(coachMode);
@@ -1432,9 +1476,9 @@ export default {
 
     // ── COACH CHAT ────────────────────────────────────────────────────────
     if (type === "coach_chat") {
-      const { context, messages, coachMode, deviceId } = body;
+      const { context, messages, coachMode, deviceId, email } = body;
       if (!context || !messages) return jsonRes({ error: "Missing context or messages" }, 400, cors);
-      const tier = await getSubscriptionTier(env, deviceId || "");
+      const tier = await getSubscriptionTier(env, deviceId || "", email || "");
       if (tier === "free") return jsonRes({ error: "pro_required" }, 403, cors);
       if (tier === "pro") {
         const usage = await getDailyUsage(env, deviceId, "coach");
@@ -1930,9 +1974,9 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
 
     // ── STRIPE: Get subscription status ──────────────────────────────────
     if (type === "get_subscription") {
-      const { deviceId } = body;
+      const { deviceId, email } = body;
       if (!deviceId) return jsonRes({ error: "Missing deviceId" }, 400, cors);
-      const tier = await getSubscriptionTier(env, deviceId);
+      const tier = await getSubscriptionTier(env, deviceId, email || "");
       return jsonRes({ subscription_status: tier }, 200, cors);
     }
 

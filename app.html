@@ -853,10 +853,11 @@ async function loadFromCloud(workerUrl) {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        type: "sync_load",
-        deviceId: effectiveUserId()
-      })
+      body: JSON.stringify((function() {
+        var payload = { type: "sync_load", deviceId: effectiveUserId() };
+        try { var e = JSON.parse(localStorage.getItem("mt_linked_email") || "null"); if (e) payload.email = e; } catch(_) {}
+        return payload;
+      })())
     });
     if (!r.ok) return null;
     return await r.json();
@@ -4285,7 +4286,9 @@ function MealPlanTab({
   goals,
   workerUrl,
   entries,
-  wlog
+  wlog,
+  onLogDay,
+  showToast
 }) {
   const [days, setDays] = useLocal("mt_mp_days", 5);
   const [plan, setPlan] = useLocal("mt_mp_plan", null);
@@ -4390,7 +4393,7 @@ function MealPlanTab({
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [openDays, setOpenDays] = useState({});
-  const [checked, setChecked] = useState({});
+  const [checked, setChecked] = useLocal("mt_mp_checked", {});
   const PROTEIN_OPTS = ["Chicken", "Turkey", "Beef", "Salmon", "Tuna", "Shrimp", "Eggs", "Greek Yogurt", "Cottage Cheese", "Tofu", "Tempeh"];
   const CARB_OPTS = ["White Rice", "Brown Rice", "Oats", "Sweet Potato", "Quinoa", "Pasta", "Bread", "Fruits", "Potatoes"];
   const FAT_OPTS = ["Avocado", "Olive Oil", "Nuts", "Nut Butter", "Cheese", "Whole Eggs", "Salmon"];
@@ -4508,6 +4511,24 @@ function MealPlanTab({
       setErr("Could not generate plan: " + e.message + ". Please try again.");
     }
     setLoading(false);
+  }
+  function copyShoppingList() {
+    if (!plan || !plan.shoppingList) return;
+    var lines = [];
+    Object.keys(plan.shoppingList).forEach(function(cat) {
+      var items = plan.shoppingList[cat];
+      if (!items || items.length === 0) return;
+      lines.push(cat.toUpperCase());
+      items.forEach(function(item) {
+        lines.push("• " + item.item + " — " + item.qty);
+      });
+      lines.push("");
+    });
+    navigator.clipboard.writeText(lines.join("\n").trim()).then(function() {
+      showToast("✓ Shopping list copied");
+    }).catch(function() {
+      showToast("Could not copy — try again");
+    });
   }
   const MEAL_EMOJIS = {
     "Breakfast": "🌅",
@@ -4924,7 +4945,11 @@ function MealPlanTab({
           }
         }, item.cal, " kcal")));
       }));
-    })));
+    }), /*#__PURE__*/React.createElement("button", {
+      className: "btn-ghost",
+      style: {marginTop: 10, fontSize: 13, width: "100%"},
+      onClick: function(e) {e.stopPropagation(); onLogDay(day);}
+    }, "Log this day to today")));
   }), plan && plan.shoppingList && /*#__PURE__*/React.createElement("div", {
     className: "mp-shopping-card"
   }, /*#__PURE__*/React.createElement("div", {
@@ -4944,7 +4969,7 @@ function MealPlanTab({
     }, /*#__PURE__*/React.createElement("div", {
       className: "mp-shop-cat-title"
     }, cat), items.map(function (item, ii) {
-      const k = cat + "-" + ii;
+      const k = item.item;
       const isChecked = checked[k];
       return /*#__PURE__*/React.createElement("div", {
         className: "mp-shop-item",
@@ -4970,16 +4995,17 @@ function MealPlanTab({
         className: "mp-shop-qty"
       }, item.qty));
     }));
-  }), /*#__PURE__*/React.createElement("button", {
+  }), /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 8, marginTop: 12 }
+  }, /*#__PURE__*/React.createElement("button", {
     className: "btn-ghost",
-    style: {
-      marginTop: 12,
-      fontSize: 12
-    },
-    onClick: function () {
-      setChecked({});
-    }
-  }, "Clear all checks")), !plan && !loading && /*#__PURE__*/React.createElement("div", {
+    style: { flex: 1, fontSize: 12 },
+    onClick: copyShoppingList
+  }, "Copy list"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-ghost",
+    style: { flex: 1, fontSize: 12 },
+    onClick: function () { setChecked({}); }
+  }, "Clear checks"))), !plan && !loading && /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: "center",
       padding: "30px 20px",
@@ -6756,6 +6782,25 @@ function App() {
     });
   }, [workerUrl]);
 
+  // Re-check subscription when navigating to a gated tab (coach/meals),
+  // throttled to once per 60 seconds so it doesn't spam the worker.
+  useEffect(function() {
+    if (!workerUrl || !onboarded) return;
+    if (tab !== "coach" && tab !== "meals") return;
+    var lastCheck = subscription.checkedAt || 0;
+    if (Date.now() - lastCheck < 60000) return;
+    var subPayload = { type: "get_subscription", deviceId: effectiveUserId() };
+    try { var _e = JSON.parse(localStorage.getItem("mt_linked_email") || "null"); if (_e) subPayload.email = _e; } catch(_) {}
+    fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(subPayload)
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.subscription_status) {
+        setSubscriptionRaw({ status: data.subscription_status, checkedAt: Date.now() });
+      }
+    }).catch(function(){});
+  }, [tab]);
+
   // ── Stripe checkout return handler ────────────────────────────────────
   useEffect(function() {
     const params = new URLSearchParams(window.location.search);
@@ -6879,6 +6924,33 @@ function App() {
       return n;
     });
     showToast("✓ Food logged");
+  }
+  function logMealPlanDay(dayData) {
+    var target = todayISO();
+    var now = Date.now();
+    var toAdd = [];
+    ["Breakfast", "Lunch", "Dinner", "Snack"].forEach(function(meal) {
+      var items = (dayData.meals || {})[meal] || [];
+      items.forEach(function(item, i) {
+        var entry = {
+          name: item.food,
+          cal: parseFloat(item.cal) || 0,
+          p: parseFloat(item.p) || 0,
+          c: parseFloat(item.c) || 0,
+          f: parseFloat(item.f) || 0,
+          meal: meal,
+          id: now + toAdd.length
+        };
+        toAdd.push(entry);
+        syncToCloud(workerUrl, "sync_add_entry", Object.assign({}, {entry: Object.assign({}, entry, {date: target})}));
+      });
+    });
+    setEntriesRaw(function(prev) {
+      var n = Object.assign({}, prev);
+      n[target] = (prev[target] || []).concat(toAdd);
+      return n;
+    });
+    showToast("✓ " + dayData.day + " logged to today");
   }
   function delEntry(id) {
     // Remove from local state immediately for instant UI feedback
@@ -7563,7 +7635,9 @@ function App() {
     : /*#__PURE__*/React.createElement(MealPlanTab, {
         goals: goals, workerUrl: workerUrl,
         entries: entries, wlog: wlog,
-        subscription: subscription
+        subscription: subscription,
+        onLogDay: logMealPlanDay,
+        showToast: showToast
       })
   ), tab === "goals" && /*#__PURE__*/React.createElement("div", {
     className: "page"
