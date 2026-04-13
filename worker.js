@@ -1786,16 +1786,36 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
       if (rec.code !== code.trim()) return jsonRes({ error: "Incorrect code — try again" }, 400, cors);
       await env.CODES.delete("auth_otp:" + emailClean); // one-time use
 
-      // Check if this email is already linked to an existing account
-      const existing = await sb(env, "GET",
+      // Check if this email is already linked to an existing account (OTP-linked profiles)
+      let existingDeviceId = null;
+      const byEmail = await sb(env, "GET",
         "profiles?email=eq." + encodeURIComponent(emailClean) + "&limit=1");
 
-      if (existing.data && existing.data.length > 0) {
-        // Returning user — migrate their data to the current device if needed
-        const existingDeviceId = existing.data[0].device_id;
+      if (byEmail.data && byEmail.data.length > 0) {
+        existingDeviceId = byEmail.data[0].device_id;
+      } else if (env.SUPABASE_SERVICE_ROLE_KEY) {
+        // Not found by email — user may have signed in with Google OAuth previously
+        // (email never stored in profiles). Look them up via Supabase auth admin API.
+        try {
+          const authResp = await fetch(
+            env.SUPABASE_URL + "/auth/v1/admin/users?email=" + encodeURIComponent(emailClean) + "&page=1&per_page=1",
+            { headers: { "Authorization": "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY, "apikey": env.SUPABASE_SERVICE_ROLE_KEY } }
+          );
+          const authData = await authResp.json();
+          const authUser = authData.users && authData.users[0];
+          if (authUser && authUser.id) {
+            // Confirm a profile exists for this auth UID
+            const byUid = await sb(env, "GET", "profiles?device_id=eq." + encodeURIComponent(authUser.id) + "&limit=1");
+            if (byUid.data && byUid.data.length > 0) existingDeviceId = authUser.id;
+          }
+        } catch(e) { /* fall through to new user path if lookup fails */ }
+      }
+
+      if (existingDeviceId) {
+        // Returning user — migrate their data to the current device and store email
         if (existingDeviceId !== deviceId) {
           await Promise.all([
-            sb(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId }),
+            sb(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId, email: emailClean }),
             sb(env, "PATCH", "food_entries?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId }),
             sb(env, "PATCH", "weight_log?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId }),
           ]);
