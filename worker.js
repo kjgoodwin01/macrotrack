@@ -895,21 +895,17 @@ export default {
       let resolvedDeviceId = deviceId;
       let profileCheck = await sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
       if ((!profileCheck.data || profileCheck.data.length === 0) && email) {
+        // Device ID has no profile — look up by email and use that profile's device_id.
+        // We cannot change the profile's device_id due to FK constraint from food_entries.
         const emailClean = email.trim().toLowerCase();
         const byEmail = await sbAdmin(env, "GET", "profiles?email=eq." + encodeURIComponent(emailClean) + "&limit=1");
         if (byEmail.data && byEmail.data.length > 0) {
-          // Found profile by email — update its device_id to current so future calls work directly
-          const oldId = byEmail.data[0].device_id;
-          await sbAdmin(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(oldId), { device_id: deviceId });
-          resolvedDeviceId = deviceId; // profile is now under current deviceId
-        }
-      }
-      if (resolvedDeviceId === deviceId && (!profileCheck.data || profileCheck.data.length === 0)) {
-        // Re-check after potential email-based repair
-        const recheck = await sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
-        if (!recheck.data || recheck.data.length === 0) {
+          resolvedDeviceId = byEmail.data[0].device_id; // store entry under the existing profile
+        } else {
           return jsonRes({ error: "Profile not found — complete onboarding first" }, 403, cors);
         }
+      } else if (!profileCheck.data || profileCheck.data.length === 0) {
+        return jsonRes({ error: "Profile not found — complete onboarding first" }, 403, cors);
       }
       const result = await sb(env, "POST", "food_entries", {
         device_id: resolvedDeviceId, log_date: entry.date, meal: entry.meal,
@@ -1827,56 +1823,29 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
       // Check if this email is already linked to an existing account.
       // Use sbAdmin (service role key) to bypass RLS — we need to read another user's row.
       let existingDeviceId = null;
-      let _debug = { step: "start", email: emailClean };
 
       const byEmail = await sbAdmin(env, "GET",
         "profiles?email=eq." + encodeURIComponent(emailClean) + "&limit=1");
-      _debug.byEmailOk = byEmail.ok;
-      _debug.byEmailStatus = byEmail.status;
-      _debug.byEmailCount = Array.isArray(byEmail.data) ? byEmail.data.length : byEmail.data;
 
       if (byEmail.data && byEmail.data.length > 0) {
         existingDeviceId = byEmail.data[0].device_id;
-        _debug.step = "found_by_email";
-      } else {
-        _debug.step = "email_not_in_profiles";
-        _debug.hasServiceKey = !!env.SUPABASE_SERVICE_ROLE_KEY;
-        // Not found by email in profiles — user may have signed in with Google OAuth previously
-        // (email never stored in profiles). Look them up via Supabase auth admin API,
-        // then find their profile by auth UID.
+      } else if (env.SUPABASE_SERVICE_ROLE_KEY) {
+        // Not found by email in profiles — user may have signed in with Google OAuth previously.
+        // Look them up via Supabase auth admin API, then find their profile by auth UID.
         try {
-          // The GoTrue admin users endpoint doesn't reliably filter by email,
-          // so we fetch up to 1000 users and find the match ourselves.
           const authResp = await fetch(
             env.SUPABASE_URL + "/auth/v1/admin/users?page=1&per_page=1000",
             { headers: { "Authorization": "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY, "apikey": env.SUPABASE_SERVICE_ROLE_KEY } }
           );
           const authData = await authResp.json();
           const users = Array.isArray(authData.users) ? authData.users : [];
-          _debug.adminApiUserCount = users.length;
-          _debug.adminApiEmails = users.map(u => u.email);
           const matched = users.find(u => u.email && u.email.toLowerCase() === emailClean);
-          _debug.matched = matched ? matched.id : null;
           if (matched && matched.id) {
-            // Confirm a profile exists for this auth UID
             const byUid = await sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(matched.id) + "&limit=1");
-            _debug.byUidCount = Array.isArray(byUid.data) ? byUid.data.length : byUid.data;
-            if (byUid.data && byUid.data.length > 0) {
-              existingDeviceId = matched.id;
-              _debug.step = "found_by_auth_uid";
-            } else {
-              _debug.step = "auth_uid_no_profile";
-            }
-          } else {
-            _debug.step = "not_in_auth_users";
+            if (byUid.data && byUid.data.length > 0) existingDeviceId = matched.id;
           }
-        } catch(e) {
-          _debug.step = "admin_api_error";
-          _debug.error = e.message;
-        }
+        } catch(e) { /* fall through to new user path */ }
       }
-      _debug.existingDeviceId = existingDeviceId;
-      console.log("[verify_auth_otp]", JSON.stringify(_debug));
 
       if (existingDeviceId) {
         // Returning user — load their data by existing device_id.
