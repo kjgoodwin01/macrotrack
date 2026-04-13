@@ -50,6 +50,27 @@ async function sb(env, method, path, body) {
   catch (e) { return { ok: res.ok, status: res.status, data: text }; }
 }
 
+// Service-role key variant — bypasses RLS for cross-user lookups
+async function sbAdmin(env, method, path, body) {
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) return { ok: false, status: 503, data: "No service role key" };
+  const prefer = method === "POST"
+    ? "resolution=merge-duplicates,return=representation"
+    : "return=representation";
+  const res = await fetch(env.SUPABASE_URL + "/rest/v1/" + path, {
+    method: method,
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": env.SUPABASE_SERVICE_ROLE_KEY,
+      "Authorization": "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY,
+      "Prefer": prefer,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  try { return { ok: res.ok, status: res.status, data: JSON.parse(text) }; }
+  catch (e) { return { ok: res.ok, status: res.status, data: text }; }
+}
+
 async function callClaude(apiKey, system, messages, maxTokens, model) {
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -1784,59 +1805,92 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
       let rec;
       try { rec = JSON.parse(stored); } catch(e) { return jsonRes({ error: "Invalid code data" }, 500, cors); }
       if (rec.code !== code.trim()) return jsonRes({ error: "Incorrect code — try again" }, 400, cors);
-      await env.CODES.delete("auth_otp:" + emailClean); // one-time use
+      // Don't delete the code yet — do the DB work first so that if the request
+      // times out or the connection drops, the user can retry with the same code.
 
-      // Check if this email is already linked to an existing account (OTP-linked profiles)
+      // Check if this email is already linked to an existing account.
+      // Use sbAdmin (service role key) to bypass RLS — we need to read another user's row.
       let existingDeviceId = null;
-      const byEmail = await sb(env, "GET",
+      let _debug = { step: "start", email: emailClean };
+
+      const byEmail = await sbAdmin(env, "GET",
         "profiles?email=eq." + encodeURIComponent(emailClean) + "&limit=1");
+      _debug.byEmailOk = byEmail.ok;
+      _debug.byEmailStatus = byEmail.status;
+      _debug.byEmailCount = Array.isArray(byEmail.data) ? byEmail.data.length : byEmail.data;
 
       if (byEmail.data && byEmail.data.length > 0) {
         existingDeviceId = byEmail.data[0].device_id;
-      } else if (env.SUPABASE_SERVICE_ROLE_KEY) {
-        // Not found by email — user may have signed in with Google OAuth previously
-        // (email never stored in profiles). Look them up via Supabase auth admin API.
+        _debug.step = "found_by_email";
+      } else {
+        _debug.step = "email_not_in_profiles";
+        _debug.hasServiceKey = !!env.SUPABASE_SERVICE_ROLE_KEY;
+        // Not found by email in profiles — user may have signed in with Google OAuth previously
+        // (email never stored in profiles). Look them up via Supabase auth admin API,
+        // then find their profile by auth UID.
         try {
+          // The GoTrue admin users endpoint doesn't reliably filter by email,
+          // so we fetch up to 1000 users and find the match ourselves.
           const authResp = await fetch(
-            env.SUPABASE_URL + "/auth/v1/admin/users?email=" + encodeURIComponent(emailClean) + "&page=1&per_page=1",
+            env.SUPABASE_URL + "/auth/v1/admin/users?page=1&per_page=1000",
             { headers: { "Authorization": "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY, "apikey": env.SUPABASE_SERVICE_ROLE_KEY } }
           );
           const authData = await authResp.json();
-          const authUser = authData.users && authData.users[0];
-          if (authUser && authUser.id) {
+          const users = Array.isArray(authData.users) ? authData.users : [];
+          _debug.adminApiUserCount = users.length;
+          _debug.adminApiEmails = users.map(u => u.email);
+          const matched = users.find(u => u.email && u.email.toLowerCase() === emailClean);
+          _debug.matched = matched ? matched.id : null;
+          if (matched && matched.id) {
             // Confirm a profile exists for this auth UID
-            const byUid = await sb(env, "GET", "profiles?device_id=eq." + encodeURIComponent(authUser.id) + "&limit=1");
-            if (byUid.data && byUid.data.length > 0) existingDeviceId = authUser.id;
+            const byUid = await sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(matched.id) + "&limit=1");
+            _debug.byUidCount = Array.isArray(byUid.data) ? byUid.data.length : byUid.data;
+            if (byUid.data && byUid.data.length > 0) {
+              existingDeviceId = matched.id;
+              _debug.step = "found_by_auth_uid";
+            } else {
+              _debug.step = "auth_uid_no_profile";
+            }
+          } else {
+            _debug.step = "not_in_auth_users";
           }
-        } catch(e) { /* fall through to new user path if lookup fails */ }
+        } catch(e) {
+          _debug.step = "admin_api_error";
+          _debug.error = e.message;
+        }
       }
+      console.log("[verify_auth_otp]", JSON.stringify(_debug));
 
       if (existingDeviceId) {
-        // Returning user — migrate their data to the current device and store email
-        if (existingDeviceId !== deviceId) {
-          await Promise.all([
-            sb(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId, email: emailClean }),
-            sb(env, "PATCH", "food_entries?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId }),
-            sb(env, "PATCH", "weight_log?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId }),
-          ]);
-        }
-        // Load their data
+        // Returning user — load their data first (by existing device_id), then migrate.
+        // Load before migrate so we always have data to return even if migration partially fails.
+        // Use sbAdmin throughout to bypass RLS.
         const [profile, entries, wlog] = await Promise.all([
-          sb(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1"),
-          sb(env, "GET", "food_entries?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=500"),
-          sb(env, "GET", "weight_log?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=200"),
+          sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(existingDeviceId) + "&limit=1"),
+          sbAdmin(env, "GET", "food_entries?device_id=eq." + encodeURIComponent(existingDeviceId) + "&order=log_date.asc&limit=500"),
+          sbAdmin(env, "GET", "weight_log?device_id=eq." + encodeURIComponent(existingDeviceId) + "&order=log_date.asc&limit=200"),
         ]);
+        // Migrate device_id to this device (best-effort, non-blocking)
+        if (existingDeviceId !== deviceId) {
+          Promise.all([
+            sbAdmin(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId, email: emailClean }),
+            sbAdmin(env, "PATCH", "food_entries?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId }),
+            sbAdmin(env, "PATCH", "weight_log?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId }),
+          ]).catch(function(){});
+        }
+        await env.CODES.delete("auth_otp:" + emailClean); // consumed — delete now
         return jsonRes({ ok: true, returning: true, profile: (profile.data && profile.data[0]) || null, entries: entries.data || [], wlog: wlog.data || [] }, 200, cors);
       }
 
       // New user — link email to their current device profile
-      await sb(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(deviceId), { email: emailClean });
+      await sbAdmin(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(deviceId), { email: emailClean });
+      await env.CODES.delete("auth_otp:" + emailClean); // consumed — delete now
       return jsonRes({ ok: true, returning: false }, 200, cors);
     }
 
     // ── AUTH MIGRATE: move all rows from anonymous device_id to auth UID ─
     if (type === "auth_migrate") {
-      const { oldDeviceId, newUserId } = body;
+      const { oldDeviceId, newUserId, email } = body;
       if (!oldDeviceId || !newUserId) return jsonRes({ error: "Missing data" }, 400, cors);
       if (oldDeviceId === newUserId) return jsonRes({ ok: true, noop: true }, 200, cors);
 
@@ -1844,13 +1898,19 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
       const profileCheck = await sb(env, "GET",
         "profiles?device_id=eq." + encodeURIComponent(oldDeviceId) + "&limit=1");
       if (!profileCheck.data || profileCheck.data.length === 0) {
+        // No old profile to migrate. If we have the newUserId profile, make sure email is stored.
+        if (email) {
+          await sbAdmin(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(newUserId),
+            { email: email.trim().toLowerCase() });
+        }
         return jsonRes({ ok: true, noop: true }, 200, cors);
       }
 
-      // Migrate all three tables atomically (best-effort)
+      // Migrate all three tables and store email for future OTP sign-ins
+      const profilePatch = { device_id: newUserId };
+      if (email) profilePatch.email = email.trim().toLowerCase();
       await Promise.all([
-        sb(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(oldDeviceId),
-          { device_id: newUserId }),
+        sb(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(oldDeviceId), profilePatch),
         sb(env, "PATCH", "food_entries?device_id=eq." + encodeURIComponent(oldDeviceId),
           { device_id: newUserId }),
         sb(env, "PATCH", "weight_log?device_id=eq." + encodeURIComponent(oldDeviceId),
