@@ -891,7 +891,8 @@ export default {
     if (type === "sync_add_entry") {
       const { deviceId, entry } = body;
       if (!deviceId || !entry) return jsonRes({ error: "Missing data" }, 400, cors);
-      const profileCheck = await sb(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
+      const profileCheck = await sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
+      console.log("[sync_add_entry] deviceId=" + deviceId + " profileFound=" + (profileCheck.data && profileCheck.data.length > 0) + " status=" + profileCheck.status);
       if (!profileCheck.data || profileCheck.data.length === 0) {
         return jsonRes({ error: "Profile not found — complete onboarding first" }, 403, cors);
       }
