@@ -6772,34 +6772,19 @@ function App() {
   }, []);
 
   function handleAppUpdate() {
-    // Guard: if somehow called without a waiting SW, try fetching a fresh registration
-    // to find it — don't fall back to a plain reload which would load the old version.
-    if (!window._swWaiting) {
-      navigator.serviceWorker.getRegistration().then(function(reg) {
-        if (reg && reg.waiting) {
-          window._swWaiting = reg.waiting;
-          doSkipWaiting();
-        } else {
-          window.location.reload(); // last resort — no waiting SW found
-        }
-      });
-      return;
-    }
-    doSkipWaiting();
-
-    function doSkipWaiting() {
-      window._updateTriggered = true;
-      try {
-        window._swWaiting.postMessage({ type: "SKIP_WAITING" });
-      } catch (e) {
-        // SW reference went stale — force a hard reload
-        window.location.reload();
-        return;
+    // Always fetch a fresh registration so we have the current waiting SW reference,
+    // not a potentially stale window._swWaiting stored earlier.
+    navigator.serviceWorker.getRegistration().then(function(reg) {
+      var sw = (reg && reg.waiting) ? reg.waiting : window._swWaiting;
+      if (sw) {
+        try { sw.postMessage({ type: "SKIP_WAITING" }); } catch (e) {}
       }
-      // Safety net: controllerchange should fire within ~2s after skipWaiting.
-      // If it doesn't (SW was terminated mid-wait or some other hiccup), force reload.
+      // Safety net: controllerchange should trigger a reload via the listener below.
+      // If it doesn't fire within 3s (edge case), force the reload ourselves.
       setTimeout(function() { window.location.reload(); }, 3000);
-    }
+    }).catch(function() {
+      window.location.reload();
+    });
   }
 
   // Week navigation state
@@ -8254,13 +8239,9 @@ if ("serviceWorker" in navigator) {
       });
     }).catch(function (e) { console.log("SW registration failed:", e); });
 
-    // When the new SW takes control (after SKIP_WAITING), reload into fresh version.
-    // Only act if the user intentionally triggered the update (window._updateTriggered),
-    // so a stray controllerchange from an unrelated SW event doesn't silently reload.
+    // When the new SW takes control (after SKIP_WAITING), reload into the fresh version.
     navigator.serviceWorker.addEventListener("controllerchange", function () {
-      if (window._updateTriggered) {
-        window.location.reload();
-      }
+      window.location.reload();
     });
   });
 }
