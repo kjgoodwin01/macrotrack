@@ -3331,7 +3331,7 @@ function AuthModal({ onClose, onSignedIn, mode, workerUrl }) {
       var data = await r.json();
       if (!r.ok || data.error) { setError(data.error || "Invalid code"); setLoading(false); return; }
       localStorage.setItem("mt_linked_email", JSON.stringify(emailClean));
-      onSignedIn({ email: emailClean, returning: data.returning, profile: data.profile, entries: data.entries, wlog: data.wlog });
+      onSignedIn({ email: emailClean, returning: data.returning, existingDeviceId: data.existingDeviceId, profile: data.profile, entries: data.entries, wlog: data.wlog });
     } catch(e) { setError("Network error \u2014 try again"); }
     setLoading(false);
   }
