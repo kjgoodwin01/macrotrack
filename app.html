@@ -164,11 +164,11 @@
     .edit-save-btn:active{transform:scale(0.98)}
 
     /* FAB */
-    .fab{position:fixed;bottom:var(--fab-bottom);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab{position:fixed;bottom:58px;left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:scale(0.97)}
 
     /* Nav — native iOS tab bar: icons at bottom, background extends behind home indicator via ::after */
-    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:stretch;justify-content:space-around;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50;padding-bottom:env(safe-area-inset-bottom,0px)}
+    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:stretch;justify-content:space-around;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50;padding-bottom:0}
     .nav::after{content:'';position:absolute;bottom:0;left:0;right:0;height:env(safe-area-inset-bottom,0px);background:rgba(6,6,15,0.97);transform:translateY(100%);z-index:50}
     
     
@@ -489,6 +489,15 @@
     .light .ob-result{background:linear-gradient(145deg,#eaeaf5,#e4e4f0)}
     .light .nav{background:rgba(244,244,248,0.97);border-top-color:rgba(0,0,0,0.1)}
     .light .nav::after{background:rgba(244,244,248,0.97)}
+
+    /* ── Safe-area nav fix for iPhone 14 Pro / Pro Max and larger (≥393px) ──
+       iPhone 12/13/14 non-Pro are 390px — they keep the original layout.
+       Pro models and every future larger iPhone get the home indicator zone. */
+    @media (min-width:393px){
+      .nav{padding-bottom:env(safe-area-inset-bottom,0px)}
+      .fab{bottom:var(--fab-bottom)}
+      .page{padding-bottom:calc(var(--nav-h) + var(--fab-h) + var(--fab-gap) + 32px)}
+    }
 
     /* Settings panel — native iOS bottom sheet */
     .settings-panel{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:300;background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:calc(var(--sb) + 8px);animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
