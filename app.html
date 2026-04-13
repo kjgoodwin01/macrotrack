@@ -854,23 +854,30 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function subscribeToPush(workerUrl, deviceId, preferences, email) {
+  function timeout(ms, msg) {
+    return new Promise(function(_, reject) {
+      setTimeout(function() { reject(new Error(msg)); }, ms);
+    });
+  }
   try {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return {error:"Push not supported"};
-    var permission = await Notification.requestPermission();
-    if (permission !== "granted") return {error:"Permission denied"};
-    // Use getRegistration() instead of serviceWorker.ready — ready can hang
-    // indefinitely during a SW update cycle.
-    var reg = await navigator.serviceWorker.getRegistration();
-    if (!reg) return {error:"Service worker not registered"};
-    // Race subscribe against a 10-second timeout so the UI never hangs.
+    // requestPermission can hang silently on iOS if the dialog is suppressed
+    var permission = await Promise.race([
+      Notification.requestPermission(),
+      timeout(8000, "Permission request timed out"),
+    ]);
+    if (permission !== "granted") return {error:"Notifications blocked — enable in browser settings"};
+    var reg = await Promise.race([
+      navigator.serviceWorker.getRegistration(),
+      timeout(5000, "Service worker not responding"),
+    ]);
+    if (!reg) return {error:"Service worker not registered — try reloading"};
     var sub = await Promise.race([
       reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       }),
-      new Promise(function(_, reject) {
-        setTimeout(function() { reject(new Error("Push subscribe timed out")); }, 10000);
-      }),
+      timeout(10000, "Push subscribe timed out — check connection"),
     ]);
     var subJSON = sub.toJSON();
     // Fire-and-forget — worker does identity resolution; don't block the UI on it.
@@ -6984,32 +6991,36 @@ function App() {
   async function togglePush() {
     if (pushLoading) return;
     setPushLoading(true);
-    if (!pushEnabled) {
-      var result = await subscribeToPush(workerUrl, effectiveUserId(), pushPrefs, user ? user.email : null);
-      if (result.ok) {
-        setPushEnabledRaw(true);
-        showToast("✓ Notifications enabled");
-      } else {
-        showToast("Could not enable: " + (result.error || "unknown error"));
-      }
-    } else {
-      setPushEnabledRaw(false);
-      // Unsubscribe from browser push manager so re-subscribe starts clean
-      try {
-        var reg2 = await navigator.serviceWorker.getRegistration();
-        if (reg2) {
-          var existingSub = await reg2.pushManager.getSubscription();
-          if (existingSub) await existingSub.unsubscribe();
+    try {
+      if (!pushEnabled) {
+        var result = await subscribeToPush(workerUrl, effectiveUserId(), pushPrefs, user ? user.email : null);
+        if (result.ok) {
+          setPushEnabledRaw(true);
+          showToast("✓ Notifications enabled");
+        } else {
+          showToast("Could not enable: " + (result.error || "unknown error"));
         }
-      } catch(e){}
-      // Fire-and-forget to remove from server
-      fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
-        method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({type: "push_unsubscribe", deviceId: effectiveUserId()}),
-      }).catch(function(){});
-      showToast("Notifications disabled");
+      } else {
+        setPushEnabledRaw(false);
+        // Unsubscribe from browser push manager so re-subscribe starts clean
+        try {
+          var reg2 = await navigator.serviceWorker.getRegistration();
+          if (reg2) {
+            var existingSub = await reg2.pushManager.getSubscription();
+            if (existingSub) await existingSub.unsubscribe();
+          }
+        } catch(e){}
+        fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({type: "push_unsubscribe", deviceId: effectiveUserId()}),
+        }).catch(function(){});
+        showToast("Notifications disabled");
+      }
+    } catch(e) {
+      showToast("Push error: " + e.message);
+    } finally {
+      setPushLoading(false);
     }
-    setPushLoading(false);
   }
 
   function updatePushPref(key, value) {
