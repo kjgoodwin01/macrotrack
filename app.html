@@ -6993,7 +6993,7 @@ function App() {
     setPushLoading(true);
     try {
       if (!pushEnabled) {
-        var result = await subscribeToPush(workerUrl, effectiveUserId(), pushPrefs, user ? user.email : null);
+        var result = await subscribeToPush(workerUrl, effectiveUserId(), pushPrefs, authUser ? authUser.email : null);
         if (result.ok) {
           setPushEnabledRaw(true);
           showToast("✓ Notifications enabled");
