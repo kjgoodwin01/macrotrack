@@ -851,6 +851,15 @@
       .comp-cell, .comp-row-label, .comp-val, .comp-price-cell { padding: 14px 14px; font-size: 12px; }
     }
   </style>
+  <!-- OAuth redirect catch: if Supabase sends tokens to the landing page, forward to app.html -->
+  <script>
+    (function() {
+      var h = window.location.hash;
+      if (h && (h.indexOf("access_token=") !== -1 || h.indexOf("type=recovery") !== -1)) {
+        window.location.replace("/app.html" + h);
+      }
+    })();
+  </script>
 </head>
 <body>
 

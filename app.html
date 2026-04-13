@@ -853,7 +853,7 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-async function subscribeToPush(workerUrl, deviceId, preferences) {
+async function subscribeToPush(workerUrl, deviceId, preferences, email) {
   try {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return {error:"Push not supported"};
     var permission = await Notification.requestPermission();
@@ -870,6 +870,7 @@ async function subscribeToPush(workerUrl, deviceId, preferences) {
       body: JSON.stringify({
         type: "push_subscribe",
         deviceId: deviceId,
+        email: email || null,
         subscription: {endpoint: subJSON.endpoint, keys: subJSON.keys},
         preferences: preferences || {},
       }),
@@ -3472,7 +3473,7 @@ function AuthModal({ onClose, onSignedIn, mode, workerUrl }) {
     var sb = _initSupabase();
     if (!sb) { setError("Auth unavailable — try email code"); return; }
     setLoading(true); setError("");
-    var redirectTo = window.location.origin + window.location.pathname;
+    var redirectTo = window.location.origin + "/app.html";
     var res = await sb.auth.signInWithOAuth({ provider: provider, options: { redirectTo: redirectTo } });
     if (res.error) { setError(res.error.message); setLoading(false); }
     // On success the browser redirects — no further code runs here
@@ -6974,7 +6975,7 @@ function App() {
     if (pushLoading) return;
     setPushLoading(true);
     if (!pushEnabled) {
-      var result = await subscribeToPush(workerUrl, effectiveUserId(), pushPrefs);
+      var result = await subscribeToPush(workerUrl, effectiveUserId(), pushPrefs, user ? user.email : null);
       if (result.ok) {
         setPushEnabledRaw(true);
         showToast("✓ Notifications enabled");

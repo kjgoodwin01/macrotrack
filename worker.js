@@ -1756,13 +1756,24 @@ export default {
 
     // ── PUSH: Subscribe ───────────────────────────────────────────────────
     if (type === "push_subscribe") {
-      const { deviceId, subscription, preferences } = body;
+      const { deviceId, email, subscription, preferences } = body;
       if (!deviceId || !subscription || !subscription.endpoint) {
         return jsonRes({ error: "Missing subscription data" }, 400, cors);
       }
+      // Resolve canonical device_id — same email-based pattern as sync_add_entry.
+      // This ensures push notifications look up food entries under the right device_id.
+      let resolvedDeviceId = deviceId;
+      const profileCheck = await sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
+      if ((!profileCheck.data || profileCheck.data.length === 0) && email) {
+        const emailClean = email.trim().toLowerCase();
+        const byEmail = await sbAdmin(env, "GET", "profiles?email=eq." + encodeURIComponent(emailClean) + "&limit=1");
+        if (byEmail.data && byEmail.data.length > 0) {
+          resolvedDeviceId = byEmail.data[0].device_id;
+        }
+      }
       const keys = subscription.keys || {};
       const result = await sb(env, "POST", "push_subscriptions", {
-        device_id: deviceId,
+        device_id: resolvedDeviceId,
         endpoint: subscription.endpoint,
         p256dh: keys.p256dh || "",
         auth: keys.auth || "",
