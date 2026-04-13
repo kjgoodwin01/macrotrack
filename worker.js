@@ -1450,6 +1450,78 @@ export default {
         });
 
         plan.shoppingList = shoppingList;
+
+        // Convert item.amount from raw grams to the most natural unit for
+        // each food — purely a display change, the macro numbers are unchanged.
+        function humanizeAmount(foodName, grams) {
+          const n = (foodName || "").toLowerCase();
+
+          // Whole eggs
+          if (/\begg\b/.test(n) && !n.includes("egg white") && !n.includes("egg noodle") && !n.includes("egg substitute")) {
+            const count = Math.max(1, Math.round(grams / 55));
+            return count === 1 ? "1 whole egg" : count + " whole eggs";
+          }
+          // Egg whites
+          if (n.includes("egg white")) {
+            const count = Math.max(1, Math.round(grams / 33));
+            return count === 1 ? "1 egg white" : count + " egg whites";
+          }
+          // Banana
+          if (n.includes("banana")) {
+            const count = Math.max(1, Math.round(grams / 118));
+            return count === 1 ? "1 medium banana" : count + " bananas";
+          }
+          // Apple
+          if (n.includes("apple") && !n.includes("applesauce") && !n.includes("apple juice") && !n.includes("apple cider")) {
+            const count = Math.max(1, Math.round(grams / 182));
+            return count === 1 ? "1 medium apple" : count + " apples";
+          }
+          // Orange
+          if (n.includes("orange") && !n.includes("orange juice")) {
+            const count = Math.max(1, Math.round(grams / 131));
+            return count === 1 ? "1 orange" : count + " oranges";
+          }
+          // Bread / toast (not breadcrumbs or bread-based dishes)
+          if ((n.includes("bread") || n.includes("toast")) && !n.includes("breadcrumb") && !n.includes("cornbread")) {
+            const slices = Math.max(1, Math.round(grams / 32));
+            return slices === 1 ? "1 slice" : slices + " slices";
+          }
+          // Tortilla / wrap
+          if (n.includes("tortilla") || (n.includes("wrap") && !n.includes("saran") && !n.includes("plastic"))) {
+            const count = Math.max(1, Math.round(grams / 45));
+            return count === 1 ? "1 tortilla" : count + " tortillas";
+          }
+          // Rice cakes
+          if (n.includes("rice cake")) {
+            const count = Math.max(1, Math.round(grams / 9));
+            return count === 1 ? "1 rice cake" : count + " rice cakes";
+          }
+          // Nut butters
+          if (n.includes("peanut butter") || n.includes("almond butter") || n.includes("cashew butter") || n.includes("nut butter")) {
+            const tbsp = Math.max(1, Math.round(grams / 16));
+            return tbsp === 1 ? "1 tbsp" : tbsp + " tbsp";
+          }
+          // Oils
+          if (n.includes("olive oil") || n.includes("coconut oil") || n.includes("avocado oil") || n.includes("vegetable oil")) {
+            const tsp = Math.round(grams / 4.5);
+            if (tsp <= 3) return tsp <= 1 ? "1 tsp" : tsp + " tsp";
+            const tbsp = Math.max(1, Math.round(grams / 14));
+            return tbsp === 1 ? "1 tbsp" : tbsp + " tbsp";
+          }
+
+          // Everything else stays in grams (chicken, rice, oats, fish, veggies, etc.)
+          return Math.round(grams) + "g";
+        }
+
+        plan.days.forEach(function(day) {
+          Object.values(day.meals || {}).forEach(function(items) {
+            (items || []).forEach(function(item) {
+              const grams = parseFloat(String(item.amount).replace(/[^0-9.]/g, "")) || 0;
+              if (grams > 0) item.amount = humanizeAmount(item.food, grams);
+            });
+          });
+        });
+
         if (tier === "pro" && deviceId) await incrementWeeklyUsage(env, deviceId, "mealplan");
         return jsonRes(plan, 200, cors);
 
