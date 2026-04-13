@@ -864,7 +864,9 @@ async function subscribeToPush(workerUrl, deviceId, preferences, email) {
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
     });
     var subJSON = sub.toJSON();
-    await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+    // Fire-and-forget — don't await the worker; the push endpoint is already secured
+    // in the browser. Worker does identity resolution which can be slow.
+    fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
@@ -874,7 +876,7 @@ async function subscribeToPush(workerUrl, deviceId, preferences, email) {
         subscription: {endpoint: subJSON.endpoint, keys: subJSON.keys},
         preferences: preferences || {},
       }),
-    });
+    }).catch(function(){});
     return {ok:true};
   } catch(e) { return {error:e.message}; }
 }
