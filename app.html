@@ -858,14 +858,22 @@ async function subscribeToPush(workerUrl, deviceId, preferences, email) {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return {error:"Push not supported"};
     var permission = await Notification.requestPermission();
     if (permission !== "granted") return {error:"Permission denied"};
-    var reg = await navigator.serviceWorker.ready;
-    var sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
+    // Use getRegistration() instead of serviceWorker.ready — ready can hang
+    // indefinitely during a SW update cycle.
+    var reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) return {error:"Service worker not registered"};
+    // Race subscribe against a 10-second timeout so the UI never hangs.
+    var sub = await Promise.race([
+      reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      }),
+      new Promise(function(_, reject) {
+        setTimeout(function() { reject(new Error("Push subscribe timed out")); }, 10000);
+      }),
+    ]);
     var subJSON = sub.toJSON();
-    // Fire-and-forget — don't await the worker; the push endpoint is already secured
-    // in the browser. Worker does identity resolution which can be slow.
+    // Fire-and-forget — worker does identity resolution; don't block the UI on it.
     fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -6986,12 +6994,19 @@ function App() {
       }
     } else {
       setPushEnabledRaw(false);
+      // Unsubscribe from browser push manager so re-subscribe starts clean
       try {
-        await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
-          method: "POST", headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({type: "push_unsubscribe", deviceId: effectiveUserId()}),
-        });
+        var reg2 = await navigator.serviceWorker.getRegistration();
+        if (reg2) {
+          var existingSub = await reg2.pushManager.getSubscription();
+          if (existingSub) await existingSub.unsubscribe();
+        }
       } catch(e){}
+      // Fire-and-forget to remove from server
+      fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({type: "push_unsubscribe", deviceId: effectiveUserId()}),
+      }).catch(function(){});
       showToast("Notifications disabled");
     }
     setPushLoading(false);
