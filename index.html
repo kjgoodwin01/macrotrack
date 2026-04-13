@@ -5266,6 +5266,7 @@ function CoachTab({
   goals,
   entries,
   wlog,
+  workouts,
   workerUrl,
   aiUsageToday,
   onAiCall,
@@ -5408,7 +5409,7 @@ function CoachTab({
       const d = new Date(); d.setDate(d.getDate() - i); return isoDate(d);
     }).reverse();
     const trainingLines = last7TrainingDates.map(function(date) {
-      const dayEx = workouts[date] || [];
+      const dayEx = (workouts || {})[date] || [];
       if (dayEx.length === 0) return date + ": rest day";
       const summary = dayEx.map(function(ex) {
         if (ex.type === "cardio") return ex.name + (ex.duration ? " " + ex.duration + "min" : "") + (ex.distance ? " " + ex.distance : "");
@@ -5495,7 +5496,8 @@ function CoachTab({
       setReport(d.text || d.message || "");
       setReportDate(key);
     } catch (e) {
-      setReport("Could not generate report. Check your Worker URL in Goals.");
+      setReport("Could not generate report. Please try again.");
+      setReportDate(key);
     } finally {
       setReportLoading(false);
     }
@@ -7518,7 +7520,7 @@ function App() {
         subscription: subscription
       })
     : /*#__PURE__*/React.createElement(CoachTab, {
-        goals: goals, entries: entries, wlog: wlog,
+        goals: goals, entries: entries, wlog: wlog, workouts: workouts,
         workerUrl: workerUrl, selectedDate: selectedDate,
         aiUsageToday: getAiUsageThisWeek(),
         onAiCall: incrementAiUsage,
