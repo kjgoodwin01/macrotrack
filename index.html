@@ -6908,6 +6908,7 @@ function App() {
   const [editC, setEditC] = React.useState("");
   const [editF, setEditF] = React.useState("");
   const [editCal, setEditCal] = React.useState("");
+  const [editQty, setEditQty] = React.useState("1");
   const [calManual, setCalManual] = React.useState(false);
 
   function openEdit(item) {
@@ -6916,11 +6917,21 @@ function App() {
     setEditC(String(item.c || 0));
     setEditF(String(item.f || 0));
     setEditCal(String(item.cal || 0));
+    setEditQty("1");
     setCalManual(false);
   }
 
   function handleEditMacro(field, val) {
     const n = val.replace(/[^0-9.]/g, "");
+    if (field === "qty") {
+      setEditQty(n);
+      const ratio = parseFloat(n) || 0;
+      setEditP(String(Math.round((editItem.p || 0) * ratio)));
+      setEditC(String(Math.round((editItem.c || 0) * ratio)));
+      setEditF(String(Math.round((editItem.f || 0) * ratio)));
+      setEditCal(String(Math.round((editItem.cal || 0) * ratio)));
+      setCalManual(false);
+    }
     if (field === "p") { setEditP(n); if (!calManual) setEditCal(String(Math.round((parseFloat(n)||0)*4 + (parseFloat(editC)||0)*4 + (parseFloat(editF)||0)*9))); }
     if (field === "c") { setEditC(n); if (!calManual) setEditCal(String(Math.round((parseFloat(editP)||0)*4 + (parseFloat(n)||0)*4 + (parseFloat(editF)||0)*9))); }
     if (field === "f") { setEditF(n); if (!calManual) setEditCal(String(Math.round((parseFloat(editP)||0)*4 + (parseFloat(editC)||0)*4 + (parseFloat(n)||0)*9))); }
@@ -7315,6 +7326,14 @@ function App() {
       /*#__PURE__*/React.createElement("div", { className: "edit-sheet-handle" }),
       /*#__PURE__*/React.createElement("div", { className: "edit-sheet-title" }, editItem.name),
       /*#__PURE__*/React.createElement("div", { className: "edit-sheet-sub" }, "Tap any value to edit. Calories update automatically."),
+      /*#__PURE__*/React.createElement("div", { className: "edit-macro-field", style: { marginBottom: 10 } },
+        /*#__PURE__*/React.createElement("div", { className: "edit-macro-label" }, "Quantity"),
+        /*#__PURE__*/React.createElement("input", {
+          className: "edit-macro-input", type: "number", inputMode: "decimal",
+          value: editQty, onChange: function(e) { handleEditMacro("qty", e.target.value); }
+        }),
+        /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "\xD7 serving \xB7 scales all macros")
+      ),
       /*#__PURE__*/React.createElement("div", { className: "edit-macro-grid" },
         /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
           /*#__PURE__*/React.createElement("div", { className: "edit-macro-label p" }, "Protein"),
