@@ -1862,24 +1862,17 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
       console.log("[verify_auth_otp]", JSON.stringify(_debug));
 
       if (existingDeviceId) {
-        // Returning user — load their data first (by existing device_id), then migrate.
-        // Load before migrate so we always have data to return even if migration partially fails.
-        // Use sbAdmin throughout to bypass RLS.
+        // Returning user — load their data by existing device_id.
+        // We return existingDeviceId to the client so it updates mt_device_id to match
+        // what's already in Supabase. No row migration needed — avoids fire-and-forget
+        // issues where Cloudflare drops unresolved promises after response is sent.
         const [profile, entries, wlog] = await Promise.all([
           sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(existingDeviceId) + "&limit=1"),
           sbAdmin(env, "GET", "food_entries?device_id=eq." + encodeURIComponent(existingDeviceId) + "&order=log_date.asc&limit=500"),
           sbAdmin(env, "GET", "weight_log?device_id=eq." + encodeURIComponent(existingDeviceId) + "&order=log_date.asc&limit=200"),
         ]);
-        // Migrate device_id to this device (best-effort, non-blocking)
-        if (existingDeviceId !== deviceId) {
-          Promise.all([
-            sbAdmin(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId, email: emailClean }),
-            sbAdmin(env, "PATCH", "food_entries?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId }),
-            sbAdmin(env, "PATCH", "weight_log?device_id=eq." + encodeURIComponent(existingDeviceId), { device_id: deviceId }),
-          ]).catch(function(){});
-        }
         await env.CODES.delete("auth_otp:" + emailClean); // consumed — delete now
-        return jsonRes({ ok: true, returning: true, profile: (profile.data && profile.data[0]) || null, entries: entries.data || [], wlog: wlog.data || [] }, 200, cors);
+        return jsonRes({ ok: true, returning: true, existingDeviceId: existingDeviceId, profile: (profile.data && profile.data[0]) || null, entries: entries.data || [], wlog: wlog.data || [] }, 200, cors);
       }
 
       // New user — link email to their current device profile

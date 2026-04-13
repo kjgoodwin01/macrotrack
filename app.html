@@ -3579,7 +3579,7 @@ function Onboarding({
   async function handleAuthSignedIn(result) {
     if (!result) return;
 
-    if (result.returning && result.profile) {
+    if (result.returning) {
       // Returning user — restore their cloud data and skip onboarding
       var p = result.profile;
       var entriesMap = {};
@@ -3598,6 +3598,8 @@ function Onboarding({
         goalType: p.goal_type || "cut", targetWeight: p.target_weight || null }));
       if (p.name) localStorage.setItem("mt_name", JSON.stringify(p.name));
       if (result.email) localStorage.setItem("mt_linked_email", JSON.stringify(result.email));
+      // Adopt the device_id that already exists in Supabase — future syncs must use this
+      if (result.existingDeviceId) localStorage.setItem("mt_device_id", result.existingDeviceId);
       localStorage.setItem("mt_onboarded", "true");
       window.location.reload();
       return;
