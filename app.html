@@ -168,7 +168,7 @@
     .fab:active{transform:scale(0.97)}
 
     /* Nav — native iOS tab bar: icons at bottom, background extends behind home indicator via ::after */
-    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:stretch;justify-content:space-around;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50;padding-bottom:0}
+    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:stretch;justify-content:space-around;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50;padding-bottom:env(safe-area-inset-bottom,0px)}
     .nav::after{content:'';position:absolute;bottom:0;left:0;right:0;height:env(safe-area-inset-bottom,0px);background:rgba(6,6,15,0.97);transform:translateY(100%);z-index:50}
     
     
