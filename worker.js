@@ -1331,6 +1331,40 @@ export default {
       return jsonRes({ ok: true }, 200, cors);
     }
 
+    // ── ADMIN: Lookup user ───────────────────────────────────────────────
+    if (type === "admin_lookup_user") {
+      const { query, adminKey } = body;
+      if (adminKey !== "MACROTRACK_ADMIN_2026") return jsonRes({ error: "Unauthorized" }, 401, cors);
+      if (!query) return jsonRes({ ok: false }, 400, cors);
+      const isEmail = query.includes("@");
+      const path = isEmail
+        ? "profiles?email=eq." + encodeURIComponent(query.toLowerCase().trim()) + "&limit=1"
+        : "profiles?device_id=eq." + encodeURIComponent(query.trim()) + "&limit=1";
+      const r = await sb(env, "GET", path);
+      if (!r.data || r.data.length === 0) return jsonRes({ ok: false }, 200, cors);
+      return jsonRes({ ok: true, user: r.data[0] }, 200, cors);
+    }
+
+    // ── ADMIN: Set subscription ──────────────────────────────────────────
+    if (type === "admin_set_subscription") {
+      const { deviceId, status, adminKey } = body;
+      if (adminKey !== "MACROTRACK_ADMIN_2026") return jsonRes({ error: "Unauthorized" }, 401, cors);
+      if (!deviceId || !["free","pro","max"].includes(status)) return jsonRes({ error: "Invalid" }, 400, cors);
+      const r = await sb(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(deviceId), {
+        subscription_status: status,
+      });
+      if (!r.ok) return jsonRes({ error: "Failed to update" }, 500, cors);
+      return jsonRes({ ok: true }, 200, cors);
+    }
+
+    // ── ADMIN: List all subscribers ──────────────────────────────────────
+    if (type === "admin_list_subscribers") {
+      const { adminKey } = body;
+      if (adminKey !== "MACROTRACK_ADMIN_2026") return jsonRes({ error: "Unauthorized" }, 401, cors);
+      const r = await sb(env, "GET", "profiles?order=subscription_status.desc,updated_at.desc&limit=500");
+      return jsonRes({ ok: true, users: r.data || [] }, 200, cors);
+    }
+
     // ── WAITLIST: List (admin) ────────────────────────────────────────────
     if (type === "waitlist_list") {
       const { adminKey } = body;

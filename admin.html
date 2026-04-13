@@ -79,6 +79,11 @@
     .tab:not(.active) { color: var(--mu); border-color: var(--b1); }
     .tab:not(.active):hover { color: var(--txt2); }
 
+    select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a5a7a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; cursor: pointer; }
+    .sub-badge-free  { color:#5a5a7a; background:rgba(255,255,255,0.05); padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+    .sub-badge-pro   { color:#a5b4fc; background:rgba(99,102,241,0.15); padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+    .sub-badge-max   { color:#fcd34d; background:rgba(245,158,11,0.15); padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+
     /* Table */
     .table-wrap {
       background: var(--s1); border: 1px solid var(--b1); border-radius: 20px; overflow: hidden;
@@ -248,15 +253,43 @@
         <div class="tab" onclick="switchTab('approved', this)">✅ Approved</div>
         <div class="tab" onclick="switchTab('denied', this)">❌ Denied</div>
         <div class="tab" onclick="switchTab('all', this)">All</div>
+        <div class="tab" onclick="showSubPanel(this)">💳 Subscriptions</div>
       </div>
 
-      <!-- Table -->
-      <div class="table-wrap">
+      <!-- Waitlist Table -->
+      <div class="table-wrap" id="waitlistPanel">
         <div class="table-header">
           <div class="table-title" id="tableTitle">Pending Applications</div>
           <button class="btn-refresh" onclick="loadWaitlist()">↻ Refresh</button>
         </div>
         <div id="tableContent"><div class="loading">Loading...</div></div>
+      </div>
+
+      <!-- Subscriptions Panel -->
+      <div id="subPanel" style="display:none;">
+        <div class="table-wrap" style="margin-bottom:20px;">
+          <div class="table-header">
+            <div class="table-title">Override User Subscription</div>
+          </div>
+          <div style="padding:20px;">
+            <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+              <div style="flex:1;min-width:200px;">
+                <div style="font-size:11px;color:var(--mu);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">Email or Device ID</div>
+                <input id="subLookupInput" class="field" style="margin:0;" placeholder="user@email.com or device_id" />
+              </div>
+              <button class="btn" style="width:auto;padding:13px 24px;font-size:14px;" onclick="lookupUser()">Look Up</button>
+            </div>
+            <div id="subLookupResult" style="margin-top:16px;"></div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-header">
+            <div class="table-title">All Active Subscribers</div>
+            <button class="btn-refresh" onclick="loadSubscribers()">↻ Refresh</button>
+          </div>
+          <div id="subscriberList"><div class="loading">Loading...</div></div>
+        </div>
       </div>
     </div>
   </div>
@@ -319,6 +352,8 @@
       currentTab = tab;
       document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
       el.classList.add("active");
+      document.getElementById("subPanel").style.display = "none";
+      document.getElementById("waitlistPanel").style.display = "block";
       const titles = { pending: "Pending Applications", approved: "Approved Users", denied: "Denied Applications", all: "All Applications" };
       document.getElementById("tableTitle").textContent = titles[tab];
       renderTable();
@@ -419,6 +454,101 @@
         if(d.ok){ showToast("Access revoked.", "success"); await loadWaitlist(); }
         else showToast("Error: " + d.error, "error");
       } catch(e){ showToast("Failed. Try again.", "error"); }
+    }
+
+    function showSubPanel(tabEl) {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tabEl.classList.add("active");
+      document.getElementById("waitlistPanel").style.display = "none";
+      document.getElementById("subPanel").style.display = "block";
+      loadSubscribers();
+    }
+
+    async function lookupUser() {
+      const query = document.getElementById("subLookupInput").value.trim();
+      if (!query) return;
+      const el = document.getElementById("subLookupResult");
+      el.innerHTML = '<div class="loading">Looking up...</div>';
+      try {
+        const r = await fetch(WORKER_URL, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "admin_lookup_user", query, adminKey: ADMIN_PASSWORD }),
+        });
+        const d = await r.json();
+        if (!d.ok || !d.user) { el.innerHTML = '<div style="color:var(--mu);font-size:13px;">No user found.</div>'; return; }
+        const u = d.user;
+        el.innerHTML = `
+          <div style="background:var(--s2);border-radius:12px;padding:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:160px;">
+              <div style="font-size:13px;font-weight:600;">${escHtml(u.name || "—")}</div>
+              <div style="font-size:11px;color:var(--mu);margin-top:2px;">${escHtml(u.email || u.device_id)}</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px;font-family:'JetBrains Mono',monospace;">${escHtml(u.device_id)}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <select id="subStatusSelect" class="field" style="margin:0;width:120px;padding:10px 32px 10px 12px;">
+                <option value="free" ${u.subscription_status==='free'?'selected':''}>Free</option>
+                <option value="pro" ${u.subscription_status==='pro'?'selected':''}>Pro</option>
+                <option value="max" ${u.subscription_status==='max'?'selected':''}>Max</option>
+              </select>
+              <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;" onclick="setSubscription('${escHtml(u.device_id)}')">Save</button>
+            </div>
+          </div>`;
+      } catch(e) { el.innerHTML = '<div style="color:#fb7185;font-size:13px;">Error — try again.</div>'; }
+    }
+
+    async function setSubscription(deviceId) {
+      const status = document.getElementById("subStatusSelect").value;
+      try {
+        const r = await fetch(WORKER_URL, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "admin_set_subscription", deviceId, status, adminKey: ADMIN_PASSWORD }),
+        });
+        const d = await r.json();
+        if (d.ok) { showToast("Subscription set to " + status.toUpperCase(), "success"); loadSubscribers(); }
+        else showToast("Error: " + d.error, "error");
+      } catch(e) { showToast("Failed. Try again.", "error"); }
+    }
+
+    async function loadSubscribers() {
+      const el = document.getElementById("subscriberList");
+      el.innerHTML = '<div class="loading">Loading...</div>';
+      try {
+        const r = await fetch(WORKER_URL, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "admin_list_subscribers", adminKey: ADMIN_PASSWORD }),
+        });
+        const d = await r.json();
+        if (!d.ok || !d.users || d.users.length === 0) {
+          el.innerHTML = '<div style="padding:20px;color:var(--mu);font-size:13px;">No subscribers yet.</div>';
+          return;
+        }
+        const rows = d.users.map(u => `
+          <tr>
+            <td>${escHtml(u.name || "—")}</td>
+            <td style="color:var(--mu);font-size:12px;">${escHtml(u.email || "—")}</td>
+            <td><span class="sub-badge-${u.subscription_status||'free'}">${(u.subscription_status||'free').toUpperCase()}</span></td>
+            <td>
+              <select class="field" style="margin:0;width:100px;padding:7px 28px 7px 10px;font-size:12px;" onchange="quickSet('${escHtml(u.device_id)}', this.value)">
+                <option value="free" ${u.subscription_status==='free'?'selected':''}>Free</option>
+                <option value="pro" ${u.subscription_status==='pro'?'selected':''}>Pro</option>
+                <option value="max" ${u.subscription_status==='max'?'selected':''}>Max</option>
+              </select>
+            </td>
+          </tr>`).join("");
+        el.innerHTML = `<table><thead><tr><th>Name</th><th>Email</th><th>Plan</th><th>Change</th></tr></thead><tbody>${rows}</tbody></table>`;
+      } catch(e) { el.innerHTML = '<div style="padding:20px;color:#fb7185;font-size:13px;">Error loading subscribers.</div>'; }
+    }
+
+    async function quickSet(deviceId, status) {
+      try {
+        const r = await fetch(WORKER_URL, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "admin_set_subscription", deviceId, status, adminKey: ADMIN_PASSWORD }),
+        });
+        const d = await r.json();
+        if (d.ok) showToast("Updated to " + status.toUpperCase(), "success");
+        else showToast("Error: " + d.error, "error");
+      } catch(e) { showToast("Failed.", "error"); }
     }
 
     function escHtml(str){
