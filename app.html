@@ -164,11 +164,11 @@
     .edit-save-btn:active{transform:scale(0.98)}
 
     /* FAB */
-    .fab{position:fixed;bottom:58px;left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab{position:fixed;bottom:var(--fab-bottom);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:scale(0.97)}
 
     /* Nav — native iOS tab bar: icons at bottom, background extends behind home indicator via ::after */
-    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:stretch;justify-content:space-around;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50;padding-bottom:0}
+    .nav{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:stretch;justify-content:space-around;background:rgba(6,6,15,0.97);border-top:1px solid var(--b1);z-index:50;padding-bottom:env(safe-area-inset-bottom,0px)}
     .nav::after{content:'';position:absolute;bottom:0;left:0;right:0;height:env(safe-area-inset-bottom,0px);background:rgba(6,6,15,0.97);transform:translateY(100%);z-index:50}
     
     
