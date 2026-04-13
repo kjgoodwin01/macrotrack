@@ -1,6 +1,6 @@
 // MacroTrack Service Worker
 // Bump this version number with every deploy to force an immediate update
-const VERSION = "mt-v41";
+const VERSION = "mt-v44";
 const CACHE = VERSION;
 
 // Files to precache on install
@@ -22,8 +22,8 @@ const CDN_PRECACHE = [
 
 // ── Install: cache core files + CDN scripts ───────────────────────────────
 self.addEventListener("install", function(e) {
-  // Skip waiting immediately — don't wait for old SW to die
-  self.skipWaiting();
+  // Do NOT skipWaiting here — the app will prompt the user and post SKIP_WAITING
+  // when they choose to restart. This gives users a native-app-like update flow.
   e.waitUntil(
     Promise.all([
       caches.open(CACHE).then(function(cache) {
@@ -126,6 +126,15 @@ self.addEventListener("fetch", function(e) {
       });
     })
   );
+});
+
+// ── Message: handle SKIP_WAITING from the app ────────────────────────────
+// When the user taps "Restart to update", the app posts this message and
+// the new SW takes over immediately, then controllerchange fires → page reloads.
+self.addEventListener("message", function(e) {
+  if (e.data && e.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 // ── Push: handle incoming push notifications ──────────────────────────────

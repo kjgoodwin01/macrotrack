@@ -586,6 +586,31 @@
       cursor:pointer;flex-shrink:0;font-family:'DM Sans',sans-serif;white-space:nowrap;
     }
     .install-banner-dismiss:active{background:rgba(255,255,255,0.3)}
+    /* Update banner */
+    .update-banner{
+      position:fixed;top:0;left:50%;transform:translateX(-50%);
+      width:100%;max-width:430px;z-index:600;
+      background:linear-gradient(135deg,rgba(16,185,129,0.97),rgba(5,150,105,0.97));
+      backdrop-filter:blur(12px);
+      padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 10px;
+      display:flex;align-items:center;gap:10px;
+      box-shadow:0 4px 24px rgba(16,185,129,0.45);
+      animation:slideDown 0.4s cubic-bezier(0.4,0,0.2,1);
+    }
+    .update-banner-icon{font-size:20px;flex-shrink:0}
+    .update-banner-text{flex:1;font-size:12px;color:#fff;line-height:1.4}
+    .update-banner-text strong{font-size:13px;font-weight:700;display:block;margin-bottom:1px}
+    .update-banner-restart{
+      background:rgba(255,255,255,0.25);border:none;border-radius:8px;
+      color:#fff;font-size:12px;font-weight:700;padding:6px 12px;
+      cursor:pointer;flex-shrink:0;font-family:'DM Sans',sans-serif;
+      white-space:nowrap;letter-spacing:0.3px;
+    }
+    .update-banner-restart:active{background:rgba(255,255,255,0.4)}
+    .update-banner-dismiss{
+      background:none;border:none;color:rgba(255,255,255,0.7);
+      font-size:18px;line-height:1;cursor:pointer;padding:2px 4px;flex-shrink:0;
+    }
 
     /* ── Enhanced Food Detail ── */
     .det-name{font-size:17px;font-weight:700;color:var(--txt);margin-bottom:3px;line-height:1.3}
@@ -1311,6 +1336,26 @@ function Toast({ msg, action }) {
   );
 }
 
+/* ── UpdateBanner ── */
+function UpdateBanner({ onRestart, onDismiss }) {
+  return /*#__PURE__*/React.createElement("div", { className: "update-banner" },
+    /*#__PURE__*/React.createElement("div", { className: "update-banner-icon" }, "\u21BA"),
+    /*#__PURE__*/React.createElement("div", { className: "update-banner-text" },
+      /*#__PURE__*/React.createElement("strong", null, "Update available"),
+      "Restart to get the latest version"
+    ),
+    /*#__PURE__*/React.createElement("button", {
+      className: "update-banner-restart",
+      onClick: onRestart
+    }, "Restart"),
+    /*#__PURE__*/React.createElement("button", {
+      className: "update-banner-dismiss",
+      onClick: onDismiss,
+      "aria-label": "Dismiss"
+    }, "\u00D7")
+  );
+}
+
 /* ── CalHero ── */
 function CalHero({
   logged,
@@ -1803,15 +1848,22 @@ function BarcodeScanner({
       }
       return null;
     }
+    var scanAttempts = 0;
     async function scan() {
       if (dead || detectedRef.current) return;
       const video = videoRef.current;
       if (!video || video.readyState < 2 || !video.videoWidth) {
+        scanAttempts++;
+        if (scanAttempts > 50) { // ~5 seconds — camera stream never started
+          if (!dead) setStatus("error");
+          return;
+        }
         timerRef.current = setTimeout(function () {
           if (!dead) scan();
         }, 100);
         return;
       }
+      scanAttempts = 0; // reset once video is ready
 
       // Try all 4 orientations — whichever one finds the barcode wins
       // This guarantees it works no matter how the phone is held
@@ -2033,6 +2085,9 @@ function compressImage(dataUrl, maxWidth, quality) {
       ctx.drawImage(img, 0, 0, w, h);
       resolve(canvas.toDataURL("image/jpeg", quality));
     };
+    // If the image fails to load (corrupted data, memory pressure, etc.)
+    // resolve with the original so the upload can still proceed uncompressed.
+    img.onerror = function () { resolve(dataUrl); };
     img.src = dataUrl;
   });
 }
@@ -2254,24 +2309,66 @@ function AddFoodModal({
     setBErr("");
     setBFood(null);
     try {
-      const r = await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          type: "barcode_lookup",
-          upc: c
-        })
-      });
-      if (!r.ok) throw new Error("Worker error");
-      const d = await r.json();
-      const foods = d.foods || [];
-      if (foods.length === 0) {
-        setBErr("No food found for that barcode. Try searching by name.");
-        return;
+      // 1. Try Open Food Facts first — free, 3.5M+ branded products, no API key needed
+      let found = false;
+      try {
+        const offRes = await fetch("https://world.openfoodfacts.org/api/v0/product/" + encodeURIComponent(c) + ".json");
+        if (offRes.ok) {
+          const offData = await offRes.json();
+          if (offData.status === 1 && offData.product) {
+            const p = offData.product;
+            const nm = p.nutriments || {};
+            // OFF stores energy in kcal directly, or in kJ — convert if needed
+            const cal100 = nm["energy-kcal_100g"] ||
+              Math.round((nm["energy-kj_100g"] || nm["energy_100g"] || 0) / 4.184);
+            const name = (p.product_name || p.product_name_en || "").trim();
+            // Only accept the result if it has a name and non-zero calories
+            if (name && cal100 > 0) {
+              const servings = [];
+              // Use the labelled serving size if present
+              const servQty = parseFloat(p.serving_quantity) || 0;
+              if (servQty > 0) {
+                const label = (p.serving_size || "").trim() ||
+                  ("1 serving (" + Math.round(servQty) + "g)");
+                servings.push({ label: label, grams: Math.round(servQty) });
+              }
+              // Always offer a 100g option
+              if (!servings.find(function(s) { return s.grams === 100; })) {
+                servings.push({ label: "100g", grams: 100 });
+              }
+              setBFood({
+                fdcId: c,
+                name: name,
+                brand: (p.brands || "").split(",")[0].trim(),
+                dataType: "Branded",
+                cal100: Math.round(cal100 * 10) / 10,
+                p100: Math.round((nm["proteins_100g"] || 0) * 10) / 10,
+                c100: Math.round((nm["carbohydrates_100g"] || 0) * 10) / 10,
+                f100: Math.round((nm["fat_100g"] || 0) * 10) / 10,
+                servings: servings
+              });
+              found = true;
+            }
+          }
+        }
+      } catch (e) { /* OFF unavailable or timed out — fall through to USDA */ }
+
+      // 2. Fall back to USDA via Cloudflare Worker
+      if (!found) {
+        const r = await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "barcode_lookup", upc: c })
+        });
+        if (!r.ok) throw new Error("Worker error");
+        const d = await r.json();
+        const foods = d.foods || [];
+        if (foods.length === 0) {
+          setBErr("No food found for that barcode. Try searching by name.");
+          return;
+        }
+        setBFood(parseFood(foods[0]));
       }
-      setBFood(parseFood(foods[0]));
     } catch (e) {
       setBErr("Lookup failed. Check your connection and try again.");
     } finally {
@@ -2328,7 +2425,7 @@ function AddFoodModal({
   function saveAsCustomMeal() {
     if (!saveMealName.trim() || !nlpResults) return;
     var newMeal = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       name: saveMealName.trim(),
       items: nlpResults.map(function(item) {
         return { name: item.name, serving: item.serving || "1 serving", cal: item.cal || 0, p: item.p || 0, c: item.c || 0, f: item.f || 0 };
@@ -2364,7 +2461,7 @@ function AddFoodModal({
       return { name: it.name.trim(), serving: it.serving || "1 serving", cal: parseInt(it.cal)||0, p: parseInt(it.p)||0, c: parseInt(it.c)||0, f: parseInt(it.f)||0 };
     })});
     if (editingMeal.id === "new") {
-      mealToSave.id = Date.now().toString();
+      mealToSave.id = crypto.randomUUID();
       setCustomMeals(function(prev) { return prev.concat([mealToSave]); });
     } else {
       setCustomMeals(function(prev) { return prev.map(function(m) { return m.id === editingMeal.id ? mealToSave : m; }); });
@@ -6662,6 +6759,48 @@ function App() {
   const [toastMsg, setToastMsg] = useState("");
   const [toastAction, setToastAction] = useState(null);
   const toastKey = useRef(0);
+  const [updateReady, setUpdateReady] = useState(false);
+  const [updateDismissed, setUpdateDismissed] = useState(false);
+
+  // Listen for SW update-ready signal (fired from the SW registration code below)
+  useEffect(function() {
+    function onUpdateReady() { setUpdateReady(true); setUpdateDismissed(false); }
+    window.addEventListener("swupdateready", onUpdateReady);
+    // Catch the case where the event fired before React mounted
+    if (window._swWaiting) { setUpdateReady(true); }
+    return function() { window.removeEventListener("swupdateready", onUpdateReady); };
+  }, []);
+
+  function handleAppUpdate() {
+    // Guard: if somehow called without a waiting SW, try fetching a fresh registration
+    // to find it — don't fall back to a plain reload which would load the old version.
+    if (!window._swWaiting) {
+      navigator.serviceWorker.getRegistration().then(function(reg) {
+        if (reg && reg.waiting) {
+          window._swWaiting = reg.waiting;
+          doSkipWaiting();
+        } else {
+          window.location.reload(); // last resort — no waiting SW found
+        }
+      });
+      return;
+    }
+    doSkipWaiting();
+
+    function doSkipWaiting() {
+      window._updateTriggered = true;
+      try {
+        window._swWaiting.postMessage({ type: "SKIP_WAITING" });
+      } catch (e) {
+        // SW reference went stale — force a hard reload
+        window.location.reload();
+        return;
+      }
+      // Safety net: controllerchange should fire within ~2s after skipWaiting.
+      // If it doesn't (SW was terminated mid-wait or some other hiccup), force reload.
+      setTimeout(function() { window.location.reload(); }, 3000);
+    }
+  }
 
   // Week navigation state
   const [weekOffset, setWeekOffset] = useState(0);
@@ -6915,7 +7054,7 @@ function App() {
     setEntriesRaw(function (prev) {
       const n = Object.assign({}, prev);
       const entry = Object.assign({}, e, {
-        id: Date.now()
+        id: crypto.randomUUID()
       });
       n[selectedDate] = (prev[selectedDate] || []).concat([entry]);
       // Sync to cloud
@@ -6942,7 +7081,7 @@ function App() {
           c: parseFloat(item.c) || 0,
           f: parseFloat(item.f) || 0,
           meal: meal,
-          id: now + toAdd.length
+          id: crypto.randomUUID()
         };
         toAdd.push(entry);
         syncToCloud(workerUrl, "sync_add_entry", Object.assign({}, {entry: Object.assign({}, entry, {date: target})}));
@@ -7025,11 +7164,12 @@ function App() {
 
   function saveEdit() {
     if (!editItem) return;
+    // If a field was left blank, keep the original value rather than zeroing it out.
     const updated = Object.assign({}, editItem, {
-      p: Math.round(parseFloat(editP) || 0),
-      c: Math.round(parseFloat(editC) || 0),
-      f: Math.round(parseFloat(editF) || 0),
-      cal: Math.round(parseFloat(editCal) || 0),
+      p:   editP.trim()   !== "" ? Math.round(parseFloat(editP)   || 0) : (editItem.p   || 0),
+      c:   editC.trim()   !== "" ? Math.round(parseFloat(editC)   || 0) : (editItem.c   || 0),
+      f:   editF.trim()   !== "" ? Math.round(parseFloat(editF)   || 0) : (editItem.f   || 0),
+      cal: editCal.trim() !== "" ? Math.round(parseFloat(editCal) || 0) : (editItem.cal || 0),
     });
     setEntriesRaw(function(prev) {
       const n = Object.assign({}, prev);
@@ -7060,7 +7200,7 @@ function App() {
         n[idx] = entry;
         return n;
       }
-      return prev.concat([entry]).slice(-90);
+      return prev.concat([entry]);
     });
     showToast("✓ Weight saved");
   }
@@ -7171,6 +7311,9 @@ function App() {
   }, /*#__PURE__*/React.createElement(Toast, {
     msg: toastMsg,
     action: toastAction
+  }), updateReady && !updateDismissed && /*#__PURE__*/React.createElement(UpdateBanner, {
+    onRestart: handleAppUpdate,
+    onDismiss: function() { setUpdateDismissed(true); }
   }), showInstallBanner && function () {
     const info = getBrowserInstructions();
     return /*#__PURE__*/React.createElement("div", {
@@ -7792,7 +7935,7 @@ function App() {
     className: "stitle"
   }, "Food Database"), /*#__PURE__*/React.createElement("div", {
     className: "muted-t"
-  }, "MacroTrack uses the USDA FoodData Central database \u2014 600,000+ foods including branded products. Search and barcode scanning work automatically once your Worker URL is set up. No API key needed."), workerUrl && /*#__PURE__*/React.createElement("div", {
+  }, "Barcode scans check Open Food Facts first (3.5M+ branded products, free) then fall back to USDA FoodData Central. Name search uses USDA. No API key needed."), workerUrl && /*#__PURE__*/React.createElement("div", {
     className: "ok-text",
     style: {
       marginTop: 10
@@ -8077,25 +8220,45 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
 </script>
 <script>
-// Service worker registration lives outside _initApp so it runs even if React
-// crashes or the page is still loading — this guarantees updates always propagate.
+// Service worker registration — lives outside _initApp so updates always propagate
+// even if React crashes or is still loading.
+//
+// Update flow (native-app style):
+//   1. New SW installs → enters "waiting" state (does NOT skipWaiting automatically)
+//   2. We store the waiting SW in window._swWaiting and fire "swupdateready"
+//   3. React shows an "Update available — Restart" banner
+//   4. User taps Restart → we post SKIP_WAITING → SW activates → controllerchange → reload
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", function () {
     navigator.serviceWorker.register("./sw.js").then(function (reg) {
-      reg.update(); // Check for a new SW on every page load
+      reg.update(); // Check for a new SW version on every page load
+
+      function notifyUpdateReady(sw) {
+        window._swWaiting = sw;
+        window.dispatchEvent(new CustomEvent("swupdateready"));
+      }
+
+      // Already has a waiting SW (e.g. user refreshed after update was detected)
+      if (reg.waiting && navigator.serviceWorker.controller) {
+        notifyUpdateReady(reg.waiting);
+      }
+
       reg.addEventListener("updatefound", function () {
         var nw = reg.installing;
         nw.addEventListener("statechange", function () {
-          if (nw.state === "activated") {
-            window.location.reload();
+          // "installed" + an existing controller = genuine update waiting
+          if (nw.state === "installed" && navigator.serviceWorker.controller) {
+            notifyUpdateReady(nw);
           }
         });
       });
     }).catch(function (e) { console.log("SW registration failed:", e); });
 
-    // Also reload when the active SW sends SW_UPDATED (handles already-waiting SW case)
-    navigator.serviceWorker.addEventListener("message", function (e) {
-      if (e.data && e.data.type === "SW_UPDATED") {
+    // When the new SW takes control (after SKIP_WAITING), reload into fresh version.
+    // Only act if the user intentionally triggered the update (window._updateTriggered),
+    // so a stray controllerchange from an unrelated SW event doesn't silently reload.
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      if (window._updateTriggered) {
         window.location.reload();
       }
     });
