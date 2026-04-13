@@ -73,6 +73,131 @@ async function callClaude(apiKey, system, messages, maxTokens, model) {
   }
 }
 
+// ── Stripe helpers ────────────────────────────────────────────────────────
+
+const STRIPE_PRO_PRICE_IDS = new Set([
+  "price_1TLY3w2ezo0ehDtiQPdplUqg", // Pro Monthly
+  "price_1TLY5K2ezo0ehDtiWQ9tTQTL", // Pro Annual
+]);
+const STRIPE_MAX_PRICE_IDS = new Set([
+  "price_1TLY8Y2ezo0ehDtisIIKD8OW", // Max Monthly
+  "price_1TLY8r2ezo0ehDtiWPZeKGmw", // Max Annual
+]);
+
+async function stripeApi(secretKey, method, path, params) {
+  const res = await fetch("https://api.stripe.com/v1/" + path, {
+    method,
+    headers: {
+      "Authorization": "Basic " + btoa(secretKey + ":"),
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params ? new URLSearchParams(params).toString() : undefined,
+  });
+  const data = await res.json();
+  return { ok: res.ok, data };
+}
+
+async function verifyStripeSignature(rawBody, sigHeader, secret) {
+  const parts = sigHeader.split(",");
+  const tPart = parts.find(p => p.startsWith("t="));
+  const v1Part = parts.find(p => p.startsWith("v1="));
+  if (!tPart || !v1Part) return false;
+  const timestamp = tPart.slice(2);
+  const sig = v1Part.slice(3);
+  const payload = timestamp + "." + rawBody;
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const computed = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+  const hex = Array.from(new Uint8Array(computed)).map(b => b.toString(16).padStart(2, "0")).join("");
+  return hex === sig;
+}
+
+async function getSubscriptionTier(env, deviceId) {
+  if (!deviceId) return "free";
+  const r = await sb(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
+  return (r.data && r.data[0] && r.data[0].subscription_status) || "free";
+}
+
+function getMondayISO() {
+  const now = new Date();
+  const diff = now.getUTCDay() === 0 ? -6 : 1 - now.getUTCDay();
+  const mon = new Date(now);
+  mon.setUTCDate(mon.getUTCDate() + diff);
+  return mon.toISOString().slice(0, 10);
+}
+
+async function getDailyUsage(env, deviceId, type) {
+  const date = new Date().toISOString().slice(0, 10);
+  const val = await env.CODES.get("usage:" + type + ":" + deviceId + ":" + date);
+  return val ? parseInt(val) : 0;
+}
+
+async function incrementDailyUsage(env, deviceId, type) {
+  const date = new Date().toISOString().slice(0, 10);
+  const key = "usage:" + type + ":" + deviceId + ":" + date;
+  const cur = await env.CODES.get(key);
+  await env.CODES.put(key, String((cur ? parseInt(cur) : 0) + 1), { expirationTtl: 90000 });
+}
+
+async function getWeeklyUsage(env, deviceId, type) {
+  const val = await env.CODES.get("usage:" + type + ":" + deviceId + ":" + getMondayISO());
+  return val ? parseInt(val) : 0;
+}
+
+async function incrementWeeklyUsage(env, deviceId, type) {
+  const key = "usage:" + type + ":" + deviceId + ":" + getMondayISO();
+  const cur = await env.CODES.get(key);
+  await env.CODES.put(key, String((cur ? parseInt(cur) : 0) + 1), { expirationTtl: 691200 }); // 8 days
+}
+
+async function handleStripeWebhook(request, env) {
+  const rawBody = await request.text();
+  const sigHeader = request.headers.get("stripe-signature") || "";
+  if (!env.STRIPE_WEBHOOK_SECRET)
+    return new Response(JSON.stringify({ error: "Not configured" }), { status: 500, headers: { "Content-Type": "application/json" } });
+  const valid = await verifyStripeSignature(rawBody, sigHeader, env.STRIPE_WEBHOOK_SECRET);
+  if (!valid)
+    return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 400, headers: { "Content-Type": "application/json" } });
+  let event;
+  try { event = JSON.parse(rawBody); } catch(e) {
+    return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: { "Content-Type": "application/json" } });
+  }
+  const obj = event.data && event.data.object;
+  if (!obj) return new Response(JSON.stringify({ received: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+
+  if (event.type === "checkout.session.completed") {
+    const deviceId = obj.client_reference_id || (obj.metadata && obj.metadata.device_id);
+    const customerId = obj.customer;
+    const tier = (obj.metadata && obj.metadata.tier) || "pro";
+    if (deviceId && customerId) {
+      await sb(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(deviceId), {
+        stripe_customer_id: customerId,
+        subscription_status: tier,
+      });
+    }
+  }
+
+  if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
+    const customerId = obj.customer;
+    const status = obj.status;
+    const priceId = obj.items && obj.items.data && obj.items.data[0] && obj.items.data[0].price && obj.items.data[0].price.id;
+    let tier = "free";
+    if (status === "active" || status === "trialing") {
+      if (STRIPE_MAX_PRICE_IDS.has(priceId)) tier = "max";
+      else if (STRIPE_PRO_PRICE_IDS.has(priceId)) tier = "pro";
+    }
+    if (customerId) {
+      await sb(env, "PATCH", "profiles?stripe_customer_id=eq." + encodeURIComponent(customerId), {
+        subscription_status: tier,
+      });
+    }
+  }
+
+  return new Response(JSON.stringify({ received: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+}
+
 // ── Search Orchestrator helpers ───────────────────────────────────────────
 function getNutrientVal(nutrients, id) {
   const n = (nutrients || []).find(x => x.nutrientId === id || x.nutrientNumber === String(id));
@@ -521,6 +646,12 @@ export default {
       return jsonRes({ error: "Method not allowed" }, 405, cors);
     }
 
+    // Stripe webhook must read raw body before JSON parse
+    const reqUrl = new URL(request.url);
+    if (reqUrl.pathname.endsWith("/stripe-webhook")) {
+      return handleStripeWebhook(request, env);
+    }
+
     let body;
     try { body = await request.json(); }
     catch (e) { return jsonRes({ error: "Invalid JSON" }, 400, cors); }
@@ -584,10 +715,12 @@ export default {
         sb(env, "GET", "food_entries?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=500"),
         sb(env, "GET", "weight_log?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=200"),
       ]);
+      const profileRow = (profile.data && profile.data[0]) || null;
       return jsonRes({
-        profile: (profile.data && profile.data[0]) || null,
+        profile: profileRow,
         entries: entries.data || [],
         wlog: wlog.data || [],
+        subscription_status: (profileRow && profileRow.subscription_status) || "free",
       }, 200, cors);
     }
 
@@ -980,8 +1113,14 @@ export default {
 
     // ── MEAL PLAN ─────────────────────────────────────────────────────────
     if (type === "meal_plan") {
-      const { days, calories, protein, carbs, fat, goalType, preferences, context } = body;
+      const { days, calories, protein, carbs, fat, goalType, preferences, context, deviceId } = body;
       if (!days || !calories) return jsonRes({ error: "Missing plan parameters" }, 400, cors);
+      const tier = await getSubscriptionTier(env, deviceId || "");
+      if (tier === "free") return jsonRes({ error: "pro_required" }, 403, cors);
+      if (tier === "pro") {
+        const usage = await getWeeklyUsage(env, deviceId, "mealplan");
+        if (usage >= 3) return jsonRes({ error: "weekly_limit_reached", limit: 3, used: usage }, 429, cors);
+      }
 
       const prefText = preferences || "Use a variety of whole foods.";
       const contextText = context ? ("\n\nUSER DATA:\n" + context) : "";
@@ -1107,6 +1246,7 @@ export default {
         });
 
         plan.shoppingList = shoppingList;
+        if (tier === "pro" && deviceId) await incrementWeeklyUsage(env, deviceId, "mealplan");
         return jsonRes(plan, 200, cors);
 
       } catch (e) {
@@ -1116,12 +1256,15 @@ export default {
 
     // ── COACH REPORT ──────────────────────────────────────────────────────
     if (type === "coach_report") {
-      const { context, prompt, coachMode } = body;
+      const { context, prompt, coachMode, deviceId } = body;
       if (!context) return jsonRes({ error: "Missing context" }, 400, cors);
+      const tier = await getSubscriptionTier(env, deviceId || "");
+      if (tier === "free") return jsonRes({ error: "pro_required" }, 403, cors);
+      const model = tier === "max" ? "claude-sonnet-4-6" : "claude-haiku-4-5-20251001";
       const system = getCoachSystem(coachMode);
       const result = await callClaude(env.ANTHROPIC_API_KEY, system,
         [{ role: "user", content: "My data:\n\n" + context + "\n\n" + (prompt || "Write a weekly check-in as 3-4 bullet points. Cover weight trend vs goal, calorie adherence, protein consistency, and one actionable focus for next week. Start each with an emoji.") }],
-        600
+        600, model
       );
       if (result.error) return jsonRes({ error: result.error }, 502, cors);
       return jsonRes({ text: result.text }, 200, cors);
@@ -1129,15 +1272,23 @@ export default {
 
     // ── COACH CHAT ────────────────────────────────────────────────────────
     if (type === "coach_chat") {
-      const { context, messages, coachMode } = body;
+      const { context, messages, coachMode, deviceId } = body;
       if (!context || !messages) return jsonRes({ error: "Missing context or messages" }, 400, cors);
+      const tier = await getSubscriptionTier(env, deviceId || "");
+      if (tier === "free") return jsonRes({ error: "pro_required" }, 403, cors);
+      if (tier === "pro") {
+        const usage = await getDailyUsage(env, deviceId, "coach");
+        if (usage >= 20) return jsonRes({ error: "daily_limit_reached", limit: 20, used: usage }, 429, cors);
+      }
+      const model = tier === "max" ? "claude-sonnet-4-6" : "claude-haiku-4-5-20251001";
       const system = getCoachSystem(coachMode);
       const claudeMessages = [
         { role: "user", content: "My current data:\n\n" + context },
         { role: "assistant", content: "Got it, I have your full data. What do you want to know?" },
       ].concat(messages);
-      const result = await callClaude(env.ANTHROPIC_API_KEY, system, claudeMessages, 800);
+      const result = await callClaude(env.ANTHROPIC_API_KEY, system, claudeMessages, 800, model);
       if (result.error) return jsonRes({ error: result.error }, 502, cors);
+      if (tier === "pro") await incrementDailyUsage(env, deviceId, "coach");
       return jsonRes({ text: result.text }, 200, cors);
     }
 
@@ -1525,6 +1676,43 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
       ]);
 
       return jsonRes({ ok: true }, 200, cors);
+    }
+
+    // ── STRIPE: Create checkout session ──────────────────────────────────
+    if (type === "create_checkout_session") {
+      const { priceId, deviceId, email } = body;
+      if (!priceId || !deviceId) return jsonRes({ error: "Missing priceId or deviceId" }, 400, cors);
+      if (!env.STRIPE_SECRET_KEY) return jsonRes({ error: "Stripe not configured" }, 500, cors);
+
+      const tier = STRIPE_MAX_PRICE_IDS.has(priceId) ? "max" : "pro";
+      const isPro = STRIPE_PRO_PRICE_IDS.has(priceId);
+      const appUrl = "https://kjgoodwin01.github.io/macrotrack/";
+
+      const params = {
+        "mode": "subscription",
+        "payment_method_types[0]": "card",
+        "line_items[0][price]": priceId,
+        "line_items[0][quantity]": "1",
+        "client_reference_id": deviceId,
+        "success_url": appUrl + "?checkout=success",
+        "cancel_url": appUrl,
+        "metadata[device_id]": deviceId,
+        "metadata[tier]": tier,
+      };
+      if (email) params.customer_email = email;
+      if (isPro) params["subscription_data[trial_period_days]"] = "3";
+
+      const result = await stripeApi(env.STRIPE_SECRET_KEY, "POST", "checkout/sessions", params);
+      if (!result.ok) return jsonRes({ error: (result.data.error && result.data.error.message) || "Stripe error" }, 502, cors);
+      return jsonRes({ url: result.data.url }, 200, cors);
+    }
+
+    // ── STRIPE: Get subscription status ──────────────────────────────────
+    if (type === "get_subscription") {
+      const { deviceId } = body;
+      if (!deviceId) return jsonRes({ error: "Missing deviceId" }, 400, cors);
+      const tier = await getSubscriptionTier(env, deviceId);
+      return jsonRes({ subscription_status: tier }, 200, cors);
     }
 
     // ── NATURAL LANGUAGE WORKOUT ENTRY ───────────────────────────────────

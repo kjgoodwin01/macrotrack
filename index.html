@@ -4132,6 +4132,153 @@ function Onboarding({
   }, "\u2190 Back")));
 }
 
+/* ── ProGate — upgrade prompt shown inside gated tabs ── */
+function ProGate({ feature, workerUrl, deviceId, userEmail, subscription, onSubscriptionChange }) {
+  var _billing = React.useState("monthly"); var billing = _billing[0]; var setBilling = _billing[1];
+  var _loading = React.useState(null); var loading = _loading[0]; var setLoading = _loading[1];
+  var _error = React.useState(""); var error = _error[0]; var setError = _error[1];
+
+  var PRICES = {
+    pro:  { monthly: "price_1TLY3w2ezo0ehDtiQPdplUqg", annual: "price_1TLY5K2ezo0ehDtiWQ9tTQTL" },
+    max:  { monthly: "price_1TLY8Y2ezo0ehDtisIIKD8OW", annual: "price_1TLY8r2ezo0ehDtiWPZeKGmw" },
+  };
+
+  async function handleCheckout(tier) {
+    setLoading(tier); setError("");
+    var priceId = PRICES[tier][billing];
+    try {
+      var r = await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "create_checkout_session", priceId: priceId,
+          deviceId: deviceId, email: userEmail || undefined })
+      });
+      var data = await r.json();
+      if (data.url) { window.location.href = data.url; }
+      else { setError(data.error || "Could not start checkout"); setLoading(null); }
+    } catch(e) { setError("Network error — try again"); setLoading(null); }
+  }
+
+  var featureTitle = feature === "coach" ? "AI Nutrition Coach" : "AI Meal Planner";
+  var featureDesc = feature === "coach"
+    ? "Get a personal coach that knows your data — your goals, logs, weight trend, and patterns."
+    : "Generate complete weekly meal plans tailored to your goals, with a full shopping list.";
+
+  var proFeatures = ["AI Coach (20 msgs/day)", "Meal Plans (3/week)", "Adaptive TDEE", "Course Correction"];
+  var maxFeatures = ["AI Coach — unlimited", "Meal Plans — unlimited", "Adaptive TDEE", "Course Correction", "Claude Sonnet (smarter AI)"];
+
+  var proMonthly = "$9.99/mo"; var proAnnual = "$6.67/mo";
+  var maxMonthly = "$19.99/mo"; var maxAnnual = "$13.33/mo";
+  var proAnnualTotal = "$79.99/yr"; var maxAnnualTotal = "$159.99/yr";
+
+  return /*#__PURE__*/React.createElement("div", {
+    style: { padding: "0 16px 48px", maxWidth: 480, margin: "0 auto" }
+  },
+    /* header */
+    /*#__PURE__*/React.createElement("div", { style: { textAlign: "center", marginBottom: 28 } },
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 36, marginBottom: 8 } }, "\uD83D\uDD13"),
+      /*#__PURE__*/React.createElement("div", {
+        style: { fontFamily: "'Bebas Neue',sans-serif", fontSize: 24, letterSpacing: 3, marginBottom: 8 }
+      }, "UNLOCK " + featureTitle.toUpperCase()),
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 14, color: "var(--mu)", lineHeight: 1.5 } }, featureDesc)
+    ),
+    /* billing toggle */
+    /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", background: "var(--s1)", borderRadius: 12, padding: 4, marginBottom: 24, gap: 4 }
+    },
+      ["monthly", "annual"].map(function(b) {
+        return /*#__PURE__*/React.createElement("button", {
+          key: b,
+          onClick: function() { setBilling(b); },
+          style: { flex: 1, padding: "8px 0", borderRadius: 9, border: "none", cursor: "pointer",
+            background: billing === b ? "var(--ind)" : "transparent",
+            color: billing === b ? "#fff" : "var(--mu)", fontSize: 14, fontWeight: 600,
+            transition: "background 0.15s" }
+        },
+          b === "monthly" ? "Monthly" : "Annual",
+          b === "annual" && /*#__PURE__*/React.createElement("span", {
+            style: { marginLeft: 6, background: "rgba(255,255,255,0.2)", borderRadius: 6,
+              padding: "1px 6px", fontSize: 11 }
+          }, "SAVE 33%")
+        );
+      })
+    ),
+    /* tier cards */
+    /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 12, marginBottom: 20 } },
+      /* Pro card */
+      /*#__PURE__*/React.createElement("div", {
+        style: { flex: 1, background: "var(--s1)", borderRadius: 16, padding: "20px 16px",
+          border: "1px solid rgba(255,255,255,0.06)" }
+      },
+        /*#__PURE__*/React.createElement("div", {
+          style: { fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 2, marginBottom: 4 }
+        }, "PRO"),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 22, fontWeight: 700, marginBottom: 2 } },
+          billing === "monthly" ? proMonthly : proAnnual),
+        billing === "annual" && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "var(--mu)", marginBottom: 12 } }, proAnnualTotal + " billed annually"),
+        billing === "monthly" && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "var(--mu)", marginBottom: 12 } }, "3-day free trial"),
+        /*#__PURE__*/React.createElement("div", { style: { marginBottom: 16 } },
+          proFeatures.map(function(f) {
+            return /*#__PURE__*/React.createElement("div", { key: f,
+              style: { fontSize: 12, color: "var(--mu)", marginBottom: 5, display: "flex", alignItems: "flex-start", gap: 6 }
+            },
+              /*#__PURE__*/React.createElement("span", { style: { color: "var(--ind)", flexShrink: 0 } }, "\u2713"),
+              f
+            );
+          })
+        ),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: function() { handleCheckout("pro"); },
+          disabled: !!loading,
+          style: { width: "100%", padding: "10px 0", borderRadius: 10, border: "none",
+            background: "var(--ind)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+            opacity: loading === "pro" ? 0.7 : 1 }
+        }, loading === "pro" ? "LOADING\u2026" : (billing === "monthly" ? "TRY FREE" : "GET PRO"))
+      ),
+      /* Max card */
+      /*#__PURE__*/React.createElement("div", {
+        style: { flex: 1, background: "var(--s1)", borderRadius: 16, padding: "20px 16px",
+          border: "1px solid rgba(99,102,241,0.4)",
+          boxShadow: "0 0 20px rgba(99,102,241,0.12)" }
+      },
+        /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
+          /*#__PURE__*/React.createElement("div", {
+            style: { fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 2 }
+          }, "MAX"),
+          /*#__PURE__*/React.createElement("span", {
+            style: { fontSize: 10, background: "var(--ind)", color: "#fff", borderRadius: 4,
+              padding: "1px 5px", letterSpacing: 1 }
+          }, "BEST")
+        ),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 22, fontWeight: 700, marginBottom: 2 } },
+          billing === "monthly" ? maxMonthly : maxAnnual),
+        billing === "annual" && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "var(--mu)", marginBottom: 12 } }, maxAnnualTotal + " billed annually"),
+        billing === "monthly" && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "var(--mu)", marginBottom: 12 } }, "No trial"),
+        /*#__PURE__*/React.createElement("div", { style: { marginBottom: 16 } },
+          maxFeatures.map(function(f) {
+            return /*#__PURE__*/React.createElement("div", { key: f,
+              style: { fontSize: 12, color: "var(--mu)", marginBottom: 5, display: "flex", alignItems: "flex-start", gap: 6 }
+            },
+              /*#__PURE__*/React.createElement("span", { style: { color: "var(--ind)", flexShrink: 0 } }, "\u2713"),
+              f
+            );
+          })
+        ),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: function() { handleCheckout("max"); },
+          disabled: !!loading,
+          style: { width: "100%", padding: "10px 0", borderRadius: 10, border: "1px solid var(--ind)",
+            background: "transparent", color: "var(--ind)", fontSize: 13, fontWeight: 700, cursor: "pointer",
+            opacity: loading === "max" ? 0.7 : 1 }
+        }, loading === "max" ? "LOADING\u2026" : "GET MAX")
+      )
+    ),
+    error && /*#__PURE__*/React.createElement("div", { className: "err", style: { marginBottom: 12, textAlign: "center" } }, error),
+    /*#__PURE__*/React.createElement("div", {
+      style: { textAlign: "center", fontSize: 11, color: "var(--mu)", lineHeight: 1.6 }
+    }, "Secured by Stripe \u2022 Cancel anytime \u2022 No surprise charges")
+  );
+}
+
 /* ── Meal Plan Tab ── */
 function MealPlanTab({
   goals,
@@ -4337,7 +4484,8 @@ function MealPlanTab({
           fat: goals.fat,
           goalType: goalLabel,
           preferences: buildPrefsText(),
-          context: buildMealPlanContext()
+          context: buildMealPlanContext(),
+          deviceId: effectiveUserId()
         })
       });
       if (!r.ok) throw new Error("Worker returned " + r.status);
@@ -5338,6 +5486,7 @@ function CoachTab({
           type: "coach_report",
           context: buildContext(),
           coachMode: coachMode || "balanced",
+          deviceId: effectiveUserId(),
           prompt: "Write a weekly coaching check-in as 3-4 bullet points tailored to their specific goal (cut/bulk/maintain). Cover: 1) Weight trend vs goal rate and target weight 2) Calorie adherence across the week 3) Protein consistency 4) One specific actionable focus for next week. Be direct, reference their real numbers, start each bullet with an emoji."
         })
       });
@@ -5398,10 +5547,15 @@ function CoachTab({
           type: "coach_chat",
           context: buildContext(),
           coachMode: coachMode || "balanced",
-          messages: history
+          messages: history,
+          deviceId: effectiveUserId()
         })
       });
-      if (!r.ok) throw new Error("Worker error");
+      if (!r.ok) {
+        const errData = await r.json().catch(function(){return {};});
+        if (r.status === 429) throw new Error("Daily limit reached \u2014 resets tomorrow");
+        throw new Error(errData.error || "Worker error");
+      }
       const d = await r.json();
       const aiText = d.text || d.message || "Sorry, could not process that.";
       const aiTime = new Date().toLocaleTimeString([], {
@@ -6318,6 +6472,7 @@ function App() {
   const [userName, setUserNameRaw] = useLocal("mt_name", "");
   const [onboarded, setOnboardedRaw] = useLocal("mt_onboarded", false);
   const [aiUsage, setAiUsageRaw] = useLocal("mt_ai_usage", {});
+  const [subscription, setSubscriptionRaw] = useLocal("mt_sub", { status: "free", checkedAt: null });
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [installDismissed, setInstallDismissedRaw] = useLocal("mt_install_dismissed", false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -6592,8 +6747,39 @@ function App() {
       if (cloud.profile && !userName && cloud.profile.name) {
         setUserNameRaw(cloud.profile.name);
       }
+      // Update subscription status from cloud
+      if (cloud.subscription_status) {
+        setSubscriptionRaw({ status: cloud.subscription_status, checkedAt: Date.now() });
+      }
     });
   }, [workerUrl]);
+
+  // ── Stripe checkout return handler ────────────────────────────────────
+  useEffect(function() {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get("checkout")) return;
+    // Clean URL
+    window.history.replaceState({}, "", window.location.pathname);
+    if (params.get("checkout") === "success") {
+      showToast("\u2713 Welcome to MacroTrack Pro!");
+      // Poll for subscription activation (webhook may take a moment)
+      var attempts = 0;
+      function pollSub() {
+        attempts++;
+        fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "get_subscription", deviceId: effectiveUserId() })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.subscription_status && data.subscription_status !== "free") {
+            setSubscriptionRaw({ status: data.subscription_status, checkedAt: Date.now() });
+          } else if (attempts < 5) {
+            setTimeout(pollSub, 2000);
+          }
+        }).catch(function(){});
+      }
+      setTimeout(pollSub, 1500);
+    }
+  }, []);
   function completeOnboarding(data) {
     const cleanName = (data.name || "").trim();
     if (!cleanName) {
@@ -7322,33 +7508,43 @@ function App() {
   }, e.weight, " lbs"))))), tab === "coach" && /*#__PURE__*/React.createElement("div", {
     className: "page"
   }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      height: 12
-    }
-  }), /*#__PURE__*/React.createElement(CoachTab, {
-    goals: goals,
-    entries: entries,
-    wlog: wlog,
-    workerUrl: workerUrl,
-    selectedDate: selectedDate,
-    aiUsageToday: getAiUsageThisWeek(),
-    onAiCall: incrementAiUsage,
-    aiLimit: AI_WEEKLY_LIMIT,
-    resetMessage: getResetMessage(),
-    onChatOpen: setChatFullscreen,
-    coachMode: coachMode
-  })), tab === "meals" && /*#__PURE__*/React.createElement("div", {
+    style: { height: 12 }
+  }),
+  subscription.status === "free"
+    ? /*#__PURE__*/React.createElement(ProGate, {
+        feature: "coach", workerUrl: workerUrl,
+        deviceId: effectiveUserId(),
+        userEmail: displayUser ? displayUser.email : undefined,
+        subscription: subscription
+      })
+    : /*#__PURE__*/React.createElement(CoachTab, {
+        goals: goals, entries: entries, wlog: wlog,
+        workerUrl: workerUrl, selectedDate: selectedDate,
+        aiUsageToday: getAiUsageThisWeek(),
+        onAiCall: incrementAiUsage,
+        aiLimit: subscription.status === "max" ? Infinity : AI_WEEKLY_LIMIT,
+        resetMessage: getResetMessage(),
+        onChatOpen: setChatFullscreen,
+        coachMode: coachMode
+      })
+  ), tab === "meals" && /*#__PURE__*/React.createElement("div", {
     className: "page"
   }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      height: 12
-    }
-  }), /*#__PURE__*/React.createElement(MealPlanTab, {
-    goals: goals,
-    workerUrl: workerUrl,
-    entries: entries,
-    wlog: wlog
-  })), tab === "goals" && /*#__PURE__*/React.createElement("div", {
+    style: { height: 12 }
+  }),
+  subscription.status === "free"
+    ? /*#__PURE__*/React.createElement(ProGate, {
+        feature: "meals", workerUrl: workerUrl,
+        deviceId: effectiveUserId(),
+        userEmail: displayUser ? displayUser.email : undefined,
+        subscription: subscription
+      })
+    : /*#__PURE__*/React.createElement(MealPlanTab, {
+        goals: goals, workerUrl: workerUrl,
+        entries: entries, wlog: wlog,
+        subscription: subscription
+      })
+  ), tab === "goals" && /*#__PURE__*/React.createElement("div", {
     className: "page"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
