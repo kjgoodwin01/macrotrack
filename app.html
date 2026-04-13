@@ -4489,7 +4489,8 @@ function MealPlanTab({
           goalType: goalLabel,
           preferences: buildPrefsText(),
           context: buildMealPlanContext(),
-          deviceId: effectiveUserId()
+          deviceId: effectiveUserId(),
+          email: (function(){try{return JSON.parse(localStorage.getItem("mt_linked_email")||"null");}catch(_){return null;}}())
         })
       });
       if (!r.ok) throw new Error("Worker returned " + r.status);
@@ -5515,6 +5516,7 @@ function CoachTab({
           context: buildContext(),
           coachMode: coachMode || "balanced",
           deviceId: effectiveUserId(),
+          email: (function(){try{return JSON.parse(localStorage.getItem("mt_linked_email")||"null");}catch(_){return null;}}()),
           prompt: "Write a weekly coaching check-in as 3-4 bullet points tailored to their specific goal (cut/bulk/maintain). Cover: 1) Weight trend vs goal rate and target weight 2) Calorie adherence across the week 3) Protein consistency 4) One specific actionable focus for next week. Be direct, reference their real numbers, start each bullet with an emoji."
         })
       });
@@ -5576,7 +5578,8 @@ function CoachTab({
           context: buildContext(),
           coachMode: coachMode || "balanced",
           messages: history,
-          deviceId: effectiveUserId()
+          deviceId: effectiveUserId(),
+          email: (function(){try{return JSON.parse(localStorage.getItem("mt_linked_email")||"null");}catch(_){return null;}}())
         })
       });
       if (!r.ok) {
