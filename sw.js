@@ -157,7 +157,7 @@ self.addEventListener("push", function(e) {
 self.addEventListener("notificationclick", function(e) {
   e.notification.close();
 
-  var targetUrl = (e.notification.data && e.notification.data.url) || "https://kjgoodwin01.github.io/macrotrack/";
+  var targetUrl = (e.notification.data && e.notification.data.url) || "https://macrotrack.live/app.html";
 
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function(clients) {

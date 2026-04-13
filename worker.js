@@ -381,65 +381,190 @@ async function callSearchOrchestrator(apiKey, query, candidates, recentFoods, is
   }
 }
 
-// ── Web Push helper — sends push notification via VAPID ──────────────────
-async function sendWebPush(endpoint, p256dhKey, authKey, payload, vapidPublicKey, vapidPrivateKey, vapidSubject) {
-  try {
-    const vapidHeader = await createVapidAuth(endpoint, vapidPublicKey, vapidPrivateKey, vapidSubject);
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Authorization": vapidHeader,
-        "Content-Type": "application/json",
-        "TTL": "86400",
-        "Urgency": "normal",
-      },
-      body: payload,
-    });
-    return { ok: response.ok, status: response.status };
-  } catch (e) {
-    console.log("[sendWebPush] THREW:", e.message, e.stack);
-    return { ok: false, status: 0, error: e.message };
-  }
+// ── Base64url helpers ─────────────────────────────────────────────────────
+function b64urlDecode(str) {
+  str = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (str.length % 4) str += "=";
+  return Uint8Array.from(atob(str), function(c) { return c.charCodeAt(0); });
 }
 
+function b64urlEncode(buf) {
+  let bin = "";
+  const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+// ── VAPID JWT — creates the Authorization header for Web Push ────────────
+// Fixes: EC private keys cannot be imported as "raw" in Web Crypto;
+//        must use JWK format built from the raw private scalar + public point.
 async function createVapidAuth(endpoint, publicKey, privateKey, subject) {
   const urlObj = new URL(endpoint);
   const audience = urlObj.protocol + "//" + urlObj.host;
 
   const header = { typ: "JWT", alg: "ES256" };
   const now = Math.floor(Date.now() / 1000);
-  const payload = { aud: audience, exp: now + 86400, sub: subject };
+  const jwtPayload = { aud: audience, exp: now + 43200, sub: subject };
 
   function toBase64Url(str) {
     return btoa(str).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
   }
 
   const headerB64 = toBase64Url(JSON.stringify(header));
-  const payloadB64 = toBase64Url(JSON.stringify(payload));
+  const payloadB64 = toBase64Url(JSON.stringify(jwtPayload));
   const unsigned = headerB64 + "." + payloadB64;
 
-  const rawKey = Uint8Array.from(atob(privateKey.replace(/-/g, "+").replace(/_/g, "/")), function(c) { return c.charCodeAt(0); });
+  // Decode keys: privateKey is 32-byte raw scalar; publicKey is 65-byte uncompressed point
+  const privBytes = b64urlDecode(privateKey);
+  const pubBytes = b64urlDecode(publicKey); // 0x04 || x(32) || y(32)
+
+  // Build JWK — the only format Web Crypto supports for EC private key import
+  const jwk = {
+    kty: "EC",
+    crv: "P-256",
+    d: b64urlEncode(privBytes),
+    x: b64urlEncode(pubBytes.slice(1, 33)),
+    y: b64urlEncode(pubBytes.slice(33, 65)),
+    key_ops: ["sign"],
+    ext: true,
+  };
 
   const cryptoKey = await crypto.subtle.importKey(
-    "raw", rawKey,
+    "jwk", jwk,
     { name: "ECDSA", namedCurve: "P-256" },
     false, ["sign"]
   );
 
   const signatureBuffer = await crypto.subtle.sign(
-    { name: "ECDSA", hash: "SHA-256" },
+    { name: "ECDSA", hash: { name: "SHA-256" } },
     cryptoKey,
     new TextEncoder().encode(unsigned)
   );
 
-  const sigBytes = new Uint8Array(signatureBuffer);
-  let sigStr = "";
-  for (let i = 0; i < sigBytes.length; i++) sigStr += String.fromCharCode(sigBytes[i]);
-  const sigB64 = toBase64Url(sigStr);
-
+  const sigB64 = b64urlEncode(signatureBuffer);
   const jwt = unsigned + "." + sigB64;
 
   return "vapid t=" + jwt + ", k=" + publicKey;
+}
+
+// ── Web Push payload encryption (RFC 8291 aes128gcm) ─────────────────────
+// Fixes: push services reject unencrypted payloads — must encrypt with the
+//        subscriber's p256dh public key and auth secret before sending.
+async function encryptWebPush(p256dhB64, authB64, payloadStr) {
+  const encoder = new TextEncoder();
+  const plaintext = encoder.encode(payloadStr);
+
+  const receiverPubBytes = b64urlDecode(p256dhB64);
+  const authBytes = b64urlDecode(authB64);
+
+  // Generate a random salt and an ephemeral ECDH sender key pair
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const senderKeyPair = await crypto.subtle.generateKey(
+    { name: "ECDH", namedCurve: "P-256" },
+    true, ["deriveBits"]
+  );
+
+  // Import receiver's public key for ECDH
+  const receiverKey = await crypto.subtle.importKey(
+    "raw", receiverPubBytes,
+    { name: "ECDH", namedCurve: "P-256" },
+    false, []
+  );
+
+  // ECDH shared secret (32 bytes)
+  const ecdhSecret = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: "ECDH", public: receiverKey },
+    senderKeyPair.privateKey, 256
+  ));
+
+  const senderPubBytes = new Uint8Array(
+    await crypto.subtle.exportKey("raw", senderKeyPair.publicKey)
+  );
+
+  // HKDF-Extract: PRK = HMAC-SHA256(salt=auth, ikm=ecdhSecret)
+  async function hkdfExtract(salt, ikm) {
+    const key = await crypto.subtle.importKey("raw", salt, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    return new Uint8Array(await crypto.subtle.sign("HMAC", key, ikm));
+  }
+
+  // HKDF-Expand: T(i) chain
+  async function hkdfExpand(prk, info, len) {
+    const prkKey = await crypto.subtle.importKey("raw", prk, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const out = new Uint8Array(len);
+    let t = new Uint8Array(0);
+    let offset = 0;
+    for (let i = 1; offset < len; i++) {
+      const block = new Uint8Array(t.length + info.length + 1);
+      block.set(t);
+      block.set(info, t.length);
+      block[t.length + info.length] = i;
+      t = new Uint8Array(await crypto.subtle.sign("HMAC", prkKey, block));
+      out.set(t.slice(0, Math.min(t.length, len - offset)), offset);
+      offset += t.length;
+    }
+    return out;
+  }
+
+  // RFC 8291: PRK_key = HKDF-Extract(auth, ecdh_secret)
+  //           IKM     = HKDF-Expand(PRK_key, "WebPush: info\0" || recv_pub || send_pub, 32)
+  const prkKey = await hkdfExtract(authBytes, ecdhSecret);
+  const keyInfoStr = encoder.encode("WebPush: info\0");
+  const keyInfo = new Uint8Array(keyInfoStr.length + receiverPubBytes.length + senderPubBytes.length);
+  keyInfo.set(keyInfoStr);
+  keyInfo.set(receiverPubBytes, keyInfoStr.length);
+  keyInfo.set(senderPubBytes, keyInfoStr.length + receiverPubBytes.length);
+  const ikm = await hkdfExpand(prkKey, keyInfo, 32);
+
+  // PRK_content = HKDF-Extract(salt, ikm)
+  const prk = await hkdfExtract(salt, ikm);
+  const cek = await hkdfExpand(prk, encoder.encode("Content-Encoding: aes128gcm\0"), 16);
+  const nonce = await hkdfExpand(prk, encoder.encode("Content-Encoding: nonce\0"), 12);
+
+  // Pad + encrypt: plaintext || 0x02 (end-of-record delimiter)
+  const padded = new Uint8Array(plaintext.length + 1);
+  padded.set(plaintext);
+  padded[plaintext.length] = 0x02;
+
+  const cekKey = await crypto.subtle.importKey("raw", cek, { name: "AES-GCM" }, false, ["encrypt"]);
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce, tagLength: 128 }, cekKey, padded)
+  );
+
+  // aes128gcm content: salt(16) | rs(4) | idlen(1) | sender_pub(65) | ciphertext
+  const rs = 4096;
+  const output = new Uint8Array(16 + 4 + 1 + senderPubBytes.length + ciphertext.length);
+  output.set(salt, 0);
+  output[16] = (rs >>> 24) & 0xff;
+  output[17] = (rs >>> 16) & 0xff;
+  output[18] = (rs >>> 8) & 0xff;
+  output[19] = rs & 0xff;
+  output[20] = senderPubBytes.length;
+  output.set(senderPubBytes, 21);
+  output.set(ciphertext, 21 + senderPubBytes.length);
+  return output;
+}
+
+// ── Web Push sender ───────────────────────────────────────────────────────
+async function sendWebPush(endpoint, p256dhKey, authKey, payload, vapidPublicKey, vapidPrivateKey, vapidSubject) {
+  try {
+    const vapidHeader = await createVapidAuth(endpoint, vapidPublicKey, vapidPrivateKey, vapidSubject);
+    const encryptedBody = await encryptWebPush(p256dhKey, authKey, payload);
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Authorization": vapidHeader,
+        "Content-Type": "application/octet-stream",
+        "Content-Encoding": "aes128gcm",
+        "TTL": "86400",
+        "Urgency": "normal",
+      },
+      body: encryptedBody,
+    });
+    return { ok: response.ok, status: response.status };
+  } catch (e) {
+    console.log("[sendWebPush] THREW:", e.message, e.stack);
+    return { ok: false, status: 0, error: e.message };
+  }
 }
 
 const COACH_SYSTEM = `You are a no-nonsense personal nutrition and fitness coach inside MacroTrack — a chat-based mobile app. Direct, honest, specific, motivating without being fake.
@@ -514,8 +639,8 @@ export default {
         const pushPayload = JSON.stringify({
           title: title,
           body: bodyText,
-          url: "https://kjgoodwin01.github.io/macrotrack/",
-          icon: "https://kjgoodwin01.github.io/macrotrack/icon-192.png",
+          url: "https://macrotrack.live/app.html",
+          icon: "https://macrotrack.live/app.htmlicon-192.png",
         });
         console.log("[sendPush] calling sendWebPush for sub.id:", sub.id);
         const result = await sendWebPush(
@@ -947,7 +1072,7 @@ export default {
       // ── 1. Open Food Facts (3M+ products globally) ───────────────────────
       try {
         const r = await fetch("https://world.openfoodfacts.org/api/v0/product/" + encodeURIComponent(upc) + ".json",
-          { headers: { "User-Agent": "MacroTrack/1.0 (https://kjgoodwin01.github.io/macrotrack)" } });
+          { headers: { "User-Agent": "MacroTrack/1.0 (https://macrotrack.live)" } });
         if (r.ok) {
           const d = await r.json();
           if (d.status === 1 && d.product) {
@@ -1305,7 +1430,7 @@ export default {
       const entry = result.data[0];
       const response = { found: true, status: entry.status };
       if (entry.status === "approved") {
-        response.appUrl = "https://kjgoodwin01.github.io/macrotrack/";
+        response.appUrl = "https://macrotrack.live/app.html";
       }
       return jsonRes(response, 200, cors);
     }
@@ -1400,7 +1525,7 @@ export default {
             from: "MacroTrack <noreply@macrotrack.live>",
             to: [email],
             subject: "Your MacroTrack invite is here 🎉",
-            html: `<div style="font-family:'DM Sans',Arial,sans-serif;max-width:520px;margin:0 auto;background:#08080f;color:#f0f0fa;padding:40px 32px;border-radius:16px;"><div style="font-family:Georgia,serif;font-size:28px;letter-spacing:4px;margin-bottom:6px;">MACRO<span style="color:#6366f1;">TRACK</span></div><div style="font-size:11px;color:#5a5a7a;letter-spacing:2px;text-transform:uppercase;margin-bottom:32px;">Private Beta</div><p style="font-size:16px;line-height:1.7;color:#a0a0c0;margin-bottom:24px;">Hey ${name}, your application was approved. You're in. 🎉</p><div style="background:#0d0d1a;border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:24px;text-align:center;margin-bottom:28px;"><div style="font-size:12px;color:#5a5a7a;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Your Invite Code</div><div style="font-family:'Courier New',monospace;font-size:32px;font-weight:700;letter-spacing:6px;color:#6366f1;">${code}</div><div style="font-size:12px;color:#5a5a7a;margin-top:10px;">Single use — this code is just for you</div></div><a href="https://kjgoodwin01.github.io/macrotrack/" style="display:block;text-align:center;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;padding:16px;border-radius:12px;font-size:16px;font-weight:600;letter-spacing:1px;margin-bottom:24px;">Open MacroTrack →</a><p style="font-size:12px;color:#5a5a7a;text-align:center;">MacroTrack Private Beta</p></div>`,
+            html: `<div style="font-family:'DM Sans',Arial,sans-serif;max-width:520px;margin:0 auto;background:#08080f;color:#f0f0fa;padding:40px 32px;border-radius:16px;"><div style="font-family:Georgia,serif;font-size:28px;letter-spacing:4px;margin-bottom:6px;">MACRO<span style="color:#6366f1;">TRACK</span></div><div style="font-size:11px;color:#5a5a7a;letter-spacing:2px;text-transform:uppercase;margin-bottom:32px;">Private Beta</div><p style="font-size:16px;line-height:1.7;color:#a0a0c0;margin-bottom:24px;">Hey ${name}, your application was approved. You're in. 🎉</p><div style="background:#0d0d1a;border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:24px;text-align:center;margin-bottom:28px;"><div style="font-size:12px;color:#5a5a7a;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Your Invite Code</div><div style="font-family:'Courier New',monospace;font-size:32px;font-weight:700;letter-spacing:6px;color:#6366f1;">${code}</div><div style="font-size:12px;color:#5a5a7a;margin-top:10px;">Single use — this code is just for you</div></div><a href="https://macrotrack.live/app.html" style="display:block;text-align:center;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;padding:16px;border-radius:12px;font-size:16px;font-weight:600;letter-spacing:1px;margin-bottom:24px;">Open MacroTrack →</a><p style="font-size:12px;color:#5a5a7a;text-align:center;">MacroTrack Private Beta</p></div>`,
           }),
         });
       }
@@ -1479,6 +1604,7 @@ export default {
         "push_subscriptions?device_id=eq." + encodeURIComponent(deviceId));
       return jsonRes({ ok: true }, 200, cors);
     }
+
 
     // ── NATURAL LANGUAGE FOOD ENTRY ───────────────────────────────────────
     if (type === "nlp_food") {
@@ -1720,7 +1846,7 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
 
       const tier = STRIPE_MAX_PRICE_IDS.has(priceId) ? "max" : "pro";
       const isPro = STRIPE_PRO_PRICE_IDS.has(priceId);
-      const appUrl = "https://kjgoodwin01.github.io/macrotrack/";
+      const appUrl = "https://macrotrack.live/app.html";
 
       const params = {
         "mode": "subscription",

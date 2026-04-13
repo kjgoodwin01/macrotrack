@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-MacroTrack is a static PWA (Progressive Web App) for macro/calorie tracking with an AI nutrition coach. It is deployed to GitHub Pages at `kjgoodwin01.github.io/macrotrack`.
+MacroTrack is a static PWA (Progressive Web App) for macro/calorie tracking with an AI nutrition coach. It is deployed to GitHub Pages with custom domain at `macrotrack.live`. The app is at `macrotrack.live/app.html` and the landing page is at `macrotrack.live`.
 
 There is **no build step, no package manager, and no test suite.** All source code lives in plain HTML files.
 
