@@ -889,15 +889,30 @@ export default {
 
     // ── SYNC: Add food entry ──────────────────────────────────────────────
     if (type === "sync_add_entry") {
-      const { deviceId, entry } = body;
+      const { deviceId, entry, email } = body;
       if (!deviceId || !entry) return jsonRes({ error: "Missing data" }, 400, cors);
-      const profileCheck = await sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
-      console.log("[sync_add_entry] deviceId=" + deviceId + " profileFound=" + (profileCheck.data && profileCheck.data.length > 0) + " status=" + profileCheck.status);
-      if (!profileCheck.data || profileCheck.data.length === 0) {
-        return jsonRes({ error: "Profile not found — complete onboarding first" }, 403, cors);
+      // If device ID has no profile, fall back to email lookup (email is a stable identity)
+      let resolvedDeviceId = deviceId;
+      let profileCheck = await sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
+      if ((!profileCheck.data || profileCheck.data.length === 0) && email) {
+        const emailClean = email.trim().toLowerCase();
+        const byEmail = await sbAdmin(env, "GET", "profiles?email=eq." + encodeURIComponent(emailClean) + "&limit=1");
+        if (byEmail.data && byEmail.data.length > 0) {
+          // Found profile by email — update its device_id to current so future calls work directly
+          const oldId = byEmail.data[0].device_id;
+          await sbAdmin(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(oldId), { device_id: deviceId });
+          resolvedDeviceId = deviceId; // profile is now under current deviceId
+        }
+      }
+      if (resolvedDeviceId === deviceId && (!profileCheck.data || profileCheck.data.length === 0)) {
+        // Re-check after potential email-based repair
+        const recheck = await sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
+        if (!recheck.data || recheck.data.length === 0) {
+          return jsonRes({ error: "Profile not found — complete onboarding first" }, 403, cors);
+        }
       }
       const result = await sb(env, "POST", "food_entries", {
-        device_id: deviceId, log_date: entry.date, meal: entry.meal,
+        device_id: resolvedDeviceId, log_date: entry.date, meal: entry.meal,
         name: entry.name, serving: entry.serving || "",
         cal: entry.cal || 0, protein: entry.p || 0, carbs: entry.c || 0, fat: entry.f || 0,
       });
@@ -1860,6 +1875,7 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
           _debug.error = e.message;
         }
       }
+      _debug.existingDeviceId = existingDeviceId;
       console.log("[verify_auth_otp]", JSON.stringify(_debug));
 
       if (existingDeviceId) {

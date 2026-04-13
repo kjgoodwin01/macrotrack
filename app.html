@@ -830,15 +830,14 @@ async function syncToCloud(workerUrl, type, payload) {
   const url = workerUrl || DEFAULT_WORKER_URL;
   if (!url) return Promise.resolve();
   try {
+    var linkedEmail = null;
+    try { linkedEmail = JSON.parse(localStorage.getItem("mt_linked_email") || "null"); } catch(e) {}
+    var body = Object.assign({ type: type, deviceId: effectiveUserId() }, payload);
+    if (linkedEmail) body.email = linkedEmail; // stable identity fallback for the worker
     await fetch(url.replace(/\/$/, ""), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(Object.assign({
-        type: type,
-        deviceId: effectiveUserId()
-      }, payload))
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
     });
   } catch (e) {}
   return Promise.resolve();
