@@ -1,7 +1,7 @@
 {
   "name": "MacroTrack",
   "short_name": "MacroTrack",
-  "start_url": ".",
+  "start_url": "./app.html",
   "display": "standalone",
   "background_color": "#0a0a12",
   "theme_color": "#0a0a12",

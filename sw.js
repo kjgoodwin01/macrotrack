@@ -1,12 +1,11 @@
 // MacroTrack Service Worker
 // Bump this version number with every deploy to force an immediate update
-const VERSION = "mt-v34";
+const VERSION = "mt-v35";
 const CACHE = VERSION;
 
 // Files to precache on install
 const PRECACHE = [
-  "./",
-  "./index.html",
+  "./app.html",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
@@ -94,8 +93,8 @@ self.addEventListener("fetch", function(e) {
 
   // Network-first for HTML — always try to get the freshest version
   if (e.request.mode === "navigate" ||
-      e.request.url.endsWith("index.html") ||
-      e.request.url.endsWith("/")) {
+      e.request.url.endsWith("app.html") ||
+      e.request.url.endsWith("index.html")) {
     e.respondWith(
       fetch(e.request).then(function(networkRes) {
         // Got fresh from network — update cache and return
@@ -107,7 +106,7 @@ self.addEventListener("fetch", function(e) {
       }).catch(function() {
         // Network failed — fall back to cache
         return caches.match(e.request).then(function(cached) {
-          return cached || caches.match("./index.html");
+          return cached || caches.match("./app.html");
         });
       })
     );
