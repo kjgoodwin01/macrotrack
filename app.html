@@ -490,11 +490,16 @@
     .light .nav{background:rgba(244,244,248,0.97);border-top-color:rgba(0,0,0,0.1)}
     .light .nav::after{background:rgba(244,244,248,0.97)}
 
-    /* Settings panel */
-    .settings-panel{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:300;background:var(--s1);border-bottom:1px solid var(--b2);padding:calc(var(--st) + 56px) 20px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.25);animation:slideDown 0.25s cubic-bezier(0.4,0,0.2,1)}
-    @keyframes slideDown{from{transform:translateX(-50%) translateY(-100%)}to{transform:translateX(-50%) translateY(0)}}
-    .settings-panel-overlay{position:fixed;inset:0;z-index:299;background:rgba(0,0,0,0.4)}
-    .sp-title{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1.2px;font-weight:700;margin-bottom:14px}
+    /* Settings panel — native iOS bottom sheet */
+    .settings-panel{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:300;background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:calc(var(--sb) + 8px);animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    .settings-panel-overlay{position:fixed;inset:0;z-index:299;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:fdin 0.2s ease}
+    .sp-handle-row{flex-shrink:0;padding:14px 20px 0;display:flex;align-items:center;justify-content:space-between}
+    .sp-panel-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1.5px}
+    .sp-close{background:rgba(255,255,255,0.06);border:none;color:var(--mu);font-size:18px;width:32px;height:32px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+    .sp-scroll{flex:1;overflow-y:auto;padding:16px 20px;-webkit-overflow-scrolling:touch}
+    .sp-scroll::-webkit-scrollbar{display:none}
+    .sp-section{margin-bottom:22px}
+    .sp-title{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1.2px;font-weight:700;margin-bottom:12px}
     .theme-row{display:flex;gap:10px;margin-bottom:4px}
     .theme-btn{flex:1;padding:14px 10px;border-radius:14px;border:1px solid var(--b1);background:var(--s2);cursor:pointer;text-align:center;transition:all 0.15s;font-family:'DM Sans',sans-serif}
     .theme-btn.active{border-color:var(--ind);background:rgba(99,102,241,0.1)}
@@ -503,6 +508,77 @@
     .theme-btn.active .theme-btn-label{color:var(--ind)}
     .settings-gear{background:none;border:none;cursor:pointer;padding:4px;color:var(--mu);font-size:20px;transition:color 0.15s;line-height:1}
     .settings-gear:active{color:var(--indl)}
+
+    /* Train tab */
+    .train-hero{background:linear-gradient(145deg,#0a1a0a,#0f1f10);border:1px solid rgba(16,185,129,0.25);border-radius:24px;padding:20px;margin-bottom:14px;position:relative;overflow:hidden}
+    .train-hero::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(16,185,129,0.1) 0%,transparent 65%);pointer-events:none}
+    .train-hero-empty{text-align:center;padding:8px 0 4px}
+    .train-hero-empty-icon{font-size:36px;margin-bottom:8px}
+    .train-hero-empty-lbl{font-size:13px;color:var(--mu)}
+    .train-stats-row{display:flex;gap:0;margin-top:4px}
+    .train-stat{flex:1;text-align:center;padding:4px 0}
+    .train-stat:not(:last-child){border-right:1px solid var(--b1)}
+    .train-stat-val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;color:var(--eml)}
+    .train-stat-lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px}
+    .train-section-hd{display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px}
+    .train-section-lbl{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;font-weight:700}
+
+    /* Exercise cards */
+    .ex-card{background:var(--s1);border:1px solid var(--b1);border-radius:18px;margin-bottom:8px;overflow:hidden;transition:border-color 0.15s}
+    .ex-card.expanded{border-color:rgba(16,185,129,0.3)}
+    .ex-card-hd{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .ex-card-name{font-size:14px;font-weight:600;color:var(--txt);flex:1}
+    .ex-badge-row{display:flex;gap:5px;align-items:center;margin-top:3px}
+    .muscle-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:2px 7px;border-radius:6px;background:rgba(99,102,241,0.15);color:var(--indll)}
+    .pr-badge{font-size:9px;font-weight:800;padding:2px 6px;border-radius:6px;background:var(--em);color:#fff;letter-spacing:0.3px}
+    .ex-card-chevron{font-size:12px;color:var(--mu);transition:transform 0.2s;flex-shrink:0}
+    .ex-card.expanded .ex-card-chevron{transform:rotate(180deg)}
+    .ex-card-body{padding:0 16px 14px;border-top:1px solid var(--b1)}
+    .overload-hint{font-size:12px;color:var(--ambl);background:rgba(245,158,11,0.08);border-radius:8px;padding:7px 10px;margin:10px 0 8px;display:flex;align-items:center;gap:6px}
+    .set-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+    .set-row:last-of-type{border-bottom:none}
+    .set-num{font-size:11px;color:var(--mu);font-family:'JetBrains Mono',monospace;width:14px;flex-shrink:0}
+    .set-data{flex:1;font-size:13px;font-family:'JetBrains Mono',monospace;color:var(--txt2)}
+    .set-rpe{font-size:10px;color:var(--mu);margin-left:4px}
+    .set-del{background:none;border:none;color:var(--mu);font-size:16px;cursor:pointer;padding:2px 4px;flex-shrink:0;line-height:1}
+    .set-del:active{color:var(--rose)}
+    .set-add-form{display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap}
+    .set-input{background:var(--s2);border:1px solid var(--b2);border-radius:10px;color:var(--txt);font-size:14px;font-family:'JetBrains Mono',monospace;padding:8px 10px;width:80px;text-align:center;outline:none}
+    .set-input:focus{border-color:var(--ind)}
+    .set-input.rpe{width:54px}
+    .set-confirm-btn{background:var(--em);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;padding:8px 14px;cursor:pointer;flex-shrink:0}
+    .set-confirm-btn:active{opacity:0.8}
+    .set-add-trigger{background:none;border:1px dashed var(--b2);border-radius:10px;color:var(--mu);font-size:12px;font-weight:600;padding:7px 12px;cursor:pointer;width:100%;margin-top:8px;transition:all 0.15s}
+    .set-add-trigger:active{border-color:var(--em);color:var(--eml)}
+    .one-rm-row{font-size:11px;color:var(--mu);margin-top:10px;display:flex;align-items:center;gap:6px}
+    .one-rm-val{color:var(--indll);font-family:'JetBrains Mono',monospace;font-weight:600}
+
+    /* Volume card */
+    .vol-card{background:var(--s1);border:1px solid var(--b1);border-radius:20px;padding:18px;margin-bottom:14px}
+    .vol-card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;cursor:pointer}
+    .vol-card-title{font-size:13px;font-weight:700;color:var(--txt)}
+    .vol-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+    .vol-row:last-child{margin-bottom:0}
+    .vol-group{font-size:11px;color:var(--txt2);width:76px;flex-shrink:0}
+    .vol-bar-track{flex:1;height:5px;background:var(--s3);border-radius:3px;overflow:hidden}
+    .vol-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--em),var(--eml));transition:width 0.4s}
+    .vol-bar-fill.over{background:linear-gradient(90deg,var(--amb),var(--ambl))}
+    .vol-count{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mu);width:44px;text-align:right;flex-shrink:0}
+
+    /* Templates */
+    .tmpl-section{margin-bottom:14px}
+    .tmpl-chips{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px}
+    .tmpl-chips::-webkit-scrollbar{display:none}
+    .tmpl-chip{flex-shrink:0;padding:9px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;color:var(--txt2);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;white-space:nowrap}
+    .tmpl-chip:active{background:rgba(99,102,241,0.15);border-color:var(--ind);color:var(--indll)}
+    .tmpl-chip.save{border-style:dashed;color:var(--mu)}
+
+    /* NLP workout input */
+    .nlp-workout-wrap{background:var(--s1);border:1px solid var(--b1);border-radius:18px;padding:14px;margin-bottom:14px}
+    .nlp-workout-lbl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px}
+
+    /* light mode overrides */
+    .light .train-hero{background:linear-gradient(145deg,#e8f5e8,#edf7ed)}
 
     /* Meal Plan tab */
     .mp-hero{background:linear-gradient(145deg,#0d0d24,#111130);border:1px solid rgba(99,102,241,0.3);border-radius:24px;padding:22px;margin-bottom:14px;position:relative;overflow:hidden}
@@ -5134,6 +5210,8 @@ function DataBackup({
   entries,
   wlog,
   goals,
+  workouts,
+  workoutTemplates,
   onImport
 }) {
   const [importing, setImporting] = useState(false);
@@ -5141,11 +5219,13 @@ function DataBackup({
   const fileRef = useRef(null);
   function exportData() {
     const data = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       goals: goals,
       entries: entries,
-      wlog: wlog
+      wlog: wlog,
+      workouts: workouts || {},
+      workoutTemplates: workoutTemplates || []
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], {
       type: "application/json"
@@ -5183,6 +5263,7 @@ function DataBackup({
   }
   const entryDays = Object.keys(entries || {}).length;
   const wlogDays = (wlog || []).length;
+  const workoutDays = Object.keys(workouts || {}).length;
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -5194,7 +5275,7 @@ function DataBackup({
       fontSize: 12,
       color: "var(--mu)"
     }
-  }, /*#__PURE__*/React.createElement("div", null, entryDays, " day", entryDays !== 1 ? "s" : "", " of food logs"), /*#__PURE__*/React.createElement("div", null, wlogDays, " weight entr", wlogDays !== 1 ? "ies" : "y")), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", null, entryDays, " day", entryDays !== 1 ? "s" : "", " of food logs"), /*#__PURE__*/React.createElement("div", null, wlogDays, " weight entr", wlogDays !== 1 ? "ies" : "y"), /*#__PURE__*/React.createElement("div", null, workoutDays, " workout day", workoutDays !== 1 ? "s" : "")), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: "var(--mu)",
@@ -5529,7 +5610,7 @@ function CoachTab({
     const calDiff = avgCal - goals.calories;
     const adherence = loggedDays + "/7 days logged";
     const calAdherence = avgCal > 0 ? "Average " + avgCal + " kcal/day (" + (calDiff > 0 ? "+" : "") + calDiff + " vs " + goals.calories + " target)" : "Not enough data";
-    // Build recent training block
+    // Build enriched training block
     const last7TrainingDates = Array.from({ length: 7 }, function(_, i) {
       const d = new Date(); d.setDate(d.getDate() - i); return isoDate(d);
     }).reverse();
@@ -5538,11 +5619,38 @@ function CoachTab({
       if (dayEx.length === 0) return date + ": rest day";
       const summary = dayEx.map(function(ex) {
         if (ex.type === "cardio") return ex.name + (ex.duration ? " " + ex.duration + "min" : "") + (ex.distance ? " " + ex.distance : "");
+        if (ex.setLog && ex.setLog.length) {
+          var ws = ex.setLog.filter(function(s){ return !s.warmup; });
+          if (!ws.length) ws = ex.setLog;
+          return ex.name + " " + ws.length + "x" + (ws[0].reps||"?") + " @ " + (ws[0].weight||"?") + "lb";
+        }
         return ex.name + (ex.sets && ex.reps ? " " + ex.sets + "x" + ex.reps : "") + (ex.weight ? " @ " + ex.weight : "");
       }).join(", ");
       return date + ": " + summary;
     }).join("\n");
-    return "USER PROFILE:\n" + "Goal: " + goalTypeLabel + " | Target weight: " + (goals.targetWeight ? goals.targetWeight + " lbs" : "not set") + " | Progress: " + toGo + "\n" + "Daily targets: " + goals.calories + " kcal | Protein: " + goals.protein + "g | Carbs: " + goals.carbs + "g | Fat: " + goals.fat + "g\n\n" + "THIS WEEK ADHERENCE:\n" + adherence + "\n" + calAdherence + "\n\n" + "TODAY (" + today + "):\n" + "Consumed: " + todayTot.cal + "/" + goals.calories + " kcal (" + (remCal > 0 ? remCal + " kcal remaining" : Math.abs(remCal) + " kcal over") + ")\n" + "Protein: " + todayTot.p + "g/" + (remP > 0 ? remP + "g remaining" : Math.abs(remP) + "g over target") + "\n" + "Carbs: " + todayTot.c + "g | Fat: " + todayTot.f + "g\n" + "Foods logged today: " + (todayFoods || "nothing yet") + "\n\n" + "LAST 7 DAYS DETAIL:\n" + last7 + "\n\n" + "WEIGHT HISTORY:\n" + wLines + wTrend + "\n\nRECENT TRAINING:\n" + trainingLines;
+    const trainingDaysThisWeek = last7TrainingDates.filter(function(d){ return ((workouts||{})[d]||[]).length > 0; }).length;
+    // Weekly volume per muscle group (current week)
+    const monday = getMondayOfWeek(new Date());
+    const weekVol = getWeeklyVolume(workouts || {}, monday);
+    const volLines = Object.keys(weekVol).map(function(g){ return g + ": " + weekVol[g] + "/" + (VOLUME_TARGETS[g]||"?") + " sets"; }).join(", ");
+    // Estimated 1RMs for top 5 exercises (most recently logged)
+    const rmMap = {};
+    last7TrainingDates.forEach(function(date) {
+      ((workouts||{})[date]||[]).forEach(function(ex) {
+        if (ex.type === "cardio" || !ex.name) return;
+        var bestRm = 0;
+        if (ex.setLog && ex.setLog.length) {
+          ex.setLog.forEach(function(s){ var rm = epley1RM(s.weight, s.reps); if (rm > bestRm) bestRm = rm; });
+        } else { bestRm = epley1RM(ex.weight, ex.reps); }
+        if (bestRm > 0 && (!rmMap[ex.name] || bestRm > rmMap[ex.name])) rmMap[ex.name] = bestRm;
+      });
+    });
+    const rmLines = Object.keys(rmMap).slice(0,5).map(function(n){ return n + ": ~" + rmMap[n] + "lb"; }).join(", ");
+    const trainingBlock = "Training days this week: " + trainingDaysThisWeek + "/7\n" +
+      (volLines ? "Weekly volume: " + volLines + "\n" : "") +
+      (rmLines ? "Est. 1RMs: " + rmLines + "\n" : "") +
+      "Last 7 days:\n" + trainingLines;
+    return "USER PROFILE:\n" + "Goal: " + goalTypeLabel + " | Target weight: " + (goals.targetWeight ? goals.targetWeight + " lbs" : "not set") + " | Progress: " + toGo + "\n" + "Daily targets: " + goals.calories + " kcal | Protein: " + goals.protein + "g | Carbs: " + goals.carbs + "g | Fat: " + goals.fat + "g\n\n" + "THIS WEEK ADHERENCE:\n" + adherence + "\n" + calAdherence + "\n\n" + "TODAY (" + today + "):\n" + "Consumed: " + todayTot.cal + "/" + goals.calories + " kcal (" + (remCal > 0 ? remCal + " kcal remaining" : Math.abs(remCal) + " kcal over") + ")\n" + "Protein: " + todayTot.p + "g/" + (remP > 0 ? remP + "g remaining" : Math.abs(remP) + "g over target") + "\n" + "Carbs: " + todayTot.c + "g | Fat: " + todayTot.f + "g\n" + "Foods logged today: " + (todayFoods || "nothing yet") + "\n\n" + "LAST 7 DAYS DETAIL:\n" + last7 + "\n\n" + "WEIGHT HISTORY:\n" + wLines + wTrend + "\n\nTRAINING:\n" + trainingBlock;
   }
 
   // Returns true if today is Sunday (day 0)
@@ -6272,12 +6380,98 @@ function calcExerciseCal(exercises, weightLbs) {
   return Math.round(total);
 }
 
-/* ── Workout Section ── */
-function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl, onAiCall, aiUsageToday, aiLimit }) {
-  var _s = React.useState(""); var text = _s[0]; var setText = _s[1];
-  var _l = React.useState(false); var loading = _l[0]; var setLoading = _l[1];
-  var _e = React.useState(""); var error = _e[0]; var setError = _e[1];
-  var _ex = React.useState(null); var editEx = _ex[0]; var setEditEx = _ex[1];
+/* ── Muscle group lookup ── */
+function getMuscleGroup(name) {
+  var n = (name || "").toLowerCase();
+  if (/bench|chest\s|pec|cable\s*fly|db\s*fly|dumbbell\s*fly/.test(n)) return "Chest";
+  if (/squat|leg\s*press|lunge|leg\s*ext|leg\s*curl|calf|quad|hamstring|rdl|romanian|hip\s*thrust|bulgarian|hack\s*squat|split\s*squat/.test(n)) return "Legs";
+  if (/deadlift(?!.*romanian)|barbell\s*row|cable\s*row|seated\s*row|t.?bar|pull.?up|lat\s*pull|chin.?up|shrug|pulldown/.test(n)) return "Back";
+  if (/overhead\s*press|ohp|shoulder\s*press|lateral\s*raise|front\s*raise|face\s*pull|arnold|military\s*press|upright\s*row/.test(n)) return "Shoulders";
+  if (/curl|bicep|hammer\s*curl|preacher/.test(n)) return "Biceps";
+  if (/tricep|pushdown|skull\s*crush|close\s*grip|triceps\s*ext/.test(n)) return "Triceps";
+  if (/glute|hip\s*thrust|abduction|adduction/.test(n)) return "Glutes";
+  if (/crunch|plank|sit.?up|\bab\b|abs|cable\s*crunch|leg\s*raise|core/.test(n)) return "Abs";
+  if (/run|treadmill|spin\s*bike|cycling|elliptic|cardio|swim|walk|row\s*machine|assault\s*bike|jump\s*rope|hiit/.test(n)) return "Cardio";
+  return "Other";
+}
+
+/* ── Epley estimated 1RM ── */
+function epley1RM(weightStr, repsVal) {
+  var w = parseFloat((weightStr || "").toString().replace(/[^\d.]/g, "")) || 0;
+  var r = parseInt(repsVal) || 0;
+  if (!w || !r) return 0;
+  if (r === 1) return Math.round(w);
+  return Math.round(w * (1 + r / 30));
+}
+
+/* ── Progressive overload suggestion ── */
+function getOverloadTarget(exerciseName, workouts, selectedDate) {
+  var norm = (exerciseName || "").toLowerCase().trim();
+  var history = [];
+  Object.keys(workouts).sort().forEach(function(d) {
+    if (d >= selectedDate) return;
+    (workouts[d] || []).forEach(function(ex) {
+      if ((ex.name || "").toLowerCase().trim() === norm && ex.type !== "cardio") {
+        history.push({ date: d, ex: ex });
+      }
+    });
+  });
+  if (history.length === 0) return null;
+  var last = history[history.length - 1].ex;
+  var lastWeight = 0; var lastReps = 0; var lastSets = 0;
+  if (last.setLog && last.setLog.length > 0) {
+    var ws = last.setLog.filter(function(s) { return !s.warmup; });
+    if (!ws.length) ws = last.setLog;
+    var best = ws.reduce(function(m, s) { return (parseFloat(s.weight)||0) > (parseFloat(m.weight)||0) ? s : m; }, ws[0]);
+    lastWeight = parseFloat((best.weight||"").toString().replace(/[^\d.]/g,"")) || 0;
+    lastReps = parseInt(best.reps) || 0;
+    lastSets = ws.length;
+  } else {
+    lastWeight = parseFloat((last.weight||"").toString().replace(/[^\d.]/g,"")) || 0;
+    lastReps = parseInt(last.reps) || 0;
+    lastSets = parseInt(last.sets) || 0;
+  }
+  if (!lastWeight) return null;
+  var group = getMuscleGroup(exerciseName);
+  var inc = (group === "Legs" || group === "Back" || group === "Glutes") ? 10 : 5;
+  return { suggestedWeight: lastWeight + inc, suggestedReps: lastReps || 8, suggestedSets: lastSets || 3, lastWeight: lastWeight, lastReps: lastReps, lastSets: lastSets };
+}
+
+/* ── Weekly volume (sets per muscle group, current week) ── */
+var VOLUME_TARGETS = { Chest:12, Back:14, Legs:14, Shoulders:12, Biceps:10, Triceps:10, Glutes:8, Abs:8 };
+
+function getWeeklyVolume(workouts, mondayDate) {
+  var result = {};
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + i);
+    var ds = isoDate(d);
+    (workouts[ds] || []).forEach(function(ex) {
+      if (ex.type === "cardio") return;
+      var g = getMuscleGroup(ex.name);
+      if (!VOLUME_TARGETS[g]) return;
+      var sets = (ex.setLog && ex.setLog.length > 0)
+        ? ex.setLog.filter(function(s) { return !s.warmup; }).length || ex.setLog.length
+        : (parseInt(ex.sets) || 1);
+      result[g] = (result[g] || 0) + sets;
+    });
+  });
+  return result;
+}
+
+/* ── WorkoutTab ── */
+function WorkoutTab({ workouts, setWorkouts, workoutTemplates, setWorkoutTemplates, selectedDate, weekOffset, onOffsetChange, entries, workerUrl, onAiCall, aiUsageToday, aiLimit, goals }) {
+  var _nlp = React.useState(""); var nlpText = _nlp[0]; var setNlpText = _nlp[1];
+  var _nlpl = React.useState(false); var nlpLoading = _nlpl[0]; var setNlpLoading = _nlpl[1];
+  var _nlpe = React.useState(""); var nlpError = _nlpe[0]; var setNlpError = _nlpe[1];
+  var _exp = React.useState(null); var expandedId = _exp[0]; var setExpandedId = _exp[1];
+  var _asf = React.useState(null); var addSetFor = _asf[0]; var setAddSetFor = _asf[1];
+  var _sw = React.useState(""); var setWeightIn = _sw[0]; var setSetWeightIn = _sw[1];
+  var _sr = React.useState(""); var setRepsIn = _sr[0]; var setSetRepsIn = _sr[1];
+  var _srpe = React.useState(""); var setRpeIn = _srpe[0]; var setSetRpeIn = _srpe[1];
+  var _sv = React.useState(false); var showVol = _sv[0]; var setShowVol = _sv[1];
+  var _stpl = React.useState(false); var showTpl = _stpl[0]; var setShowTpl = _stpl[1];
+  var _tplName = React.useState(""); var tplName = _tplName[0]; var setTplName = _tplName[1];
+  var _editEx = React.useState(null); var editEx = _editEx[0]; var setEditEx = _editEx[1];
   var _eS = React.useState(""); var editSets = _eS[0]; var setEditSets = _eS[1];
   var _eR = React.useState(""); var editReps = _eR[0]; var setEditReps = _eR[1];
   var _eW = React.useState(""); var editWeight = _eW[0]; var setEditWeight = _eW[1];
@@ -6285,300 +6479,417 @@ function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl, onAiCa
   var _eDi = React.useState(""); var editDistance = _eDi[0]; var setEditDistance = _eDi[1];
 
   var dateWorkouts = workouts[selectedDate] || [];
+  var monday = getMondayOfWeek(new Date(selectedDate + "T12:00:00"));
+  var weekVol = getWeeklyVolume(workouts, monday);
 
-  function parseWeightNum(w) {
-    var m = (w || "").match(/(\d+(?:\.\d+)?)/);
-    return m ? parseFloat(m[1]) : 0;
-  }
+  function parseW(w) { var m = (w || "").toString().match(/(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; }
 
-  // PR detection: mark exercises where weight exceeds all prior sessions for that name
+  // PR detection: highest weight ever logged for this exercise before today
   var prSet = new Set();
   dateWorkouts.forEach(function(ex) {
-    if (ex.type === "cardio" || !ex.weight) return;
-    var name = (ex.name || "").toLowerCase().trim();
-    var curW = parseWeightNum(ex.weight);
+    if (ex.type === "cardio") return;
+    var norm = (ex.name || "").toLowerCase().trim();
+    var curW = ex.setLog && ex.setLog.length ? Math.max.apply(null, ex.setLog.map(function(s){ return parseW(s.weight); })) : parseW(ex.weight);
     if (!curW) return;
     var maxPrev = 0; var hasPrev = false;
     Object.keys(workouts).sort().forEach(function(d) {
       if (d >= selectedDate) return;
       (workouts[d] || []).forEach(function(e) {
-        if ((e.name || "").toLowerCase().trim() === name && e.weight) {
-          hasPrev = true;
-          var w = parseWeightNum(e.weight);
-          if (w > maxPrev) maxPrev = w;
-        }
+        if ((e.name || "").toLowerCase().trim() !== norm) return;
+        hasPrev = true;
+        var w = e.setLog && e.setLog.length ? Math.max.apply(null, e.setLog.map(function(s){ return parseW(s.weight); })) : parseW(e.weight);
+        if (w > maxPrev) maxPrev = w;
       });
     });
     if (hasPrev && curW > maxPrev) prSet.add(ex.id);
   });
 
-  function fmtExercise(ex) {
+  function fmtExSummary(ex) {
     if (ex.type === "cardio") {
-      var parts = [];
-      if (ex.duration) parts.push(ex.duration + " min");
-      if (ex.distance) parts.push(ex.distance);
-      return parts.length ? parts.join(" \xB7 ") : "cardio";
+      var p = []; if (ex.duration) p.push(ex.duration + " min"); if (ex.distance) p.push(ex.distance);
+      return p.length ? p.join(" \xB7 ") : "cardio";
     }
-    var parts = [];
-    if (ex.sets && ex.reps) parts.push(ex.sets + "\xD7" + ex.reps);
-    else if (ex.sets) parts.push(ex.sets + " sets");
-    if (ex.weight) parts.push("@ " + ex.weight);
-    return parts.join(" ");
+    if (ex.setLog && ex.setLog.length > 0) {
+      var ws = ex.setLog.filter(function(s){ return !s.warmup; }); if (!ws.length) ws = ex.setLog;
+      return ws.length + " sets \xB7 " + ws[0].weight + " lb";
+    }
+    var p = []; if (ex.sets && ex.reps) p.push(ex.sets + "\xD7" + ex.reps); else if (ex.sets) p.push(ex.sets + " sets");
+    if (ex.weight) p.push("@ " + ex.weight); return p.join(" ");
+  }
+
+  function getSessionStats() {
+    var totalSets = 0; var totalVol = 0; var cardioMins = 0;
+    dateWorkouts.forEach(function(ex) {
+      if (ex.type === "cardio") { cardioMins += ex.duration || 0; return; }
+      var sets = ex.setLog && ex.setLog.length ? ex.setLog.filter(function(s){ return !s.warmup; }).length || ex.setLog.length : (parseInt(ex.sets) || 1);
+      totalSets += sets;
+      if (ex.setLog && ex.setLog.length) {
+        ex.setLog.forEach(function(s) { if (!s.warmup) totalVol += (parseW(s.weight) * (parseInt(s.reps)||0)); });
+      } else { totalVol += (parseW(ex.weight) * (parseInt(ex.reps)||0) * (parseInt(ex.sets)||1)); }
+    });
+    return { totalSets: totalSets, totalVol: Math.round(totalVol), cardioMins: cardioMins };
+  }
+
+  async function handleNlpParse() {
+    if (!nlpText.trim() || nlpLoading) return;
+    if (aiUsageToday >= aiLimit) { setNlpError("Weekly AI limit reached \u2014 resets next Monday."); return; }
+    setNlpLoading(true); setNlpError("");
+    try {
+      var res = await fetch(workerUrl, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "nlp_workout", text: nlpText.trim() }) });
+      var data = await res.json();
+      if (data.error) { setNlpError(data.error); setNlpLoading(false); return; }
+      if (onAiCall) onAiCall();
+      var ts = Date.now();
+      var newEx = data.exercises.map(function(e, i) { return Object.assign({}, e, { id: ts + i, muscleGroup: getMuscleGroup(e.name) }); });
+      setWorkouts(function(prev) { var u = Object.assign({}, prev); u[selectedDate] = (prev[selectedDate] || []).concat(newEx); return u; }, selectedDate);
+      setNlpText("");
+    } catch(e) { setNlpError("Network error \u2014 try again"); }
+    setNlpLoading(false);
+  }
+
+  function delExercise(id) {
+    setWorkouts(function(prev) { var u = Object.assign({}, prev); u[selectedDate] = (prev[selectedDate]||[]).filter(function(e){ return e.id !== id; }); return u; }, selectedDate);
+  }
+
+  function confirmAddSet(exId) {
+    var w = setWeightIn.trim(); var r = setRepsIn.trim();
+    if (!w || !r) return;
+    var rpe = setRpeIn.trim() ? parseInt(setRpeIn) : null;
+    var newSet = { weight: w, reps: r };
+    if (rpe) newSet.rpe = rpe;
+    setWorkouts(function(prev) {
+      var u = Object.assign({}, prev);
+      u[selectedDate] = (prev[selectedDate]||[]).map(function(ex) {
+        if (ex.id !== exId) return ex;
+        var existingLog = ex.setLog ? ex.setLog.slice() : [];
+        // If no setLog yet, seed from flat model
+        if (!existingLog.length && ex.sets && ex.weight) {
+          for (var i = 0; i < (parseInt(ex.sets)||1); i++) {
+            existingLog.push({ weight: (ex.weight||"").toString().replace(/[^\d.]/g,""), reps: ex.reps || "8", warmup: false });
+          }
+        }
+        return Object.assign({}, ex, { setLog: existingLog.concat([newSet]) });
+      });
+      return u;
+    }, selectedDate);
+    setSetWeightIn(""); setSetRepsIn(""); setSetRpeIn(""); setAddSetFor(null);
+  }
+
+  function delSet(exId, idx) {
+    setWorkouts(function(prev) {
+      var u = Object.assign({}, prev);
+      u[selectedDate] = (prev[selectedDate]||[]).map(function(ex) {
+        if (ex.id !== exId) return ex;
+        var log = (ex.setLog || []).slice(); log.splice(idx, 1);
+        return Object.assign({}, ex, { setLog: log });
+      });
+      return u;
+    }, selectedDate);
   }
 
   function openEditEx(ex) {
-    setEditEx(ex);
-    setEditSets(ex.sets ? String(ex.sets) : "");
-    setEditReps(ex.reps || "");
-    setEditWeight(ex.weight || "");
-    setEditDuration(ex.duration ? String(ex.duration) : "");
-    setEditDistance(ex.distance || "");
+    setEditEx(ex); setEditSets(ex.sets ? String(ex.sets) : ""); setEditReps(ex.reps || "");
+    setEditWeight(ex.weight || ""); setEditDuration(ex.duration ? String(ex.duration) : ""); setEditDistance(ex.distance || "");
   }
 
   function saveEditEx() {
     if (!editEx) return;
     var updated = Object.assign({}, editEx, {
-      sets: editSets ? (parseInt(editSets) || null) : null,
-      reps: editReps || null,
-      weight: editWeight || null,
-      duration: editDuration ? (parseInt(editDuration) || null) : null,
-      distance: editDistance || null,
+      sets: editSets ? (parseInt(editSets)||null) : null, reps: editReps || null, weight: editWeight || null,
+      duration: editDuration ? (parseInt(editDuration)||null) : null, distance: editDistance || null,
     });
-    setWorkouts(function(prev) {
-      var u = Object.assign({}, prev);
-      u[selectedDate] = (prev[selectedDate] || []).map(function(e) {
-        return e.id === editEx.id ? updated : e;
-      });
-      return u;
-    });
+    setWorkouts(function(prev) { var u = Object.assign({}, prev); u[selectedDate] = (prev[selectedDate]||[]).map(function(e){ return e.id === editEx.id ? updated : e; }); return u; }, selectedDate);
     setEditEx(null);
   }
 
-  // Returns last 10 sessions for a given exercise name across all logged dates
-  function getProgressionHistory(name) {
-    var norm = (name || "").toLowerCase().trim();
-    var history = [];
-    Object.keys(workouts).sort().forEach(function(date) {
-      (workouts[date] || []).forEach(function(ex) {
-        if ((ex.name || "").toLowerCase().trim() === norm) {
-          history.push({ date: date, ex: ex });
-        }
-      });
+  function loadTemplate(tpl) {
+    if (!window.confirm("Load template \u201C" + tpl.name + "\u201D into " + selectedDate + "? Existing exercises will be kept.")) return;
+    var ts = Date.now();
+    var newExercises = tpl.exercises.map(function(e, i) {
+      return { id: ts + i, name: e.name, type: e.type || "strength", muscleGroup: getMuscleGroup(e.name),
+        sets: e.targetSets || 3, reps: String(e.targetReps || 8), weight: e.lastWeight ? String(e.lastWeight) : "" };
     });
-    history.sort(function(a, b) { return b.date.localeCompare(a.date); });
-    return history.slice(0, 10);
+    setWorkouts(function(prev) { var u = Object.assign({}, prev); u[selectedDate] = (prev[selectedDate]||[]).concat(newExercises); return u; }, selectedDate);
+    showToast("\u2713 Template loaded");
   }
 
-  async function handleParse() {
-    if (!text.trim() || loading) return;
-    if (aiUsageToday >= aiLimit) { setError("Weekly AI limit reached \u2014 resets next Monday."); return; }
-    setLoading(true);
-    setError("");
-    try {
-      var res = await fetch(workerUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "nlp_workout", text: text.trim() })
-      });
-      var data = await res.json();
-      if (data.error) { setError(data.error); setLoading(false); return; }
-      if (onAiCall) onAiCall();
-      var ts = Date.now();
-      var newEx = data.exercises.map(function(e, i) {
-        return Object.assign({}, e, { id: ts + i });
-      });
-      setWorkouts(function(prev) {
-        var updated = Object.assign({}, prev);
-        updated[selectedDate] = (prev[selectedDate] || []).concat(newEx);
-        return updated;
-      });
-      setText("");
-    } catch (e) {
-      setError("Network error \u2014 try again");
-    }
-    setLoading(false);
+  function saveAsTemplate() {
+    var name = tplName.trim();
+    if (!name || !dateWorkouts.length) return;
+    var tpl = { id: Date.now(), name: name, exercises: dateWorkouts.map(function(ex) {
+      var lw = ex.setLog && ex.setLog.length ? Math.max.apply(null, ex.setLog.map(function(s){ return parseW(s.weight); })) : parseW(ex.weight);
+      return { name: ex.name, type: ex.type, muscleGroup: getMuscleGroup(ex.name),
+        targetSets: ex.setLog ? ex.setLog.filter(function(s){ return !s.warmup; }).length || ex.setLog.length : (parseInt(ex.sets)||3),
+        targetReps: ex.setLog && ex.setLog.length ? parseInt(ex.setLog[0].reps)||8 : (parseInt(ex.reps)||8),
+        lastWeight: lw || null };
+    })};
+    var updated = (workoutTemplates || []).concat([tpl]);
+    setWorkoutTemplates(updated);
+    setTplName(""); setShowTpl(false); showToast("\u2713 Template saved");
   }
 
-  function delExercise(id) {
-    setWorkouts(function(prev) {
-      var updated = Object.assign({}, prev);
-      updated[selectedDate] = (prev[selectedDate] || []).filter(function(e) { return e.id !== id; });
-      return updated;
+  function deleteTemplate(id) {
+    setWorkoutTemplates((workoutTemplates||[]).filter(function(t){ return t.id !== id; }));
+  }
+
+  var stats = getSessionStats();
+  var prog = editEx ? (function() {
+    var norm = (editEx.name||"").toLowerCase().trim(); var h = [];
+    Object.keys(workouts).sort().forEach(function(d) {
+      (workouts[d]||[]).forEach(function(ex) { if ((ex.name||"").toLowerCase().trim() === norm) h.push({ date: d, ex: ex }); });
     });
-  }
-
-  var prog = editEx ? getProgressionHistory(editEx.name) : [];
+    return h.sort(function(a,b){ return b.date.localeCompare(a.date); }).slice(0,8);
+  })() : [];
 
   return /*#__PURE__*/React.createElement(React.Fragment, null,
-    /*#__PURE__*/React.createElement("div", {
-      style: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "20px 0 8px" }
-    },
-      /*#__PURE__*/React.createElement("div", {
-        style: { fontSize: 11, color: "var(--mu)", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 700 }
-      }, "Training")
-    ),
-    dateWorkouts.length > 0 && /*#__PURE__*/React.createElement("div", { className: "meal-block" },
-      dateWorkouts.map(function(ex) {
-        var isPR = prSet.has(ex.id);
-        return /*#__PURE__*/React.createElement("div", {
-          className: "food-row", key: ex.id,
-          onClick: function() { openEditEx(ex); }
-        },
-          /*#__PURE__*/React.createElement("div", { className: "food-info" },
-            /*#__PURE__*/React.createElement("div", { className: "food-name", style: { display: "flex", alignItems: "center", gap: 6 } },
-              ex.name,
-              isPR && /*#__PURE__*/React.createElement("span", {
-                style: { fontSize: 9, fontWeight: 800, background: "var(--em)", color: "#fff", borderRadius: 4, padding: "1px 5px", letterSpacing: "0.5px", flexShrink: 0 }
-              }, "PR")
+    /*#__PURE__*/React.createElement("div", { style: { height: 12 } }),
+    /*#__PURE__*/React.createElement(WeekSelector, { selectedDate: selectedDate, onSelect: function(d) {
+      setExpandedId(null); setAddSetFor(null);
+      if (typeof onOffsetChange === "function") { /* handled by parent */ }
+    }, weekOffset: weekOffset, onOffsetChange: onOffsetChange, entries: entries }),
+
+    // Session hero
+    /*#__PURE__*/React.createElement("div", { className: "train-hero" },
+      dateWorkouts.length === 0
+        ? /*#__PURE__*/React.createElement("div", { className: "train-hero-empty" },
+            /*#__PURE__*/React.createElement("div", { className: "train-hero-empty-icon" }, "\uD83C\uDFCB\uFE0F"),
+            /*#__PURE__*/React.createElement("div", { className: "train-hero-empty-lbl" }, "No workout logged for this day")
+          )
+        : /*#__PURE__*/React.createElement("div", { className: "train-stats-row" },
+            /*#__PURE__*/React.createElement("div", { className: "train-stat" },
+              /*#__PURE__*/React.createElement("div", { className: "train-stat-val" }, dateWorkouts.filter(function(e){ return e.type !== "cardio"; }).length),
+              /*#__PURE__*/React.createElement("div", { className: "train-stat-lbl" }, "Exercises")
             ),
-            /*#__PURE__*/React.createElement("div", { className: "food-srv" }, fmtExercise(ex))
+            /*#__PURE__*/React.createElement("div", { className: "train-stat" },
+              /*#__PURE__*/React.createElement("div", { className: "train-stat-val" }, stats.totalSets),
+              /*#__PURE__*/React.createElement("div", { className: "train-stat-lbl" }, "Sets")
+            ),
+            /*#__PURE__*/React.createElement("div", { className: "train-stat" },
+              /*#__PURE__*/React.createElement("div", { className: "train-stat-val" }, stats.totalVol > 0 ? (stats.totalVol >= 1000 ? (stats.totalVol/1000).toFixed(1)+"k" : stats.totalVol) : stats.cardioMins > 0 ? stats.cardioMins+"m" : "\u2014"),
+              /*#__PURE__*/React.createElement("div", { className: "train-stat-lbl" }, stats.cardioMins > 0 && stats.totalVol === 0 ? "Cardio" : "Volume lb")
+            ),
+            prSet.size > 0 && /*#__PURE__*/React.createElement("div", { className: "train-stat" },
+              /*#__PURE__*/React.createElement("div", { className: "train-stat-val", style: { color: "var(--eml)" } }, "\uD83C\uDFC6" + prSet.size),
+              /*#__PURE__*/React.createElement("div", { className: "train-stat-lbl" }, "PR" + (prSet.size > 1 ? "s" : ""))
+            )
+          )
+    ),
+
+    // Templates strip
+    (workoutTemplates && workoutTemplates.length > 0 || dateWorkouts.length > 0) && /*#__PURE__*/React.createElement("div", { className: "tmpl-section" },
+      /*#__PURE__*/React.createElement("div", { className: "train-section-hd" },
+        /*#__PURE__*/React.createElement("div", { className: "train-section-lbl" }, "Templates"),
+        showTpl && /*#__PURE__*/React.createElement("button", { style: { background:"none",border:"none",fontSize:11,color:"var(--mu)",cursor:"pointer" }, onClick: function(){ setShowTpl(false); setTplName(""); } }, "Cancel")
+      ),
+      showTpl
+        ? /*#__PURE__*/React.createElement("div", { style: { display:"flex",gap:8 } },
+            /*#__PURE__*/React.createElement("input", { className:"field", style:{ flex:1,padding:"9px 12px",fontSize:13 }, placeholder:"Template name\u2026", value:tplName,
+              onChange: function(e){ setTplName(e.target.value); },
+              onKeyDown: function(e){ if (e.key === "Enter") saveAsTemplate(); }
+            }),
+            /*#__PURE__*/React.createElement("button", { className:"btn-sm", onClick:saveAsTemplate, disabled:!tplName.trim() }, "Save")
+          )
+        : /*#__PURE__*/React.createElement("div", { className: "tmpl-chips" },
+            (workoutTemplates || []).map(function(tpl) {
+              return /*#__PURE__*/React.createElement("div", { key: tpl.id, style: { position:"relative",display:"inline-flex",gap:4,alignItems:"center" } },
+                /*#__PURE__*/React.createElement("button", { className:"tmpl-chip", onClick: function(){ loadTemplate(tpl); } }, tpl.name),
+                /*#__PURE__*/React.createElement("button", { style: { background:"none",border:"none",color:"var(--mu)",fontSize:14,cursor:"pointer",padding:"0 2px",lineHeight:1 },
+                  onClick: function(){ if (window.confirm("Delete template \u201C" + tpl.name + "\u201D?")) deleteTemplate(tpl.id); }
+                }, "\xD7")
+              );
+            }),
+            dateWorkouts.length > 0 && /*#__PURE__*/React.createElement("button", { className:"tmpl-chip save", onClick:function(){ setShowTpl(true); } }, "+ Save today")
+          )
+    ),
+
+    // Exercises section header
+    /*#__PURE__*/React.createElement("div", { className: "train-section-hd" },
+      /*#__PURE__*/React.createElement("div", { className: "train-section-lbl" }, "Exercises")
+    ),
+
+    // Exercise cards
+    dateWorkouts.map(function(ex) {
+      var isExp = expandedId === ex.id;
+      var isPR = prSet.has(ex.id);
+      var target = ex.type !== "cardio" ? getOverloadTarget(ex.name, workouts, selectedDate) : null;
+      var setsToShow = ex.setLog && ex.setLog.length > 0 ? ex.setLog : null;
+      var best1rm = (function() {
+        if (ex.type === "cardio") return 0;
+        if (setsToShow && setsToShow.length) {
+          var best = 0;
+          setsToShow.forEach(function(s) { var rm = epley1RM(s.weight, s.reps); if (rm > best) best = rm; });
+          return best;
+        }
+        return epley1RM(ex.weight, ex.reps);
+      })();
+      var muscleGroup = ex.muscleGroup || getMuscleGroup(ex.name);
+      return /*#__PURE__*/React.createElement("div", { className: "ex-card" + (isExp ? " expanded" : ""), key: ex.id },
+        /*#__PURE__*/React.createElement("div", { className: "ex-card-hd", onClick: function() { setExpandedId(isExp ? null : ex.id); setAddSetFor(null); } },
+          /*#__PURE__*/React.createElement("div", { style: { flex:1,minWidth:0 } },
+            /*#__PURE__*/React.createElement("div", { className: "ex-card-name" }, ex.name),
+            /*#__PURE__*/React.createElement("div", { className: "ex-badge-row" },
+              muscleGroup !== "Other" && /*#__PURE__*/React.createElement("span", { className: "muscle-badge" }, muscleGroup),
+              isPR && /*#__PURE__*/React.createElement("span", { className: "pr-badge" }, "\uD83C\uDFC6 PR"),
+              !isExp && /*#__PURE__*/React.createElement("span", { style: { fontSize:11,color:"var(--mu)" } }, fmtExSummary(ex))
+            )
           ),
           /*#__PURE__*/React.createElement("button", {
-            className: "food-del",
-            onClick: function(e) { e.stopPropagation(); delExercise(ex.id); }
-          }, "\xD7")
+            style: { background:"none",border:"none",color:"var(--rose)",fontSize:18,cursor:"pointer",padding:"4px 6px",lineHeight:1,flexShrink:0 },
+            onClick: function(e) { e.stopPropagation(); if (window.confirm("Remove " + ex.name + "?")) delExercise(ex.id); }
+          }, "\xD7"),
+          /*#__PURE__*/React.createElement("span", { className: "ex-card-chevron" }, "\u2304")
+        ),
+        isExp && /*#__PURE__*/React.createElement("div", { className: "ex-card-body" },
+          // Progressive overload hint
+          target && /*#__PURE__*/React.createElement("div", { className: "overload-hint" },
+            "\uD83C\uDFAF Target: ", target.suggestedWeight, "lb \xD7 ", target.suggestedReps,
+            /*#__PURE__*/React.createElement("span", { style: { color:"var(--mu)",fontSize:11,marginLeft:4 } }, "(last: ", target.lastWeight, "lb \xD7 ", target.lastReps, ")")
+          ),
+          // Cardio detail
+          ex.type === "cardio" && /*#__PURE__*/React.createElement("div", { style: { padding:"10px 0" } },
+            /*#__PURE__*/React.createElement("button", { className:"btn-sm", style:{marginRight:8}, onClick: function(){ openEditEx(ex); } }, "Edit"),
+            ex.duration && /*#__PURE__*/React.createElement("span", { style:{fontSize:13,color:"var(--txt2)"} }, ex.duration, " min"),
+            ex.distance && /*#__PURE__*/React.createElement("span", { style:{fontSize:13,color:"var(--mu)",marginLeft:8} }, ex.distance)
+          ),
+          // Set-by-set rows
+          ex.type !== "cardio" && /*#__PURE__*/React.createElement(React.Fragment, null,
+            setsToShow && setsToShow.map(function(s, idx) {
+              return /*#__PURE__*/React.createElement("div", { className: "set-row", key: idx },
+                /*#__PURE__*/React.createElement("span", { className: "set-num" }, idx + 1),
+                /*#__PURE__*/React.createElement("span", { className: "set-data" },
+                  s.weight, "lb \xD7 ", s.reps, s.warmup ? /*#__PURE__*/React.createElement("span", { style:{fontSize:9,color:"var(--mu)",marginLeft:4} }, "warm") : null,
+                  s.rpe && /*#__PURE__*/React.createElement("span", { className: "set-rpe" }, "RPE ", s.rpe)
+                ),
+                /*#__PURE__*/React.createElement("button", { className: "set-del", onClick: function(){ delSet(ex.id, idx); } }, "\xD7")
+              );
+            }),
+            !setsToShow && /*#__PURE__*/React.createElement("div", { style:{padding:"10px 0"} },
+              /*#__PURE__*/React.createElement("div", { style:{fontSize:13,color:"var(--txt2)",marginBottom:8} }, fmtExSummary(ex)),
+              /*#__PURE__*/React.createElement("button", { className:"btn-sm", onClick: function(){ openEditEx(ex); } }, "Edit")
+            ),
+            // Add set form
+            addSetFor === ex.id
+              ? /*#__PURE__*/React.createElement("div", { className: "set-add-form" },
+                  /*#__PURE__*/React.createElement("input", { className:"set-input", type:"number", inputMode:"decimal", placeholder:"lb", value:setWeightIn,
+                    onChange:function(e){ setSetWeightIn(e.target.value); }, style:{width:70} }),
+                  /*#__PURE__*/React.createElement("span", { style:{color:"var(--mu)",fontSize:13,flexShrink:0} }, "\xD7"),
+                  /*#__PURE__*/React.createElement("input", { className:"set-input", type:"number", inputMode:"numeric", placeholder:"reps", value:setRepsIn,
+                    onChange:function(e){ setSetRepsIn(e.target.value); }, style:{width:70} }),
+                  /*#__PURE__*/React.createElement("input", { className:"set-input rpe", type:"number", inputMode:"numeric", placeholder:"RPE", value:setRpeIn,
+                    onChange:function(e){ setSetRpeIn(e.target.value); }, style:{width:58} }),
+                  /*#__PURE__*/React.createElement("button", { className:"set-confirm-btn", onClick: function(){ confirmAddSet(ex.id); }, disabled:!setWeightIn||!setRepsIn }, "\u2713"),
+                  /*#__PURE__*/React.createElement("button", { style:{background:"none",border:"none",color:"var(--mu)",fontSize:13,cursor:"pointer"}, onClick:function(){ setAddSetFor(null); setSetWeightIn(""); setSetRepsIn(""); setSetRpeIn(""); } }, "Cancel")
+                )
+              : /*#__PURE__*/React.createElement("button", { className: "set-add-trigger",
+                  onClick: function(){ setAddSetFor(ex.id); setSetWeightIn(""); setSetRepsIn(""); setSetRpeIn(""); }
+                }, "+ Add Set")
+          ),
+          // 1RM
+          best1rm > 0 && /*#__PURE__*/React.createElement("div", { className: "one-rm-row" },
+            "Est. 1RM:", /*#__PURE__*/React.createElement("span", { className: "one-rm-val" }, " ", best1rm, " lb")
+          )
+        )
+      );
+    }),
+
+    // NLP quick-add
+    /*#__PURE__*/React.createElement("div", { className: "nlp-workout-wrap" },
+      /*#__PURE__*/React.createElement("div", { className: "nlp-workout-lbl" }, "\uD83D\uDCAA Quick Add via AI"),
+      /*#__PURE__*/React.createElement("textarea", {
+        style: { width:"100%",background:"var(--s2)",border:"1px solid var(--b1)",borderRadius:12,color:"var(--txt)",
+          fontSize:14,padding:"12px 14px",resize:"none",minHeight:64,fontFamily:"inherit",outline:"none",display:"block" },
+        placeholder: "e.g. bench 225 3\xD75, squat 315 4\xD74, 30 min run",
+        value: nlpText,
+        onChange: function(e) { setNlpText(e.target.value); },
+        onKeyDown: function(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleNlpParse(); } }
+      }),
+      /*#__PURE__*/React.createElement("button", {
+        style: { width:"100%",marginTop:8,padding:"12px 0",background:nlpLoading?"var(--s3)":"linear-gradient(135deg,var(--em),#059669)",
+          border:"none",borderRadius:12,color:nlpLoading?"var(--mu)":"#fff",fontSize:14,fontWeight:700,letterSpacing:"0.5px",cursor:nlpLoading?"not-allowed":"pointer" },
+        onClick: handleNlpParse, disabled: nlpLoading
+      }, nlpLoading ? "Parsing\u2026" : "Log Workout"),
+      nlpError && /*#__PURE__*/React.createElement("div", { style:{color:"var(--rose)",fontSize:13,marginTop:8,textAlign:"center"} }, nlpError)
+    ),
+
+    // Save template strip (when exercises exist and no templates yet)
+    dateWorkouts.length > 0 && (!workoutTemplates || workoutTemplates.length === 0) && !showTpl && /*#__PURE__*/React.createElement("div", { style:{marginBottom:14} },
+      /*#__PURE__*/React.createElement("button", { className:"tmpl-chip save", style:{width:"100%",textAlign:"center"}, onClick:function(){ setShowTpl(true); } }, "+ Save session as template"),
+      showTpl && /*#__PURE__*/React.createElement("div", { style:{display:"flex",gap:8,marginTop:8} },
+        /*#__PURE__*/React.createElement("input", { className:"field", style:{flex:1,padding:"9px 12px",fontSize:13}, placeholder:"Template name\u2026", value:tplName, onChange:function(e){ setTplName(e.target.value); } }),
+        /*#__PURE__*/React.createElement("button", { className:"btn-sm", onClick:saveAsTemplate, disabled:!tplName.trim() }, "Save")
+      )
+    ),
+
+    // Weekly volume card
+    /*#__PURE__*/React.createElement("div", { className: "vol-card" },
+      /*#__PURE__*/React.createElement("div", { className: "vol-card-hd", onClick: function(){ setShowVol(!showVol); } },
+        /*#__PURE__*/React.createElement("div", { className: "vol-card-title" }, "Weekly Volume"),
+        /*#__PURE__*/React.createElement("span", { style:{fontSize:12,color:"var(--mu)"} }, showVol ? "\u25B2 Hide" : "\u25BC Show")
+      ),
+      showVol && Object.keys(VOLUME_TARGETS).map(function(group) {
+        var cur = weekVol[group] || 0; var target = VOLUME_TARGETS[group]; var pct = Math.min(cur / target * 100, 100); var over = cur > target;
+        return /*#__PURE__*/React.createElement("div", { className: "vol-row", key: group },
+          /*#__PURE__*/React.createElement("div", { className: "vol-group" }, group),
+          /*#__PURE__*/React.createElement("div", { className: "vol-bar-track" },
+            /*#__PURE__*/React.createElement("div", { className: "vol-bar-fill" + (over ? " over" : ""), style: { width: pct + "%" } })
+          ),
+          /*#__PURE__*/React.createElement("div", { className: "vol-count" }, cur, "/", target, over ? " \u26A0" : "")
         );
       })
     ),
-    /*#__PURE__*/React.createElement("div", { style: { marginTop: 10 } },
-      /*#__PURE__*/React.createElement("textarea", {
-        style: {
-          width: "100%",
-          background: "var(--s2)",
-          border: "1px solid var(--b1)",
-          borderRadius: 12,
-          color: "var(--txt)",
-          fontSize: 14,
-          padding: "12px 14px",
-          resize: "none",
-          minHeight: 72,
-          fontFamily: "inherit",
-          outline: "none",
-          display: "block"
-        },
-        placeholder: "Describe your workout\u2026 e.g. flat bench 225 3\xD75, incline DB 60s 3\xD710, 30 min run",
-        value: text,
-        onChange: function(e) { setText(e.target.value); },
-        onKeyDown: function(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleParse(); } }
-      }),
-      /*#__PURE__*/React.createElement("button", {
-        style: {
-          width: "100%",
-          marginTop: 8,
-          padding: "12px 0",
-          background: loading ? "var(--s3)" : "linear-gradient(135deg,var(--ind),var(--vio))",
-          border: "none",
-          borderRadius: 12,
-          color: loading ? "var(--mu)" : "var(--txt)",
-          fontSize: 14,
-          fontWeight: 700,
-          letterSpacing: "0.5px",
-          cursor: loading ? "not-allowed" : "pointer"
-        },
-        onClick: handleParse,
-        disabled: loading
-      }, loading ? "Parsing workout\u2026" : "\uD83D\uDCAA Log Workout"),
-      error && /*#__PURE__*/React.createElement("div", {
-        style: { color: "var(--rose)", fontSize: 13, marginTop: 8, textAlign: "center" }
-      }, error)
-    ),
+
+    // Edit exercise sheet (for flat-model cardio / legacy entries)
     editEx && /*#__PURE__*/React.createElement(React.Fragment, null,
-      /*#__PURE__*/React.createElement("div", {
-        className: "edit-sheet-overlay",
-        onClick: function() { setEditEx(null); }
-      }),
+      /*#__PURE__*/React.createElement("div", { className: "edit-sheet-overlay", onClick: function(){ setEditEx(null); } }),
       /*#__PURE__*/React.createElement("div", { className: "edit-sheet" },
         /*#__PURE__*/React.createElement("div", { className: "edit-sheet-handle" }),
         /*#__PURE__*/React.createElement("div", { className: "edit-sheet-title" }, editEx.name),
-        /*#__PURE__*/React.createElement("div", { className: "edit-sheet-sub" },
-          editEx.type === "cardio" ? "Cardio" : editEx.type === "bodyweight" ? "Bodyweight" : "Strength"
-        ),
+        /*#__PURE__*/React.createElement("div", { className: "edit-sheet-sub" }, editEx.type === "cardio" ? "Cardio" : "Strength"),
         editEx.type !== "cardio"
           ? /*#__PURE__*/React.createElement(React.Fragment, null,
               /*#__PURE__*/React.createElement("div", { className: "edit-macro-grid" },
                 /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
                   /*#__PURE__*/React.createElement("div", { className: "edit-macro-label" }, "Sets"),
-                  /*#__PURE__*/React.createElement("input", {
-                    className: "edit-macro-input", type: "number", inputMode: "numeric",
-                    value: editSets,
-                    onChange: function(e) { setEditSets(e.target.value.replace(/[^0-9]/g, "")); }
-                  }),
+                  /*#__PURE__*/React.createElement("input", { className:"edit-macro-input",type:"number",inputMode:"numeric",value:editSets, onChange:function(e){ setEditSets(e.target.value.replace(/[^0-9]/g,"")); } }),
                   /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "sets")
                 ),
                 /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
                   /*#__PURE__*/React.createElement("div", { className: "edit-macro-label" }, "Reps"),
-                  /*#__PURE__*/React.createElement("input", {
-                    className: "edit-macro-input", type: "text",
-                    value: editReps,
-                    onChange: function(e) { setEditReps(e.target.value); }
-                  }),
+                  /*#__PURE__*/React.createElement("input", { className:"edit-macro-input",type:"text",value:editReps, onChange:function(e){ setEditReps(e.target.value); } }),
                   /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "per set")
                 )
               ),
               /*#__PURE__*/React.createElement("div", { className: "edit-cal-row" },
                 /*#__PURE__*/React.createElement("div", { className: "edit-cal-label" }, "Weight"),
-                /*#__PURE__*/React.createElement("input", {
-                  className: "edit-cal-input", type: "text",
-                  style: { width: 180, textAlign: "right" },
-                  value: editWeight,
-                  onChange: function(e) { setEditWeight(e.target.value); }
-                }),
-                /*#__PURE__*/React.createElement("div", { className: "edit-cal-unit" }, "")
+                /*#__PURE__*/React.createElement("input", { className:"edit-cal-input",type:"text",style:{width:180,textAlign:"right"},value:editWeight, onChange:function(e){ setEditWeight(e.target.value); } }),
+                /*#__PURE__*/React.createElement("div", { className: "edit-cal-unit" })
               )
             )
           : /*#__PURE__*/React.createElement("div", { className: "edit-macro-grid" },
               /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
                 /*#__PURE__*/React.createElement("div", { className: "edit-macro-label" }, "Duration"),
-                /*#__PURE__*/React.createElement("input", {
-                  className: "edit-macro-input", type: "number", inputMode: "numeric",
-                  value: editDuration,
-                  onChange: function(e) { setEditDuration(e.target.value.replace(/[^0-9]/g, "")); }
-                }),
+                /*#__PURE__*/React.createElement("input", { className:"edit-macro-input",type:"number",inputMode:"numeric",value:editDuration, onChange:function(e){ setEditDuration(e.target.value.replace(/[^0-9]/g,"")); } }),
                 /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "minutes")
               ),
               /*#__PURE__*/React.createElement("div", { className: "edit-macro-field" },
                 /*#__PURE__*/React.createElement("div", { className: "edit-macro-label" }, "Distance"),
-                /*#__PURE__*/React.createElement("input", {
-                  className: "edit-macro-input", type: "text",
-                  value: editDistance,
-                  onChange: function(e) { setEditDistance(e.target.value); }
-                }),
+                /*#__PURE__*/React.createElement("input", { className:"edit-macro-input",type:"text",value:editDistance, onChange:function(e){ setEditDistance(e.target.value); } }),
                 /*#__PURE__*/React.createElement("div", { className: "edit-macro-unit" }, "e.g. 3 miles")
               )
             ),
-        /*#__PURE__*/React.createElement("button", {
-          className: "edit-save-btn", style: { marginTop: 4 },
-          onClick: saveEditEx
-        }, "SAVE"),
-        prog.length > 1 && /*#__PURE__*/React.createElement("div", { style: { marginTop: 20 } },
-          /*#__PURE__*/React.createElement("div", {
-            style: { fontSize: 10, color: "var(--mu)", textTransform: "uppercase", letterSpacing: "1px", fontWeight: 700, marginBottom: 10 }
-          }, "\uD83D\uDCCA Progression"),
+        /*#__PURE__*/React.createElement("button", { className:"edit-save-btn",style:{marginTop:4},onClick:saveEditEx }, "SAVE"),
+        prog.length > 1 && /*#__PURE__*/React.createElement("div", { style:{marginTop:20} },
+          /*#__PURE__*/React.createElement("div", { style:{fontSize:10,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700,marginBottom:10} }, "\uD83D\uDCCA History"),
           prog.map(function(h, i) {
-            var isSelected = h.date === selectedDate;
-            var prevH = prog[i + 1];
-            var improved = false;
-            if (editEx.type !== "cardio" && h.ex.weight && prevH && prevH.ex.weight) {
-              improved = parseWeightNum(h.ex.weight) > parseWeightNum(prevH.ex.weight);
-            }
-            return /*#__PURE__*/React.createElement("div", {
-              key: i,
-              style: {
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                padding: "8px 0",
-                borderBottom: i < prog.length - 1 ? "1px solid var(--b1)" : "none"
-              }
-            },
-              /*#__PURE__*/React.createElement("div", {
-                style: { fontSize: 12, color: isSelected ? "var(--indll)" : "var(--txt2)", fontWeight: isSelected ? 700 : 400 }
-              }, isSelected ? "Today" : fmtShort(new Date(h.date + "T12:00:00"))),
-              /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-                improved && /*#__PURE__*/React.createElement("span", {
-                  style: { fontSize: 11, color: "var(--eml)", fontWeight: 800 }
-                }, "\u2191"),
-                /*#__PURE__*/React.createElement("div", {
-                  style: { fontSize: 12, color: "var(--txt)", fontFamily: "'JetBrains Mono',monospace" }
-                }, fmtExercise(h.ex))
+            var isSel = h.date === selectedDate;
+            var prevH = prog[i+1];
+            var improved = editEx.type !== "cardio" && h.ex.weight && prevH && prevH.ex.weight && parseW(h.ex.weight) > parseW(prevH.ex.weight);
+            return /*#__PURE__*/React.createElement("div", { key:i, style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:i<prog.length-1?"1px solid var(--b1)":"none"} },
+              /*#__PURE__*/React.createElement("div", { style:{fontSize:12,color:isSel?"var(--indll)":"var(--txt2)",fontWeight:isSel?700:400} }, isSel ? "Today" : fmtShort(new Date(h.date+"T12:00:00"))),
+              /*#__PURE__*/React.createElement("div", { style:{display:"flex",alignItems:"center",gap:6} },
+                improved && /*#__PURE__*/React.createElement("span", { style:{fontSize:11,color:"var(--eml)",fontWeight:800} }, "\u2191"),
+                /*#__PURE__*/React.createElement("div", { style:{fontSize:12,color:"var(--txt)",fontFamily:"'JetBrains Mono',monospace"} }, fmtExSummary(h.ex))
               )
             );
           })
@@ -6590,11 +6901,21 @@ function WorkoutSection({ workouts, setWorkouts, selectedDate, workerUrl, onAiCa
 
 /* ── App ── */
 function App() {
+  // Migrate stale tab keys from old nav (weight→physique, goals→physique)
   const [tab, setTab] = useLocal("mt_tab", "log");
+  useEffect(function() {
+    var t = localStorage.getItem("mt_tab");
+    try { t = JSON.parse(t); } catch(e) {}
+    if (t === "weight" || t === "goals") {
+      localStorage.setItem("mt_tab", JSON.stringify("physique"));
+    }
+  }, []);
+
   const [goals, setGoalsRaw] = useLocal("mt_goals", DEFAULT_GOALS);
   const [entries, setEntriesRaw] = useLocal("mt_entries", {});
   const [wlog, setWlogRaw] = useLocal("mt_wlog", []);
   const [workouts, setWorkoutsRaw] = useLocal("mt_workouts", {});
+  const [workoutTemplates, setWorkoutTemplatesRaw] = useLocal("mt_workout_templates", []);
   const [usdaKey, setUsdaKeyRaw] = useLocal("mt_usda", "");
   const [workerUrl, setWorkerUrlRaw] = useLocal("mt_worker", "https://macrotrack-ai.kjgoodwin01.workers.dev");
   const [userName, setUserNameRaw] = useLocal("mt_name", "");
@@ -6834,6 +7155,26 @@ function App() {
     if (v) showToast("✓ Worker URL saved");
   }
 
+  // setWorkouts — saves locally and syncs the affected date to Supabase
+  function setWorkouts(updater, syncDate) {
+    setWorkoutsRaw(function(prev) {
+      var next = typeof updater === "function" ? updater(prev) : updater;
+      if (syncDate && next[syncDate] !== undefined) {
+        syncToCloud(workerUrl, "sync_workout", {
+          date: syncDate,
+          exercises: next[syncDate]
+        });
+      }
+      return next;
+    });
+  }
+
+  // setWorkoutTemplates — saves locally and syncs to profile
+  function setWorkoutTemplates(v) {
+    setWorkoutTemplatesRaw(v);
+    syncToCloud(workerUrl, "sync_workout_templates", { templates: v });
+  }
+
   // Load from cloud only after onboarding is complete
   useEffect(function () {
     if (!workerUrl || !onboarded) return;
@@ -6897,6 +7238,21 @@ function App() {
             return a.date.localeCompare(b.date);
           });
         });
+      }
+      // Merge cloud workouts — cloud wins per date (last-sync wins, offline dates preserved)
+      if (cloud.workouts && cloud.workouts.length > 0) {
+        setWorkoutsRaw(function(prev) {
+          var merged = Object.assign({}, prev);
+          cloud.workouts.forEach(function(row) {
+            // Cloud wins for this date — it holds the most recently synced state
+            merged[row.log_date] = row.exercises || [];
+          });
+          return merged;
+        });
+      }
+      // Restore workout templates from cloud
+      if (cloud.workoutTemplates && cloud.workoutTemplates.length > 0) {
+        setWorkoutTemplatesRaw(cloud.workoutTemplates);
       }
       // Merge profile if local has no name set
       if (cloud.profile && !userName && cloud.profile.name) {
@@ -7497,14 +7853,6 @@ function App() {
       className: "food-del",
       onClick: (e) => { e.stopPropagation(); delEntry(item.id); }
     }, "\xD7")))));
-  }), /*#__PURE__*/React.createElement(WorkoutSection, {
-    workouts: workouts,
-    setWorkouts: setWorkoutsRaw,
-    selectedDate: selectedDate,
-    workerUrl: workerUrl,
-    onAiCall: incrementAiUsage,
-    aiUsageToday: getAiUsageThisWeek(),
-    aiLimit: AI_WEEKLY_LIMIT
   }), /*#__PURE__*/React.createElement("button", {
     className: "fab",
     onClick: () => {
@@ -7574,13 +7922,67 @@ function App() {
       ),
       /*#__PURE__*/React.createElement("button", { className: "edit-save-btn", onClick: saveEdit }, "SAVE CHANGES")
     )
-  )), tab === "weight" && /*#__PURE__*/React.createElement("div", {
+  )), tab === "train" && /*#__PURE__*/React.createElement("div", {
     className: "page"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      height: 12
-    }
-  }), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(WorkoutTab, {
+    workouts: workouts,
+    setWorkouts: setWorkouts,
+    workoutTemplates: workoutTemplates,
+    setWorkoutTemplates: setWorkoutTemplates,
+    selectedDate: selectedDate,
+    weekOffset: weekOffset,
+    onOffsetChange: handleOffsetChange,
+    entries: entries,
+    workerUrl: workerUrl,
+    onAiCall: incrementAiUsage,
+    aiUsageToday: getAiUsageThisWeek(),
+    aiLimit: AI_WEEKLY_LIMIT,
+    goals: goals
+  })), tab === "physique" && /*#__PURE__*/React.createElement("div", {
+    className: "page"
+  }, /*#__PURE__*/React.createElement("div", { style: { height: 12 } }),
+  // Goals summary card
+  /*#__PURE__*/React.createElement("div", { className: "scard" },
+    /*#__PURE__*/React.createElement("div", { className: "stitle" }, "My Goal"),
+    /*#__PURE__*/React.createElement("div", { className: "srow" },
+      /*#__PURE__*/React.createElement("span", { className: "slbl" }, "Currently"),
+      /*#__PURE__*/React.createElement("span", { className: "sval", style: { color: goals.goalType === "cut" ? "var(--rosel)" : goals.goalType === "bulk" ? "var(--eml)" : "var(--cyanl)" } },
+        goals.goalType === "cut" ? "Cutting" : goals.goalType === "bulk" ? "Bulking" : "Maintaining"
+      )
+    ),
+    goals.targetWeight && /*#__PURE__*/React.createElement("div", { className: "srow" },
+      /*#__PURE__*/React.createElement("span", { className: "slbl" }, "Target Weight"),
+      /*#__PURE__*/React.createElement("span", { className: "sval" }, goals.targetWeight, " lbs")
+    ),
+    goals.targetWeight && (function() {
+      var curW = wlog.length > 0 ? wlog.slice().sort(function(a,b){ return a.date.localeCompare(b.date); }).slice(-1)[0].weight : null;
+      var diff = curW ? Math.abs(curW - goals.targetWeight).toFixed(1) : null;
+      return diff ? /*#__PURE__*/React.createElement("div", { className: "srow" },
+        /*#__PURE__*/React.createElement("span", { className: "slbl" }, "To Go"),
+        /*#__PURE__*/React.createElement("span", { className: "sval", style: { color: "var(--indll)" } }, diff, " lbs")
+      ) : null;
+    })(),
+    /*#__PURE__*/React.createElement("div", { style: { height: 10 } }),
+    /*#__PURE__*/React.createElement("div", { className: "stitle", style: { marginBottom: 10 } }, "Daily Targets"),
+    /*#__PURE__*/React.createElement("div", { className: "srow" },
+      /*#__PURE__*/React.createElement("span", { className: "slbl" }, "Calories"),
+      /*#__PURE__*/React.createElement("span", { className: "sval" }, goals.calories.toLocaleString(), " kcal")
+    ),
+    /*#__PURE__*/React.createElement("div", { className: "srow" },
+      /*#__PURE__*/React.createElement("span", { className: "slbl" }, "Protein"),
+      /*#__PURE__*/React.createElement("span", { className: "sval", style: { color: "var(--rosel)" } }, goals.protein, "g")
+    ),
+    /*#__PURE__*/React.createElement("div", { className: "srow" },
+      /*#__PURE__*/React.createElement("span", { className: "slbl" }, "Carbs"),
+      /*#__PURE__*/React.createElement("span", { className: "sval", style: { color: "var(--cyanl)" } }, goals.carbs, "g")
+    ),
+    /*#__PURE__*/React.createElement("div", { className: "srow" },
+      /*#__PURE__*/React.createElement("span", { className: "slbl" }, "Fat"),
+      /*#__PURE__*/React.createElement("span", { className: "sval", style: { color: "var(--ambl)" } }, goals.fat, "g")
+    ),
+    /*#__PURE__*/React.createElement("button", { className: "btn", style: { marginTop: 14 }, onClick: () => setModal("goals") }, "Edit Goals")
+  ),
+  /*#__PURE__*/React.createElement("div", {
     className: "w-hero"
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-lbl"
@@ -7770,7 +8172,8 @@ function App() {
         onLogDay: logMealPlanDay,
         showToast: showToast
       })
-  ), tab === "goals" && /*#__PURE__*/React.createElement("div", {
+  ), tab === "goals" && (function(){ setTab("physique"); return null; })(),
+  false && /*#__PURE__*/React.createElement("div", {
     className: "page"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -8085,9 +8488,9 @@ function App() {
     icon: "📋",
     label: "Log"
   }, {
-    id: "weight",
-    icon: "⚖️",
-    label: "Weight"
+    id: "train",
+    icon: "💪",
+    label: "Train"
   }, {
     id: "coach",
     icon: "🧠",
@@ -8097,9 +8500,9 @@ function App() {
     icon: "🥗",
     label: "Meals"
   }, {
-    id: "goals",
-    icon: "🎯",
-    label: "Goals"
+    id: "physique",
+    icon: "⚖️",
+    label: "Physique"
   }].map(n => /*#__PURE__*/React.createElement("button", {
     key: n.id,
     className: "nav-btn" + (tab === n.id ? " active" : ""),
@@ -8115,38 +8518,117 @@ function App() {
     className: "nav-lbl"
   }, n.label), /*#__PURE__*/React.createElement("div", {
     className: "nav-dot"
-  })))), settingsOpen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "settings-panel-overlay",
-    onClick: function () {
-      setSettingsOpen(false);
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "settings-panel"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "sp-title"
-  }, "Appearance"), /*#__PURE__*/React.createElement("div", {
-    className: "theme-row"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "theme-btn" + (theme === "dark" ? " active" : ""),
-    onClick: function () {
-      setTheme("dark");
-      setSettingsOpen(false);
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "theme-btn-icon"
-  }, "\uD83C\uDF19"), /*#__PURE__*/React.createElement("div", {
-    className: "theme-btn-label"
-  }, "Dark")), /*#__PURE__*/React.createElement("button", {
-    className: "theme-btn" + (theme === "light" ? " active" : ""),
-    onClick: function () {
-      setTheme("light");
-      setSettingsOpen(false);
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "theme-btn-icon"
-  }, "\u2600\uFE0F"), /*#__PURE__*/React.createElement("div", {
-    className: "theme-btn-label"
-  }, "Light"))))), modal === "add" && /*#__PURE__*/React.createElement(AddFoodModal, {
+  })))), settingsOpen && /*#__PURE__*/React.createElement(React.Fragment, null,
+    /*#__PURE__*/React.createElement("div", { className: "settings-panel-overlay", onClick: function(){ setSettingsOpen(false); } }),
+    /*#__PURE__*/React.createElement("div", { className: "settings-panel" },
+      // Handle bar + title
+      /*#__PURE__*/React.createElement("div", { className: "sp-handle-row" },
+        /*#__PURE__*/React.createElement("div", { className: "sp-panel-title" }, "Settings"),
+        /*#__PURE__*/React.createElement("button", { className: "sp-close", onClick: function(){ setSettingsOpen(false); } }, "\u2715")
+      ),
+      /*#__PURE__*/React.createElement("div", { className: "sp-scroll" },
+        // Appearance
+        /*#__PURE__*/React.createElement("div", { className: "sp-section" },
+          /*#__PURE__*/React.createElement("div", { className: "sp-title" }, "Appearance"),
+          /*#__PURE__*/React.createElement("div", { className: "theme-row" },
+            /*#__PURE__*/React.createElement("button", { className: "theme-btn" + (theme === "dark" ? " active" : ""), onClick: function(){ setTheme("dark"); } },
+              /*#__PURE__*/React.createElement("div", { className: "theme-btn-icon" }, "\uD83C\uDF19"),
+              /*#__PURE__*/React.createElement("div", { className: "theme-btn-label" }, "Dark")
+            ),
+            /*#__PURE__*/React.createElement("button", { className: "theme-btn" + (theme === "light" ? " active" : ""), onClick: function(){ setTheme("light"); } },
+              /*#__PURE__*/React.createElement("div", { className: "theme-btn-icon" }, "\u2600\uFE0F"),
+              /*#__PURE__*/React.createElement("div", { className: "theme-btn-label" }, "Light")
+            )
+          )
+        ),
+        // Account
+        /*#__PURE__*/React.createElement("div", { className: "sp-section" },
+          /*#__PURE__*/React.createElement("div", { className: "sp-title" }, "Account"),
+          /*#__PURE__*/React.createElement(AccountCard, { user: displayUser, onSignIn: function(){ setShowAuthModal(true); setSettingsOpen(false); }, onSignOut: handleAuthSignOut })
+        ),
+        // Coach Personality
+        /*#__PURE__*/React.createElement("div", { className: "sp-section" },
+          /*#__PURE__*/React.createElement("div", { className: "sp-title" }, "Coach Personality"),
+          /*#__PURE__*/React.createElement("div", { className: "muted-t", style: { marginBottom: 12 } }, "Choose how your AI coach communicates with you."),
+          /*#__PURE__*/React.createElement("div", { style: { display:"flex",flexDirection:"column",gap:8 } },
+            [["tough","\uD83D\uDD25","Tough Love","Brutally honest. No sugarcoating. Holds you accountable."],
+             ["balanced","\uD83D\uDCAA","Balanced","Direct but fair. Mixes accountability with encouragement."],
+             ["supportive","\uD83C\uDF1F","Supportive","Encouraging and positive. Celebrates wins, gentle with setbacks."]
+            ].map(function(opt) {
+              var active = coachMode === opt[0];
+              return /*#__PURE__*/React.createElement("div", { key:opt[0],
+                onClick: function(){ setCoachMode(opt[0]); showToast("\u2713 Coach set to " + opt[2]); },
+                style: { display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderRadius:14,cursor:"pointer",
+                  background:active?"rgba(99,102,241,0.12)":"rgba(255,255,255,0.03)",
+                  border:"1px solid "+(active?"rgba(99,102,241,0.4)":"var(--b1)"),transition:"all 0.15s" }
+              },
+                /*#__PURE__*/React.createElement("div", { style:{fontSize:22,flexShrink:0} }, opt[1]),
+                /*#__PURE__*/React.createElement("div", { style:{flex:1} },
+                  /*#__PURE__*/React.createElement("div", { style:{fontSize:14,fontWeight:600,color:active?"var(--indll)":"var(--txt)"} }, opt[2]),
+                  /*#__PURE__*/React.createElement("div", { style:{fontSize:12,color:"var(--mu)",marginTop:2,lineHeight:1.5} }, opt[3])
+                ),
+                active && /*#__PURE__*/React.createElement("div", { style:{width:10,height:10,borderRadius:"50%",background:"var(--ind)",flexShrink:0} })
+              );
+            })
+          )
+        ),
+        // Notifications
+        /*#__PURE__*/React.createElement("div", { className: "sp-section" },
+          /*#__PURE__*/React.createElement("div", { className: "sp-title" }, "Notifications"),
+          /*#__PURE__*/React.createElement("div", { className:"muted-t",style:{marginBottom:12} },
+            pushEnabled ? "Notifications are enabled." : "Get reminders, weekly reports, and protein alerts."
+          ),
+          !pushEnabled
+            ? /*#__PURE__*/React.createElement("button", { className:"btn",style:{marginTop:0},onClick:togglePush,disabled:pushLoading }, pushLoading ? "ENABLING..." : "ENABLE NOTIFICATIONS")
+            : /*#__PURE__*/React.createElement("div", null,
+                [["report","📊 Weekly Report","Sunday 9 AM — coaching check-in"],
+                 ["correction","🎯 Protein Gap Alert","7 PM — if protein is below 70%"],
+                 ["reminder","💪 Daily Reminder","Remind me if I haven't logged by noon"]
+                ].map(function(p) {
+                  return /*#__PURE__*/React.createElement("div", { key:p[0], style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid var(--b1)"} },
+                    /*#__PURE__*/React.createElement("div", null,
+                      /*#__PURE__*/React.createElement("div", { style:{fontSize:14} }, p[1]),
+                      /*#__PURE__*/React.createElement("div", { style:{fontSize:11,color:"var(--mu)",marginTop:2} }, p[2])
+                    ),
+                    /*#__PURE__*/React.createElement("button", {
+                      onClick:function(){ updatePushPref(p[0],!pushPrefs[p[0]]); },
+                      style:{width:44,height:26,borderRadius:13,border:"none",cursor:"pointer",background:pushPrefs[p[0]]?"var(--ind)":"var(--b1)",transition:"background 0.2s",position:"relative",flexShrink:0}
+                    }, /*#__PURE__*/React.createElement("div", { style:{width:20,height:20,borderRadius:10,background:"#fff",position:"absolute",top:3,left:pushPrefs[p[0]]?21:3,transition:"left 0.2s"} }))
+                  );
+                }),
+                /*#__PURE__*/React.createElement("button", { className:"btn-danger",style:{marginTop:14},onClick:togglePush }, "Disable All Notifications")
+              )
+        ),
+        // Data Backup
+        /*#__PURE__*/React.createElement("div", { className: "sp-section" },
+          /*#__PURE__*/React.createElement("div", { className: "sp-title" }, "Data & Backup"),
+          /*#__PURE__*/React.createElement("div", { className:"muted-t",style:{marginBottom:12} }, "Export a backup regularly — especially before clearing your browser or switching devices."),
+          /*#__PURE__*/React.createElement(DataBackup, {
+            entries: entries, wlog: wlog, goals: goals,
+            workouts: workouts, workoutTemplates: workoutTemplates,
+            onImport: function(data) {
+              if (data.entries) setEntriesRaw(data.entries);
+              if (data.wlog) setWlogRaw(data.wlog);
+              if (data.goals) setGoals(data.goals);
+              if (data.workouts) setWorkoutsRaw(data.workouts);
+              if (data.workoutTemplates) setWorkoutTemplatesRaw(data.workoutTemplates);
+              showToast("\u2713 Data restored");
+            }
+          })
+        ),
+        // Advanced
+        /*#__PURE__*/React.createElement("div", { className: "sp-section" },
+          /*#__PURE__*/React.createElement("div", { className: "sp-title" }, "About & Advanced"),
+          /*#__PURE__*/React.createElement("div", { className: "muted-t", style:{marginBottom:10} }, "Food search uses USDA FoodData Central + Open Food Facts. AI powered by Claude. No API keys required."),
+          /*#__PURE__*/React.createElement("div", { style:{marginBottom:12} }, /*#__PURE__*/React.createElement(WorkerUrlInput, { value:workerUrl, onChange:setWorkerUrl })),
+          /*#__PURE__*/React.createElement("div", { style:{fontSize:11,color:"var(--mu)",fontFamily:"'JetBrains Mono',monospace",wordBreak:"break-all"} },
+            displayUser ? ("Account: " + displayUser.email) : ("Device ID: " + DEVICE_ID)
+          )
+        ),
+        /*#__PURE__*/React.createElement("div", { style:{height:8} })
+      )
+    )
+  ), modal === "add" && /*#__PURE__*/React.createElement(AddFoodModal, {
     onClose: () => setModal(null),
     onAdd: addEntry,
     targetMeal: targetMeal,

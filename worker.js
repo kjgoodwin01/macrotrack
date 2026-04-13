@@ -864,10 +864,11 @@ export default {
     if (type === "sync_load") {
       const { deviceId, email } = body;
       if (!deviceId) return jsonRes({ error: "Missing deviceId" }, 400, cors);
-      const [profile, entries, wlog] = await Promise.all([
+      const [profile, entries, wlog, workoutSessions] = await Promise.all([
         sb(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1"),
         sb(env, "GET", "food_entries?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=500"),
         sb(env, "GET", "weight_log?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=200"),
+        sb(env, "GET", "workout_sessions?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=500").catch(() => ({ data: [] })),
       ]);
       let profileRow = (profile.data && profile.data[0]) || null;
       // If device_id lookup found nothing and we have an email, try email fallback
@@ -880,6 +881,8 @@ export default {
         profile: profileRow,
         entries: entries.data || [],
         wlog: wlog.data || [],
+        workouts: workoutSessions.data || [],
+        workoutTemplates: (profileRow && profileRow.workout_templates) || [],
         subscription_status: (profileRow && profileRow.subscription_status) || "free",
       }, 200, cors);
     }
@@ -966,6 +969,47 @@ export default {
         device_id: deviceId, log_date: date, weight: weight,
       });
       if (!result.ok) return jsonRes({ error: "Failed to save weight" }, 500, cors);
+      return jsonRes({ ok: true }, 200, cors);
+    }
+
+    // ── SYNC: Workout session (upsert one day) ───────────────────────────
+    if (type === "sync_workout") {
+      const { deviceId, email, date, exercises } = body;
+      if (!deviceId || !date || !Array.isArray(exercises)) return jsonRes({ error: "Missing data" }, 400, cors);
+      // Resolve identity — same pattern as sync_add_entry
+      let resolvedDeviceId = deviceId;
+      let profileCheck = await sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
+      if ((!profileCheck.data || profileCheck.data.length === 0) && email) {
+        const emailClean = email.trim().toLowerCase();
+        const byEmail = await sbAdmin(env, "GET", "profiles?email=eq." + encodeURIComponent(emailClean) + "&limit=1");
+        if (byEmail.data && byEmail.data.length > 0) {
+          resolvedDeviceId = byEmail.data[0].device_id;
+        } else {
+          return jsonRes({ error: "Profile not found — complete onboarding first" }, 403, cors);
+        }
+      } else if (!profileCheck.data || profileCheck.data.length === 0) {
+        return jsonRes({ error: "Profile not found — complete onboarding first" }, 403, cors);
+      }
+      // Upsert: UNIQUE(device_id, log_date) means duplicate days are merged, never created
+      const result = await sb(env, "POST", "workout_sessions", {
+        device_id: resolvedDeviceId,
+        log_date: date,
+        exercises: exercises,
+        updated_at: new Date().toISOString(),
+      });
+      if (!result.ok) return jsonRes({ error: "Failed to save workout" }, 500, cors);
+      return jsonRes({ ok: true }, 200, cors);
+    }
+
+    // ── SYNC: Workout templates (save full array to profile) ─────────────
+    if (type === "sync_workout_templates") {
+      const { deviceId, templates } = body;
+      if (!deviceId || !Array.isArray(templates)) return jsonRes({ error: "Missing data" }, 400, cors);
+      const result = await sb(env, "PATCH",
+        "profiles?device_id=eq." + encodeURIComponent(deviceId),
+        { workout_templates: templates }
+      );
+      if (!result.ok) return jsonRes({ error: "Failed to save templates" }, 500, cors);
       return jsonRes({ ok: true }, 200, cors);
     }
 
