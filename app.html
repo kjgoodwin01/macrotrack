@@ -37,14 +37,14 @@
       --st:env(safe-area-inset-top,0px);
       --sb:env(safe-area-inset-bottom,0px);
       /* Nav: content height + safe area bottom */
-      --nav-content-h:44px;
+      --nav-content-h:48px;
       --nav-h:calc(var(--nav-content-h) + env(safe-area-inset-bottom,0px));
       /* FAB: sits above nav with 8px breathing room */
       --fab-h:52px;
       --fab-gap:8px;
       --fab-bottom:calc(var(--nav-h) + var(--fab-gap));
-      /* Page: 140px ensures + LOG FOOD button scrolls clear of nav + FAB */
-      --page-pb:140px;
+      /* Page: 160px ensures + LOG FOOD button scrolls clear of nav + FAB */
+      --page-pb:160px;
       /* Fullscreen overlays: header padding respects Dynamic Island */
       --overlay-header-pt:calc(env(safe-area-inset-top,44px) + 10px);
       /* Chat input: respects home indicator */
@@ -69,7 +69,7 @@
     .toast-undo{background:rgba(255,255,255,0.25);border:none;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;letter-spacing:0.5px;white-space:nowrap}
 
     /* Page */
-    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px var(--page-pb);-webkit-overflow-scrolling:touch}
+    .page{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 16px 0;padding-bottom:160px !important;-webkit-overflow-scrolling:touch}
     .page::-webkit-scrollbar{display:none}
 
     /* Week selector */
@@ -167,12 +167,12 @@
     .fab{position:fixed;bottom:var(--fab-bottom);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:scale(0.97)}
 
-    /* Nav — Instagram-style: border-box so padding is inside height, not additive */
-    .nav{position:fixed;bottom:0;left:0;right:0;margin:0;box-sizing:border-box;display:flex;align-items:flex-start;justify-content:space-around;background:#06060f;border-top:0.5px solid rgba(255,255,255,0.1);z-index:50;height:calc(44px + env(safe-area-inset-bottom,0px));padding-top:6px;padding-bottom:env(safe-area-inset-bottom,0px)}
+    /* Nav — Instagram-style: border-box, strict height, icons top-aligned */
+    .nav{position:fixed;bottom:0;left:0;right:0;margin:0;box-sizing:border-box;display:flex;align-items:flex-start;justify-content:space-around;background:#06060f;border-top:0.5px solid rgba(255,255,255,0.1);border-radius:0;z-index:50;height:calc(48px + env(safe-area-inset-bottom,0px));padding-top:8px;padding-bottom:env(safe-area-inset-bottom,0px)}
 
-    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0;background:none;border:none;cursor:pointer;padding:0;position:relative;-webkit-tap-highlight-color:transparent}
-    .nav-icon{font-size:26px;display:block;line-height:1}
-    .nav-lbl{font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s;line-height:1;margin-top:2px}
+    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0;background:none;border:none;cursor:pointer;padding:0;margin:0;position:relative;-webkit-tap-highlight-color:transparent}
+    .nav-icon{font-size:26px;display:block;line-height:1;margin:0;padding:0}
+    .nav-lbl{font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s;line-height:1;margin:0;padding:0}
     .nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ind);opacity:0;transition:opacity 0.2s;position:absolute;top:2px;left:50%;transform:translateX(-50%)}
     .nav-btn.active .nav-lbl{color:var(--indl)}
     .nav-btn.active .nav-dot{opacity:1}
