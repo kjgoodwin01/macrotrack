@@ -43,8 +43,8 @@
       --fab-h:52px;
       --fab-gap:8px;
       --fab-bottom:calc(var(--nav-h) + var(--fab-gap));
-      /* Page: 180px ensures + LOG FOOD button clears nav on every screen size */
-      --page-pb:180px;
+      /* Page: 140px ensures + LOG FOOD button scrolls clear of nav + FAB */
+      --page-pb:140px;
       /* Fullscreen overlays: header padding respects Dynamic Island */
       --overlay-header-pt:calc(env(safe-area-inset-top,44px) + 10px);
       /* Chat input: respects home indicator */
@@ -167,8 +167,8 @@
     .fab{position:fixed;bottom:var(--fab-bottom);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:scale(0.97)}
 
-    /* Nav — Instagram-style: strict height, icons flush to top, hairline separator */
-    .nav{position:fixed;bottom:0;left:0;right:0;margin:0;display:flex;align-items:flex-start;justify-content:space-around;background:#06060f;border-top:0.5px solid rgba(255,255,255,0.1);z-index:50;height:calc(44px + env(safe-area-inset-bottom,0px));padding-top:5px;padding-bottom:env(safe-area-inset-bottom,0px)}
+    /* Nav — Instagram-style: border-box so padding is inside height, not additive */
+    .nav{position:fixed;bottom:0;left:0;right:0;margin:0;box-sizing:border-box;display:flex;align-items:flex-start;justify-content:space-around;background:#06060f;border-top:0.5px solid rgba(255,255,255,0.1);z-index:50;height:calc(44px + env(safe-area-inset-bottom,0px));padding-top:6px;padding-bottom:env(safe-area-inset-bottom,0px)}
 
     .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0;background:none;border:none;cursor:pointer;padding:0;position:relative;-webkit-tap-highlight-color:transparent}
     .nav-icon{font-size:26px;display:block;line-height:1}
