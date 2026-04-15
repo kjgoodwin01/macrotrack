@@ -37,7 +37,7 @@
       --st:env(safe-area-inset-top,0px);
       --sb:env(safe-area-inset-bottom,0px);
       /* Nav: content height + safe area bottom */
-      --nav-content-h:48px;
+      --nav-content-h:44px;
       --nav-h:calc(var(--nav-content-h) + env(safe-area-inset-bottom,0px));
       /* FAB: sits above nav with 8px breathing room */
       --fab-h:52px;
@@ -167,11 +167,11 @@
     .fab{position:fixed;bottom:var(--fab-bottom);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:scale(0.97)}
 
-    /* Nav — forced Instagram proportions; !important overrides any cascade */
-    .nav{position:fixed !important;bottom:0 !important;left:0 !important;right:0 !important;margin:0 !important;box-sizing:border-box !important;display:flex !important;align-items:flex-start !important;justify-content:space-around;background:#06060f !important;border-top:0.5px solid rgba(255,255,255,0.1) !important;border-radius:0 !important;z-index:50;height:calc(48px + env(safe-area-inset-bottom,0px)) !important;padding-top:8px !important;padding-bottom:env(safe-area-inset-bottom,0px) !important}
+    /* Nav — native iOS tab bar: no height calc, padding defines the zones */
+    .nav{position:fixed;bottom:0;left:0;right:0;margin:0;display:flex;align-items:flex-start;justify-content:space-around;background:#06060f;border-top:0.5px solid rgba(255,255,255,0.1);z-index:50;padding-top:8px;padding-bottom:env(safe-area-inset-bottom,0px)}
 
-    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0;background:none;border:none;cursor:pointer;padding:0;margin:0;position:relative;-webkit-tap-highlight-color:transparent}
-    .nav-icon{font-size:26px;display:block;line-height:1;margin:0;padding:0}
+    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;background:none;border:none;cursor:pointer;padding:0;margin:0;position:relative;-webkit-tap-highlight-color:transparent}
+    .nav-icon{font-size:24px;display:block;line-height:1;margin:0;padding:0}
     .nav-lbl{font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s;line-height:1;margin:0;padding:0}
     .nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ind);opacity:0;transition:opacity 0.2s;position:absolute;top:2px;left:50%;transform:translateX(-50%)}
     .nav-btn.active .nav-lbl{color:var(--indl)}
