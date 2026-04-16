@@ -171,12 +171,12 @@
     .nav{position:fixed;bottom:0;left:0;right:0;margin:0;display:flex;align-items:flex-start;justify-content:space-around;background:#06060f;border-top:0.5px solid rgba(255,255,255,0.1);z-index:50;padding-bottom:env(safe-area-inset-bottom,0px)}
 
     .nav-btn{flex:1;height:var(--nav-content-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;padding:0;margin:0;position:relative;-webkit-tap-highlight-color:transparent}
-    .nav-icon{font-size:26px;display:block;line-height:1;margin:0;padding:0;position:relative;z-index:1}
+    .nav-icon{font-size:30px;display:block;line-height:1;margin:0;padding:0;position:relative;z-index:1}
     .nav-lbl{font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s;line-height:1;margin:0;padding:0;display:none;position:relative;z-index:1}
     .nav-dot{display:none}
-    .nav-btn::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);width:52px;height:32px;border-radius:16px;background:transparent;transition:background 0.2s;pointer-events:none;z-index:0}
+    .nav-btn::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:52px;height:36px;border-radius:18px;background:transparent;transition:background 0.2s;pointer-events:none;z-index:0}
     .nav-btn.active::before{background:rgba(99,102,241,0.15)}
-    .nav-btn.active .nav-lbl{color:var(--indl);display:block}
+    .nav-btn.active .nav-lbl{color:var(--indl)}
 
     /* Modal */
     .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fdin 0.2s ease}
