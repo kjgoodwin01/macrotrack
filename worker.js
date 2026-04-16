@@ -764,9 +764,7 @@ export default {
               "food_entries?device_id=eq." + encodeURIComponent(sub.device_id) +
               "&log_date=eq." + todayISO + "&limit=200"
             );
-            if (!entries.data || entries.data.length === 0) continue;
-
-            const proteinLogged = Math.round(entries.data.reduce(function(sum, e) {
+            const proteinLogged = !entries.data || entries.data.length === 0 ? 0 : Math.round(entries.data.reduce(function(sum, e) {
               return sum + (parseFloat(e.protein) || 0);
             }, 0));
 
