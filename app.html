@@ -38,7 +38,7 @@
       --sb:env(safe-area-inset-bottom,0px);
       /* Nav: content height + safe area bottom */
       --nav-content-h:49px;
-      --nav-h:calc(var(--nav-content-h) + env(safe-area-inset-bottom,0px));
+      --nav-h:calc(var(--nav-content-h) + max(0px, env(safe-area-inset-bottom,0px) - 15px));
       /* FAB: sits above nav with 8px breathing room */
       --fab-h:52px;
       --fab-gap:8px;
@@ -168,7 +168,7 @@
     .fab:active{transform:scale(0.97)}
 
     /* Nav — native iOS tab bar: no height calc, padding defines the zones */
-    .nav{position:fixed;bottom:0;left:0;right:0;margin:0;display:flex;align-items:flex-start;justify-content:space-around;background:#06060f;border-top:0.5px solid rgba(255,255,255,0.1);z-index:50;padding-bottom:env(safe-area-inset-bottom,0px)}
+    .nav{position:fixed;bottom:0;left:0;right:0;margin:0;display:flex;align-items:flex-start;justify-content:space-around;background:#06060f;border-top:0.5px solid rgba(255,255,255,0.1);z-index:50;padding-bottom:max(0px,calc(env(safe-area-inset-bottom,0px) - 15px))}
 
     .nav-btn{flex:1;height:var(--nav-content-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;padding:0;margin:0;position:relative;-webkit-tap-highlight-color:transparent}
     .nav-icon{font-size:30px;display:block;line-height:1;margin:0;padding:0;position:relative;z-index:1}
