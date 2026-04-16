@@ -37,14 +37,14 @@
       --st:env(safe-area-inset-top,0px);
       --sb:env(safe-area-inset-bottom,0px);
       /* Nav: content height + safe area bottom */
-      --nav-content-h:44px;
+      --nav-content-h:49px;
       --nav-h:calc(var(--nav-content-h) + env(safe-area-inset-bottom,0px));
       /* FAB: sits above nav with 8px breathing room */
       --fab-h:52px;
       --fab-gap:8px;
       --fab-bottom:calc(var(--nav-h) + var(--fab-gap));
       /* Page: 160px ensures + LOG FOOD button scrolls clear of nav + FAB */
-      --page-pb:160px;
+      --page-pb:165px;
       /* Fullscreen overlays: header padding respects Dynamic Island */
       --overlay-header-pt:calc(env(safe-area-inset-top,44px) + 10px);
       /* Chat input: respects home indicator */
@@ -168,14 +168,15 @@
     .fab:active{transform:scale(0.97)}
 
     /* Nav — native iOS tab bar: no height calc, padding defines the zones */
-    .nav{position:fixed;bottom:0;left:0;right:0;margin:0;display:flex;align-items:flex-start;justify-content:space-around;background:#06060f;border-top:0.5px solid rgba(255,255,255,0.1);z-index:50;padding-top:8px;padding-bottom:env(safe-area-inset-bottom,0px)}
+    .nav{position:fixed;bottom:0;left:0;right:0;margin:0;display:flex;align-items:flex-start;justify-content:space-around;background:#06060f;border-top:0.5px solid rgba(255,255,255,0.1);z-index:50;padding-bottom:env(safe-area-inset-bottom,0px)}
 
-    .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;background:none;border:none;cursor:pointer;padding:0;margin:0;position:relative;-webkit-tap-highlight-color:transparent}
-    .nav-icon{font-size:24px;display:block;line-height:1;margin:0;padding:0}
-    .nav-lbl{font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s;line-height:1;margin:0;padding:0}
-    .nav-dot{width:4px;height:4px;border-radius:50%;background:var(--ind);opacity:0;transition:opacity 0.2s;position:absolute;top:2px;left:50%;transform:translateX(-50%)}
-    .nav-btn.active .nav-lbl{color:var(--indl)}
-    .nav-btn.active .nav-dot{opacity:1}
+    .nav-btn{flex:1;height:var(--nav-content-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;padding:0;margin:0;position:relative;-webkit-tap-highlight-color:transparent}
+    .nav-icon{font-size:26px;display:block;line-height:1;margin:0;padding:0;position:relative;z-index:1}
+    .nav-lbl{font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--mu);font-family:'DM Sans',sans-serif;transition:color 0.2s;line-height:1;margin:0;padding:0;display:none;position:relative;z-index:1}
+    .nav-dot{display:none}
+    .nav-btn::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);width:52px;height:32px;border-radius:16px;background:transparent;transition:background 0.2s;pointer-events:none;z-index:0}
+    .nav-btn.active::before{background:rgba(99,102,241,0.15)}
+    .nav-btn.active .nav-lbl{color:var(--indl);display:block}
 
     /* Modal */
     .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fdin 0.2s ease}
