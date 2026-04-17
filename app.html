@@ -49,10 +49,10 @@
       --fab-bottom:calc(var(--nav-h) + var(--fab-gap));
       /* Page: 160px ensures + LOG FOOD button scrolls clear of nav + FAB */
       --page-pb:165px;
-      /* Fullscreen overlays: max() ensures floor even when env() resolves to 0 */
-      --overlay-header-pt:calc(max(env(safe-area-inset-top,0px),44px) + 10px);
-      /* Chat input: at least 34px so home indicator never clips the input */
-      --chat-input-pb:max(env(safe-area-inset-bottom,0px),34px)
+      /* Fullscreen overlays: header padding respects Dynamic Island */
+      --overlay-header-pt:calc(env(safe-area-inset-top,44px) + 10px);
+      /* Chat input: respects home indicator */
+      --chat-input-pb:max(20px, env(safe-area-inset-bottom,20px))
     }
     html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:var(--txt)}
     body{font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
@@ -359,6 +359,8 @@
       background:var(--s1);
       flex-shrink:0;
     }
+    html.native .chat-fs-header{padding-top:calc(max(env(safe-area-inset-top,0px),44px) + 10px)}
+    html.native .chat-input-row{padding-bottom:max(env(safe-area-inset-bottom,0px),34px)}
     .chat-fs-back{
       width:40px;height:40px;border-radius:50%;
       background:var(--s2);border:1px solid var(--b2);
