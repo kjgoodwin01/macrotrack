@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script>(function(){function applyNative(){var isNative=window.location.protocol==='capacitor:'||!!window.Capacitor;console.log('[MT] protocol='+window.location.protocol+' Capacitor='+!!window.Capacitor+' native='+isNative);if(isNative)document.documentElement.classList.add('native');}applyNative();document.addEventListener('DOMContentLoaded',applyNative);})();</script>
+  <script>(function(){function applyNative(){var isNative=window.location.protocol==='capacitor:'||!!window.Capacitor;console.log('[MT] protocol='+window.location.protocol+' Capacitor='+!!window.Capacitor+' native='+isNative);if(isNative){document.documentElement.classList.add('native');var s=document.createElement('style');s.textContent='.nav{padding-bottom:80px!important;background:red!important}';document.head.appendChild(s);}}applyNative();document.addEventListener('DOMContentLoaded',applyNative);})();</script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
