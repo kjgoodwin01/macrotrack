@@ -39,6 +39,9 @@
       /* Nav: content height + safe area bottom */
       --nav-content-h:49px;
       --nav-h:calc(var(--nav-content-h) + 6px + max(0px, env(safe-area-inset-bottom,0px) - 35px));
+    }
+    html.native {
+      --nav-h:calc(var(--nav-content-h) + 6px + env(safe-area-inset-bottom,34px));
       /* FAB: sits above nav with 8px breathing room */
       --fab-h:52px;
       --fab-gap:8px;
@@ -169,6 +172,7 @@
 
     /* Nav — native iOS tab bar: no height calc, padding defines the zones */
     .nav{position:fixed;bottom:0;left:0;right:0;margin:0;display:flex;align-items:flex-start;justify-content:space-around;background:#06060f;border-top:0.5px solid rgba(255,255,255,0.1);z-index:50;padding-top:6px;padding-bottom:max(0px,calc(env(safe-area-inset-bottom,0px) - 35px))}
+    html.native .nav{padding-bottom:env(safe-area-inset-bottom,34px)}
 
     .nav-btn{flex:1;height:var(--nav-content-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;padding:0;margin:0;position:relative;-webkit-tap-highlight-color:transparent}
     .nav-icon{font-size:30px;display:block;line-height:1;margin:0;padding:0;position:relative;z-index:1}
@@ -796,6 +800,7 @@
 
   </style>
 </head>
+<script>if(window.Capacitor)document.documentElement.classList.add('native');</script>
 <body>
 <style>@keyframes mt-spin{to{transform:rotate(360deg)}}</style>
 <div id="root"><div style="display:flex;flex-direction:column;height:100dvh;max-width:430px;margin:0 auto;background:#06060f"><div style="padding:calc(env(safe-area-inset-top,44px) + 14px) 20px 0;display:flex;align-items:center"><div style="font-size:22px;letter-spacing:3px;color:#f4f4ff;font-family:system-ui,sans-serif;font-weight:700">MACRO<span style="color:#818cf8">TRACK</span></div></div><div style="flex:1;display:flex;align-items:center;justify-content:center"><div style="width:44px;height:44px;border-radius:50%;border:3px solid rgba(99,102,241,0.2);border-top-color:#818cf8;animation:mt-spin 0.75s linear infinite"></div></div></div></div>
