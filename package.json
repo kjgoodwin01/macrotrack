@@ -6,6 +6,9 @@
     "url": "git+https://github.com/kjgoodwin01/macrotrack.git"
   },
   "license": "ISC",
+  "scripts": {
+    "build": "mkdir -p www && cp app.html www/index.html && cp sw.js www/ && cp manifest.json www/ && cp icon-192.png www/ && cp icon-512.png www/"
+  },
   "dependencies": {
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1"
