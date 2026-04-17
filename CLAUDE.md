@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MacroTrack is a static PWA (Progressive Web App) for macro/calorie tracking with an AI nutrition coach. It is deployed to GitHub Pages with custom domain at `macrotrack.live`. The app is at `macrotrack.live/app.html` and the landing page is at `macrotrack.live`.
 
-There is **no build step, no package manager, and no test suite.** All source code lives in plain HTML files.
+The web app has **no build step and no test suite** — source lives in plain HTML files. However, there is now a `package.json` and Capacitor for native iOS/Android builds.
 
 ## Development
 
@@ -23,21 +23,34 @@ To deploy: push to `main` — GitHub Pages serves the files directly.
 
 **After any deploy, bump `VERSION` in `sw.js`** (e.g. `mt-v7` → `mt-v8`) to force the service worker to invalidate its cache and push the update to all open tabs.
 
+### Native iOS build (Capacitor)
+
+```bash
+npm run build       # copies app.html → www/index.html + assets
+npx cap sync        # copies www/ into ios/App/App/public/
+npx cap open ios    # opens Xcode
+```
+
+Then hit Play in Xcode to build and run on device. Requires Mac + Xcode. The `www/` directory is gitignored (build artifact). Native context is detected via `window.location.protocol === 'capacitor:'`.
+
 ## File structure
 
 | File | Purpose |
 |---|---|
-| `index.html` | Entire app (~6500 lines) — all CSS, HTML, and React code |
+| `app.html` | Entire app (~8800 lines) — all CSS, HTML, and React code |
+| `index.html` | Landing page (served at macrotrack.live root) — redirects to app.html when running in Capacitor |
 | `admin.html` | Admin dashboard (push notification management, user stats) |
-| `landing.html` | Marketing/landing page |
+| `landing.html` | Marketing/landing page (duplicate of index.html) |
 | `sw.js` | Service worker — handles caching, push notifications |
 | `manifest.json` | PWA manifest |
+| `capacitor.config.json` | Capacitor config — appId: live.macrotrack.app, webDir: www |
+| `package.json` | npm — only used for Capacitor dependencies |
 
 ## Architecture
 
 ### Single-file React app
 
-All React component code is embedded in a `<script>` tag inside `index.html`, wrapped in a function `_initApp()`. React 18 and ReactDOM are loaded from CDN (unpkg.com). **JSX is pre-compiled** — there is no Babel at runtime. New JSX must be compiled to `React.createElement(...)` calls before adding it to the file.
+All React component code is embedded in a `<script>` tag inside `app.html`, wrapped in a function `_initApp()`. React 18 and ReactDOM are loaded from CDN (unpkg.com). **JSX is pre-compiled** — there is no Babel at runtime. New JSX must be compiled to `React.createElement(...)` calls before adding it to the file.
 
 ### State management
 
@@ -62,7 +75,7 @@ Cloud sync (`syncToCloud` / `loadFromCloud`) fires against the Cloudflare Worker
 
 Web Push via VAPID. The public VAPID key is hardcoded in `index.html`. Subscription management goes through the Cloudflare Worker. The service worker handles the `push` event and `notificationclick`.
 
-### Main React components (in index.html)
+### Main React components (in app.html)
 
 - `App` — root component, owns all top-level state, renders the tab layout
 - `CalHero` — calorie ring / progress display

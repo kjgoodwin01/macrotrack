@@ -10,8 +10,8 @@ Goal: downloadable app store app generating subscription revenue, beating MFP an
 - [x] Auth gate in onboarding — required before any data entry, no anonymous mode
 - [x] AccountCard in settings — shows signed-in email, sign-out
 - [x] auth_migrate worker route — moves anonymous Supabase rows to real auth UID on first sign-in
-- [ ] Apple Sign-In + Google Sign-In — required by App Store guidelines for apps with any login
-- [ ] Stripe subscriptions (web) — paywall on AI coach + meal plans
+- [ ] Apple Sign-In + Google Sign-In — required by App Store guidelines for apps with any login. Google currently opens Safari (needs @capacitor/browser + deep link handling). Apple sign-in doesn't work yet (needs native plugin).
+- [ ] Stripe subscriptions (web) — paywall on AI coach + meal plans. Framework complete in test mode. Blocked on bank account for Stripe payout setup.
 - [ ] Apple In-App Purchase + Google Play Billing — required for monetizing iOS/Android users
 
 ---
@@ -21,7 +21,7 @@ Goal: downloadable app store app generating subscription revenue, beating MFP an
 - [x] Adaptive TDEE algorithm — EMA trend weight + reverse-engineered TDEE from real calorie/weight data; falls back to 7-day heuristic while data accumulates; trend line on chart
 - [ ] Apple Health / Google Fit sync — required for serious fitness app users
 - [ ] Recipe builder — log multi-ingredient meals
-- [ ] Capacitor wrapper — wraps existing web code as a native iOS + Android app for app store submission
+- [x] Capacitor wrapper — wraps existing web code as a native iOS + Android app for app store submission. App runs on device. Email auth working. Nav safe area correct. Install banner hidden in native. OAuth (Google/Apple) still needs fixing before submission.
 - [ ] Vite + React build migration — replace single 7k-line HTML file with proper build system before it becomes unmanageable
 
 ---
