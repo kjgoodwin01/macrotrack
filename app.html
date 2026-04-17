@@ -399,8 +399,7 @@
       display:flex;align-items:flex-end;gap:8px;
       padding:10px 14px;
       padding-bottom:var(--chat-input-pb);
-      border-top:1px solid var(--b1);
-      background:var(--s1);
+      background:var(--bg);
       flex-shrink:0;
     }
     .chat-input{
@@ -6154,7 +6153,8 @@ function CoachTab({
   }, "\u203A"))), chatOpen && /*#__PURE__*/React.createElement("div", {
     className: "chat-fullscreen"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "chat-fs-header"
+    className: "chat-fs-header",
+    style: {paddingTop:"calc(max(env(safe-area-inset-top,0px),44px) + 10px)"}
   }, /*#__PURE__*/React.createElement("button", {
     className: "chat-fs-back",
     onClick: function () {
@@ -6225,7 +6225,8 @@ function CoachTab({
   })))), /*#__PURE__*/React.createElement("div", {
     ref: msgsEndRef
   })), /*#__PURE__*/React.createElement("div", {
-    className: "chat-input-row"
+    className: "chat-input-row",
+    style: {paddingBottom:"max(env(safe-area-inset-bottom,0px),34px)"}
   }, /*#__PURE__*/React.createElement("textarea", {
     ref: inputRef,
     className: "chat-input",
