@@ -11,6 +11,7 @@ const ALLOWED_ORIGINS = [
   "https://kjgoodwin01.github.io",
   "http://localhost",
   "http://127.0.0.1",
+  "capacitor://localhost",
 ];
 
 function corsHeaders(origin) {
