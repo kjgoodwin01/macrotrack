@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="MacroTrack"/>
-  <meta name="theme-color" content="#06060f"/>
+  <meta name="theme-color" content="#080E1C"/>
   <link rel="manifest" href="manifest.json"/>
   <link rel="apple-touch-icon" href="icon-192.png"/>
   <title>MacroTrack</title>
@@ -23,14 +23,14 @@
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     :root{
-      --bg:#06060f;--s1:#0f0f20;--s2:#161628;--s3:#1e1e35;
-      --b1:rgba(255,255,255,0.07);--b2:rgba(255,255,255,0.12);
-      --ind:#6366f1;--indl:#818cf8;--indll:#a5b4fc;--vio:#8b5cf6;--glow:rgba(99,102,241,0.25);
+      --bg:#080E1C;--s1:#0D1628;--s2:#142038;--s3:#1C2D4A;
+      --b1:rgba(255,255,255,0.07);--b2:rgba(255,255,255,0.13);
+      --ind:#2B8AE0;--indl:#82C2FF;--indll:#B6D9FF;--vio:#1A72CC;--glow:rgba(43,138,224,0.28);
       --rose:#f43f5e;--rosel:#fb7185;
       --cyan:#06b6d4;--cyanl:#22d3ee;
       --amb:#f59e0b;--ambl:#fbbf24;
       --em:#10b981;--eml:#34d399;
-      --txt:#f4f4ff;--txt2:#a0a0c8;--mu:#52527a;
+      --txt:#EEF4FF;--txt2:#8BA5C8;--mu:#4A6080;
       /* ── Layout tokens: single source of truth for all spacing ── */
       --safe-t:env(safe-area-inset-top,0px);
       --safe-b:env(safe-area-inset-bottom,0px);
@@ -172,7 +172,7 @@
     .fab:active{transform:scale(0.97)}
 
     /* Nav — native iOS tab bar: no height calc, padding defines the zones */
-    .nav{position:fixed;bottom:0;left:0;right:0;margin:0;display:flex;align-items:flex-start;justify-content:space-around;background:#06060f;border-top:0.5px solid rgba(255,255,255,0.1);z-index:50;padding-top:6px;padding-bottom:max(0px,calc(env(safe-area-inset-bottom,0px) - 35px))}
+    .nav{position:fixed;bottom:0;left:0;right:0;margin:0;display:flex;align-items:flex-start;justify-content:space-around;background:var(--bg);border-top:0.5px solid rgba(255,255,255,0.1);z-index:50;padding-top:6px;padding-bottom:max(0px,calc(env(safe-area-inset-bottom,0px) - 35px))}
     html.native .nav{padding-bottom:env(safe-area-inset-bottom,34px)!important}
 
     .nav-btn{flex:1;height:var(--nav-content-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;cursor:pointer;padding:0;margin:0;position:relative;-webkit-tap-highlight-color:transparent}
@@ -479,20 +479,20 @@
 
     /* Light mode */
     .light{
-      --bg:#f4f4f8;--s1:#ffffff;--s2:#f0f0f5;--s3:#e8e8f0;
-      --b1:rgba(0,0,0,0.08);--b2:rgba(0,0,0,0.14);
-      --txt:#0d0d1a;--txt2:#3a3a5c;--mu:#8888aa;
+      --bg:#F0F6FF;--s1:#FFFFFF;--s2:#E4EEF9;--s3:#D4E4F2;
+      --b1:rgba(10,30,60,0.09);--b2:rgba(10,30,60,0.16);
+      --txt:#0B1F3A;--txt2:#3A5A7A;--mu:#7A9AB8;
     }
     .light .logo em{color:var(--ind)}
-    .light .cal-hero{background:linear-gradient(145deg,#eeeef8 0%,#e8e8f5 60%,#f0f0fa 100%)}
-    .light .w-hero{background:linear-gradient(145deg,#eeeef8,#e8e8f5)}
-    .light .coach-hero{background:linear-gradient(145deg,#eaeaf5,#e4e4f0)}
-    .light .adapt{background:linear-gradient(145deg,#eaeaf5,#e4e4f0)}
-    .light .no-worker-coach{background:linear-gradient(145deg,#eaeaf5,#e4e4f0)}
+    .light .cal-hero{background:linear-gradient(145deg,#ddeeff 0%,#d2e8ff 60%,#e0f0ff 100%)}
+    .light .w-hero{background:linear-gradient(145deg,#ddeeff,#d2e8ff)}
+    .light .coach-hero{background:linear-gradient(145deg,#d8eaff,#cce2ff)}
+    .light .adapt{background:linear-gradient(145deg,#d8eaff,#cce2ff)}
+    .light .no-worker-coach{background:linear-gradient(145deg,#d8eaff,#cce2ff)}
     .light .msg.ai .msg-bubble{background:var(--s3);border-color:var(--b2)}
     .light .ob-wrap{background:var(--bg)}
-    .light .ob-result{background:linear-gradient(145deg,#eaeaf5,#e4e4f0)}
-    .light .nav{background:rgba(244,244,248,0.97);border-top-color:rgba(0,0,0,0.1)}
+    .light .ob-result{background:linear-gradient(145deg,#d8eaff,#cce2ff)}
+    .light .nav{background:rgba(240,246,255,0.97);border-top-color:rgba(10,30,60,0.1)}
 
 
     /* Settings panel — full-screen */
@@ -625,7 +625,7 @@
       font-weight:900;
       font-size:20px;
       letter-spacing:0.05em;
-      background:linear-gradient(90deg,#6366f1 0%,#a78bfa 35%,#c084fc 55%,#a78bfa 75%,#6366f1 100%);
+      background:linear-gradient(90deg,#2B8AE0 0%,#82C2FF 35%,#B6D9FF 55%,#82C2FF 75%,#2B8AE0 100%);
       background-size:200% 100%;
       -webkit-background-clip:text;
       -webkit-text-fill-color:transparent;
@@ -1625,21 +1625,21 @@ function WeightChart({ data, trendData }) {
     },
       /*#__PURE__*/React.createElement("defs", null,
         /*#__PURE__*/React.createElement("linearGradient", { id: "cg", x1: "0", y1: "0", x2: "0", y2: "1" },
-          /*#__PURE__*/React.createElement("stop", { offset: "0%", stopColor: "#6366f1", stopOpacity: "0.25" }),
-          /*#__PURE__*/React.createElement("stop", { offset: "100%", stopColor: "#6366f1", stopOpacity: "0" })
+          /*#__PURE__*/React.createElement("stop", { offset: "0%", stopColor: "#2B8AE0", stopOpacity: "0.25" }),
+          /*#__PURE__*/React.createElement("stop", { offset: "100%", stopColor: "#2B8AE0", stopOpacity: "0" })
         )
       ),
       /*#__PURE__*/React.createElement("polygon", { points: area, fill: "url(#cg)" }),
       // Raw weight line — dots + line, slightly muted
       /*#__PURE__*/React.createElement("polyline", {
-        points: rawPts, fill: "none", stroke: "#818cf8",
+        points: rawPts, fill: "none", stroke: "#82C2FF",
         strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round",
         strokeOpacity: "0.5"
       }),
       data.map(function(d, i) {
         return /*#__PURE__*/React.createElement("circle", {
           key: i, cx: i * xs, cy: ys(d.weight), r: "3",
-          fill: "#6366f1", stroke: "#a5b4fc", strokeWidth: "1", opacity: "0.6"
+          fill: "#2B8AE0", stroke: "#B6D9FF", strokeWidth: "1", opacity: "0.6"
         });
       }),
       // Trend line — smooth, amber, no dots — this is the signal
@@ -1653,7 +1653,7 @@ function WeightChart({ data, trendData }) {
       style: { display: "flex", gap: 14, marginTop: 6, paddingLeft: 2 }
     },
       /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "var(--mu)" } },
-        /*#__PURE__*/React.createElement("div", { style: { width: 14, height: 2, background: "#818cf8", opacity: 0.6, borderRadius: 1 } }),
+        /*#__PURE__*/React.createElement("div", { style: { width: 14, height: 2, background: "#82C2FF", opacity: 0.6, borderRadius: 1 } }),
         "Raw"
       ),
       /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "var(--ambl)" } },
