@@ -7038,7 +7038,7 @@ function App() {
     if (pushEnabled) updatePushPrefs(workerUrl, effectiveUserId(), newPrefs);
   }
   useEffect(function () {
-    const isInstalled = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: fullscreen)").matches;
+    const isInstalled = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: fullscreen)").matches || window.location.protocol === 'capacitor:';
     if (!isInstalled && !installDismissed) {
       setTimeout(function () {
         setShowInstallBanner(true);
