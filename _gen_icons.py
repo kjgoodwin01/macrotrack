@@ -71,6 +71,7 @@ def make_icon(size, path):
     img.save(path, "PNG", optimize=True)
     print(f"Saved {path} ({size}x{size})")
 
-make_icon(512, "C:/repos/macrotrack/icon-512.png")
-make_icon(192, "C:/repos/macrotrack/icon-192.png")
+make_icon(1024, "C:/repos/macrotrack/icon-1024.png")
+make_icon(512,  "C:/repos/macrotrack/icon-512.png")
+make_icon(192,  "C:/repos/macrotrack/icon-192.png")
 print("Done.")
