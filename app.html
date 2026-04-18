@@ -481,10 +481,11 @@
     .light{
       --bg:#F0F6FF;--s1:#FFFFFF;--s2:#E4EEF9;--s3:#D4E4F2;
       --b1:rgba(10,30,60,0.09);--b2:rgba(10,30,60,0.16);
-      --txt:#0B1F3A;--txt2:#3A5A7A;--mu:#7A9AB8;
+      --txt:#0B1F3A;--txt2:#3A5A7A;--mu:#4A6A8A;
+      --indll:#1558B0;--indl:#1A72CC;
     }
     .light .logo em{color:var(--ind)}
-    .light .logo-box{background:var(--s2)!important}
+    .light .logo-box{background:#FFFFFF!important}
     .light .cal-hero{background:linear-gradient(145deg,#ddeeff 0%,#d2e8ff 60%,#e0f0ff 100%)}
     .light .w-hero{background:linear-gradient(145deg,#ddeeff,#d2e8ff)}
     .light .coach-hero{background:linear-gradient(145deg,#d8eaff,#cce2ff)}
@@ -743,6 +744,9 @@
     .light .cc-card.gap{background:linear-gradient(145deg,#fef2f2,#fef2f8);border-color:rgba(244,63,94,0.2)}
     .light .cc-card.close{background:linear-gradient(145deg,#fefce8,#fffbeb);border-color:rgba(245,158,11,0.2)}
     .light .cc-card.ontrack{background:linear-gradient(145deg,#ecfdf5,#f0fdf4);border-color:rgba(16,185,129,0.2)}
+    .light .cc-suggestion{background:rgba(43,138,224,0.07);border-color:rgba(43,138,224,0.18)}
+    .light .udot{background:rgba(43,138,224,0.15)}
+    .light .quick-btn{background:rgba(43,138,224,0.06);border-color:var(--b1)}
 
     /* ── NLP Entry ── */
     .nlp-input{width:100%;padding:14px 16px;background:rgba(255,255,255,0.04);border:1px solid var(--b1);border-radius:14px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;resize:none;min-height:56px;max-height:120px;line-height:1.5;transition:border-color 0.2s;-webkit-appearance:none}
@@ -7694,45 +7698,27 @@ function App() {
       gap: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
+    className: "logo-box",
     style: {
       width: 36,
       height: 36,
       borderRadius: 8,
-      background: "#142038",
+      background: "#FFFFFF",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       flexShrink: 0
     }
   }, /*#__PURE__*/React.createElement("svg", {
-    width: "20",
-    height: "19",
-    viewBox: "0 0 68 62",
+    width: "25",
+    height: "25",
+    viewBox: "0 0 512 512",
     fill: "none"
-  }, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("linearGradient", {
-    id: "mGrad",
-    x1: "4",
-    y1: "56",
-    x2: "64",
-    y2: "4",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/React.createElement("stop", {
-    offset: "0%",
-    stopColor: "#2B8AE0"
-  }), /*#__PURE__*/React.createElement("stop", {
-    offset: "50%",
-    stopColor: "#82C2FF"
-  }), /*#__PURE__*/React.createElement("stop", {
-    offset: "100%",
-    stopColor: "#B6D9FF"
-  }))), /*#__PURE__*/React.createElement("path", {
-    d: "M6 56 L6 8 L34 42 L62 8 L62 56",
-    stroke: "url(#mGrad)",
-    strokeWidth: "5.5",
-    strokeLinejoin: "round",
-    strokeLinecap: "round",
-    fill: "none"
-  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("polygon", { fill: "#2B8AE0", points: "68,434 68,82 160,82 256,282 352,82 444,82 444,434 352,434 352,216 256,375 160,216 160,434" }),
+  /*#__PURE__*/React.createElement("rect", { x: "86", y: "222", width: "56", height: "112", fill: "white" }),
+  /*#__PURE__*/React.createElement("rect", { x: "370", y: "222", width: "56", height: "112", fill: "white" }),
+  /*#__PURE__*/React.createElement("rect", { x: "68", y: "267", width: "376", height: "22", fill: "white" }))),
+  /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "wm-text"
   }, "MACROTRACK"), /*#__PURE__*/React.createElement("div", {
     style: {
