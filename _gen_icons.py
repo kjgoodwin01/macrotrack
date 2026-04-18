@@ -1,66 +1,75 @@
 from PIL import Image, ImageDraw
 
-BRAND = (26, 102, 179)   # #1A66B3
+BRAND = (43, 138, 224)   # #2B8AE0
 WHITE = (255, 255, 255)
 
-def squircle_mask(size, radius):
-    mask = Image.new("L", (size, size), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, size-1, size-1], radius=radius, fill=255)
-    return mask
-
-def make_icon(size, out_path):
+def make_icon(size, path):
     s = size / 512
-
-    # ── Outer white squircle background ──────────────────────────────────────
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    img = Image.new("RGB", (size, size), WHITE)
     d   = ImageDraw.Draw(img)
 
-    outer_r = int(118 * s)
-    d.rounded_rectangle([0, 0, size-1, size-1], radius=outer_r, fill=WHITE + (255,))
-
-    # ── Inner blue squircle face (28px inset at 512) ──────────────────────────
-    inset   = int(28 * s)
-    inner_r = int(104 * s)
-    d.rounded_rectangle(
-        [inset, inset, size - inset - 1, size - inset - 1],
-        radius=inner_r, fill=BRAND + (255,)
-    )
-
-    # ── White block M ─────────────────────────────────────────────────────────
-    # Outer legs: x 68→160 (left) and 352→444 (right), width=92
-    # Top y=82, bottom y=434, outer-V tip y=282, inner-V y=375, inner-diag y=216
+    # ── Blue M ────────────────────────────────────────────────────────────────
+    # Outer legs: x=68–160 (left) and x=352–444 (right), each 92px wide
+    # Top y=82, bottom y=434, outer-V tip (256,282), inner diag ends (160,216)(352,216)
     m = [
-        (68,  434),
-        (68,  82),
-        (160, 82),
-        (256, 282),
-        (352, 82),
-        (444, 82),
-        (444, 434),
-        (352, 434),
-        (352, 216),
-        (256, 375),
-        (160, 216),
-        (160, 434),
+        (68,  434), (68,  82),  (160, 82),  (256, 282),
+        (352, 82),  (444, 82),  (444, 434), (352, 434),
+        (352, 216), (256, 375), (160, 216), (160, 434),
     ]
-    d.polygon([(x * s, y * s) for x, y in m], fill=WHITE + (255,))
+    d.polygon([(x * s, y * s) for x, y in m], fill=BRAND)
 
-    # ── Dumbbell carve — blue rects painted back over the M ──────────────────
-    # Vertical center of legs: (82+434)/2 = 258
-    # Plates: h=132 → top=192  bottom=324
-    # Handle: h=28  → top=244  bottom=272
-    plate_t, plate_b = int(192 * s), int(324 * s)
-    handle_t, handle_b = int(244 * s), int(272 * s)
+    # ── Dumbbell geometry (coordinates at 512px scale) ────────────────────────
+    #
+    # Bar passes through the outer-V tip (y=282). Center bar on y=278 so the
+    # V tip falls within the bar's height — the bar visually "threads" the V.
+    #
+    # Plates are narrower than the legs and centered within each outer leg.
+    # Left leg center  x = (68+160)/2 = 114
+    # Right leg center x = (352+444)/2 = 398
+    #
+    # Plate width = 56px  (vs. 92px leg width — clearly inset)
+    # Plate height = 112px
+    # Bar height  = 22px
+    # Tab extension past M side = 30px
 
-    d.rectangle([int(68 * s),  plate_t,  int(160 * s), plate_b],  fill=BRAND + (255,))  # left plate
-    d.rectangle([int(352 * s), plate_t,  int(444 * s), plate_b],  fill=BRAND + (255,))  # right plate
-    d.rectangle([int(68 * s),  handle_t, int(444 * s), handle_b], fill=BRAND + (255,))  # handle
+    bar_cy  = 278
+    bar_h   = 22
+    bar_t   = bar_cy - bar_h // 2   # 267
+    bar_b   = bar_cy + bar_h // 2   # 289
 
-    # ── Composite onto white base (preserves white squircle border) ───────────
-    final = Image.new("RGB", (size, size), WHITE)
-    final.paste(img, mask=img.split()[3])
-    final.save(out_path, "PNG", optimize=True)
-    print(f"Saved  {out_path}  ({size}x{size})")
+    pw      = 56                    # plate width
+    ph      = 112                   # plate height
+    plate_t = bar_cy - ph // 2      # 222
+    plate_b = bar_cy + ph // 2      # 334
+
+    lp_l = 114 - pw // 2            # 86   left plate left edge
+    lp_r = 114 + pw // 2            # 142  left plate right edge
+    rp_l = 398 - pw // 2            # 370  right plate left edge
+    rp_r = 398 + pw // 2            # 426  right plate right edge
+
+    ext  = 30                       # tab extension past M edge
+    tab_l = 68 - ext                # 38   left tab outer edge
+    tab_r = 444 + ext               # 474  right tab outer edge
+
+    def r(v): return int(v * s)
+
+    # ── White bar (x=68→444, passes through V tip at y=282) ──────────────────
+    d.rectangle([r(68), r(bar_t), r(444), r(bar_b)], fill=WHITE)
+
+    # ── White plates (inside M outer legs) ───────────────────────────────────
+    d.rectangle([r(lp_l), r(plate_t), r(lp_r), r(plate_b)], fill=WHITE)
+    d.rectangle([r(rp_l), r(plate_t), r(rp_r), r(plate_b)], fill=WHITE)
+
+    # ── Blue tabs (extends past M sides — same color as M so they read as
+    #    the dumbbell continuing outside the M in the same material) ──────────
+    d.rectangle([r(tab_l), r(plate_t), r(68),  r(plate_b)], fill=BRAND)  # left tab
+    d.rectangle([r(444),   r(plate_t), r(tab_r), r(plate_b)], fill=BRAND) # right tab
+    # Thin bar tabs at same x range
+    d.rectangle([r(tab_l), r(bar_t),   r(68),   r(bar_b)],   fill=BRAND)
+    d.rectangle([r(444),   r(bar_t),   r(tab_r), r(bar_b)],  fill=BRAND)
+
+    img.save(path, "PNG", optimize=True)
+    print(f"Saved {path} ({size}x{size})")
 
 make_icon(512, "C:/repos/macrotrack/icon-512.png")
 make_icon(192, "C:/repos/macrotrack/icon-192.png")
