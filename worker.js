@@ -864,23 +864,38 @@ export default {
       const { deviceId, email } = body;
       if (!deviceId) return jsonRes({ error: "Missing deviceId" }, 400, cors);
       const [profile, entries, wlog, workoutSessions] = await Promise.all([
-        sb(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1"),
-        sb(env, "GET", "food_entries?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=500"),
-        sb(env, "GET", "weight_log?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=200"),
-        sb(env, "GET", "workout_sessions?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=500").catch(() => ({ data: [] })),
+        sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1"),
+        sbAdmin(env, "GET", "food_entries?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=500"),
+        sbAdmin(env, "GET", "weight_log?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=200"),
+        sbAdmin(env, "GET", "workout_sessions?device_id=eq." + encodeURIComponent(deviceId) + "&order=log_date.asc&limit=500").catch(() => ({ data: [] })),
       ]);
       let profileRow = (profile.data && profile.data[0]) || null;
+      let resolvedEntries = entries.data || [];
+      let resolvedWlog = wlog.data || [];
+      let resolvedWorkouts = workoutSessions.data || [];
       // If device_id lookup found nothing and we have an email, try email fallback
       // (handles cases where device_id shifted after auth migration)
       if (!profileRow && email) {
-        const byEmail = await sb(env, "GET", "profiles?email=eq." + encodeURIComponent(email.trim().toLowerCase()) + "&limit=1");
+        const byEmail = await sbAdmin(env, "GET", "profiles?email=eq." + encodeURIComponent(email.trim().toLowerCase()) + "&limit=1");
         profileRow = (byEmail.data && byEmail.data[0]) || null;
+        // Re-query all data under the resolved device_id — the original queries used the wrong id
+        if (profileRow && profileRow.device_id !== deviceId) {
+          const resolvedId = profileRow.device_id;
+          const [re, rw, rws] = await Promise.all([
+            sbAdmin(env, "GET", "food_entries?device_id=eq." + encodeURIComponent(resolvedId) + "&order=log_date.asc&limit=500"),
+            sbAdmin(env, "GET", "weight_log?device_id=eq." + encodeURIComponent(resolvedId) + "&order=log_date.asc&limit=200"),
+            sbAdmin(env, "GET", "workout_sessions?device_id=eq." + encodeURIComponent(resolvedId) + "&order=log_date.asc&limit=500").catch(() => ({ data: [] })),
+          ]);
+          resolvedEntries = re.data || [];
+          resolvedWlog = rw.data || [];
+          resolvedWorkouts = rws.data || [];
+        }
       }
       return jsonRes({
         profile: profileRow,
-        entries: entries.data || [],
-        wlog: wlog.data || [],
-        workouts: workoutSessions.data || [],
+        entries: resolvedEntries,
+        wlog: resolvedWlog,
+        workouts: resolvedWorkouts,
         workoutTemplates: (profileRow && profileRow.workout_templates) || [],
         subscription_status: (profileRow && profileRow.subscription_status) || "free",
       }, 200, cors);
@@ -888,15 +903,17 @@ export default {
 
     // ── SYNC: Save profile ────────────────────────────────────────────────
     if (type === "sync_profile") {
-      const { deviceId, name, goalType, targetWeight, calories, protein, carbs, fat } = body;
+      const { deviceId, name, goalType, targetWeight, calories, protein, carbs, fat, email } = body;
       if (!deviceId) return jsonRes({ error: "Missing deviceId" }, 400, cors);
       if (!name || !name.trim()) return jsonRes({ error: "Name is required" }, 400, cors);
-      const result = await sb(env, "POST", "profiles", {
+      const profileData = {
         device_id: deviceId, name: name || "", goal_type: goalType || "cut",
         target_weight: targetWeight || null, calories: calories || 2100,
         protein: protein || 180, carbs: carbs || 210, fat: fat || 60,
         updated_at: new Date().toISOString(),
-      });
+      };
+      if (email) profileData.email = email.trim().toLowerCase();
+      const result = await sb(env, "POST", "profiles", profileData);
       if (!result.ok) return jsonRes({ error: "Failed to save profile" }, 500, cors);
       return jsonRes({ ok: true }, 200, cors);
     }
@@ -2059,10 +2076,10 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
       const profilePatch = { device_id: newUserId };
       if (email) profilePatch.email = email.trim().toLowerCase();
       await Promise.all([
-        sb(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(oldDeviceId), profilePatch),
-        sb(env, "PATCH", "food_entries?device_id=eq." + encodeURIComponent(oldDeviceId),
+        sbAdmin(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(oldDeviceId), profilePatch),
+        sbAdmin(env, "PATCH", "food_entries?device_id=eq." + encodeURIComponent(oldDeviceId),
           { device_id: newUserId }),
-        sb(env, "PATCH", "weight_log?device_id=eq." + encodeURIComponent(oldDeviceId),
+        sbAdmin(env, "PATCH", "weight_log?device_id=eq." + encodeURIComponent(oldDeviceId),
           { device_id: newUserId }),
       ]);
 
