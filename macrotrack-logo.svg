@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!--
+      Clip to the inner blue squircle so the M corners
+      never bleed onto the white border area.
+    -->
+    <clipPath id="face">
+      <rect x="28" y="28" width="456" height="456" rx="104" ry="104"/>
+    </clipPath>
+  </defs>
+
+  <!-- ① Outer white squircle — visible as a clean border/shadow ring -->
+  <rect width="512" height="512" rx="118" ry="118" fill="white"/>
+
+  <!-- ② Everything below is clipped to the inner blue squircle -->
+  <g clip-path="url(#face)">
+
+    <!-- ② Blue icon face -->
+    <rect x="28" y="28" width="456" height="456" fill="#1A66B3"/>
+
+    <!--
+      ③ White block M
+         Outer legs: 68→160 (left) and 352→444 (right), width = 92 each
+         Top:    y = 82
+         Bottom: y = 434
+         Valley: outer tip  at y = 282  (stops halfway)
+                 inner tips at y = 375  (inner valley)
+                 inner diag ends at y = 216
+    -->
+    <polygon
+      fill="white"
+      points="
+        68,434
+        68,82
+        160,82
+        256,282
+        352,82
+        444,82
+        444,434
+        352,434
+        352,216
+        256,375
+        160,216
+        160,434
+      "
+    />
+
+    <!--
+      ④ Dumbbell carve — subtractive geometry painted back in blue
+         Vertical center of M legs: (82+434)/2 = 258
+         Plates: height=132, so top=192  bottom=324
+         Handle: height=28,  so top=244  bottom=272
+         Plate spans full outer leg width (68→160 and 352→444)
+    -->
+
+    <!-- Left plate -->
+    <rect x="68"  y="192" width="92"  height="132" fill="#1A66B3"/>
+
+    <!-- Right plate -->
+    <rect x="352" y="192" width="92"  height="132" fill="#1A66B3"/>
+
+    <!-- Horizontal handle — full width, sits at vertical center -->
+    <rect x="68"  y="244" width="376" height="28"  fill="#1A66B3"/>
+
+  </g>
+</svg>
