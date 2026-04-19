@@ -3539,10 +3539,26 @@ function AuthModal({ onClose, onSignedIn, mode, workerUrl }) {
       return;
     }
 
-    var redirectTo = window.location.origin + "/app.html";
-    var res = await sb.auth.signInWithOAuth({ provider: provider, options: { redirectTo: redirectTo } });
-    if (res.error) { setError(res.error.message); setLoading(false); }
-    // On success the browser redirects — no further code runs here
+    // In Capacitor, use in-app browser (SFSafariViewController) for OAuth — opening
+    // external Safari is an App Store rejection reason (Guideline 2.1 / 4.8).
+    var isCapacitor = window.location.protocol === "capacitor:";
+    var redirectTo = isCapacitor ? "live.macrotrack.app://auth/callback" : window.location.origin + "/app.html";
+
+    if (isCapacitor) {
+      var Browser = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser;
+      if (!Browser) { setError("Browser plugin unavailable — try email code"); setLoading(false); return; }
+      var res = await sb.auth.signInWithOAuth({ provider: provider, options: { redirectTo: redirectTo, skipBrowserRedirect: true } });
+      if (res.error) { setError(res.error.message); setLoading(false); return; }
+      var oauthUrl = res.data && res.data.url;
+      if (!oauthUrl) { setError("Could not get OAuth URL"); setLoading(false); return; }
+      await Browser.open({ url: oauthUrl, windowName: "_self" });
+      // Auth callback handled by appUrlOpen listener in App component
+      setLoading(false);
+    } else {
+      var res2 = await sb.auth.signInWithOAuth({ provider: provider, options: { redirectTo: redirectTo } });
+      if (res2.error) { setError(res2.error.message); setLoading(false); }
+      // On success the browser redirects — no further code runs here
+    }
   }
 
   async function handleSendCode() {
@@ -6975,6 +6991,27 @@ function App() {
       localStorage.setItem("mt_device_id", authUser.id);
     }
   }, [authUser]);
+
+  // Handle OAuth callback deep link (Google Sign-In in Capacitor)
+  // The in-app browser returns to live.macrotrack.app://auth/callback?code=...
+  // Supabase exchangeCodeForSession picks up the code and fires onAuthStateChange.
+  useEffect(function() {
+    var App = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    var Browser = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser;
+    if (!App) return;
+    var listener = App.addListener("appUrlOpen", async function(data) {
+      if (Browser) { try { await Browser.close(); } catch(e) {} }
+      var url = data && data.url;
+      if (!url) return;
+      var sb = _initSupabase();
+      if (!sb) return;
+      // Exchange PKCE code for session — onAuthStateChange fires on success
+      var parsed = new URL(url);
+      var code = parsed.searchParams.get("code");
+      if (code) { await sb.auth.exchangeCodeForSession(url); }
+    });
+    return function() { listener && listener.remove && listener.remove(); };
+  }, []);
 
   async function handleAuthSignedIn(result) {
     if (!result) return;
