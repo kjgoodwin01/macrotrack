@@ -125,8 +125,8 @@ Apple requires screenshots for every device class you support. Minimum: 6.5" iPh
 
 Apple reviewers need credentials or instructions to access the app. Since MacroTrack requires sign-in:
 
-- [ ] 🔴 Provide a demo account (email + password) in the App Review Notes field in App Store Connect
-- [ ] 🟢 Or enable "Sign in with Apple" for reviewers — but a demo account is simpler
+- [x] "Try Demo" button added to the login screen — reviewers tap it to skip auth and see a fully pre-populated app (3 days of food logs, weight entries, goals). No credentials needed.
+- [ ] 🟢 Update App Review Notes in ASC to say: "Tap 'Try Demo' on the sign-in screen to access the app without an account."
 
 ---
 

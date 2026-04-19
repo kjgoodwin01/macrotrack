@@ -95,24 +95,17 @@ Welcome to MacroTrack! Log food, track macros, and chat with your AI nutrition c
 
 ### Sign-in Required: Yes
 
-**Demo Account Credentials** (create this test account before submitting):
-- Email: `review@macrotrack.live`
-- Password: *(set a password and fill in here before submission)*
-
 **Notes for App Review:**
 ```
-MacroTrack requires an account to use. Please sign in with the demo credentials above.
+No account required for review. On the sign-in screen, tap "Try Demo" at the bottom to access the app instantly with pre-populated sample data (food logs, weight history, macro goals).
 
 The app includes:
 • Food logging via search, barcode scan, or natural language description
-• AI nutrition coach (requires the Cloudflare Worker backend — active and accessible)
-• Weight trend tracking
+• AI nutrition coach (tap the Coach tab — connects to our Cloudflare Worker backend)
+• Weight trend tracking with adaptive TDEE
 • AI-generated weekly meal plans
 
-The USDA food database API key is pre-configured in the demo account. 
-The AI coach connects to our Cloudflare Worker at macrotrack-ai.kjgoodwin01.workers.dev.
-
-Sign in with Apple and Sign in with Google are both available on the login screen as alternatives to email sign-in.
+Sign in with Apple and Sign in with Google are available for users who want to create a real account and sync data across devices.
 ```
 
 ---

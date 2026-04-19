@@ -1002,6 +1002,44 @@ function isoDate(d) {
 function todayISO() {
   return isoDate(new Date());
 }
+
+function _seedDemoData() {
+  var today = todayISO();
+  var yesterday = isoDate(new Date(Date.now() - 86400000));
+  var twoDaysAgo = isoDate(new Date(Date.now() - 2 * 86400000));
+  localStorage.setItem("mt_name", JSON.stringify("Demo"));
+  localStorage.setItem("mt_goals", JSON.stringify({ calories: 2100, protein: 175, carbs: 210, fat: 65, goalType: "cut", targetWeight: 180 }));
+  localStorage.setItem("mt_onboarded", "true");
+  var entries = {};
+  entries[today] = [
+    { id: "d1", name: "Greek Yogurt with Granola", serving: "1 cup", cal: 320, p: 18, c: 42, f: 9, meal: "Breakfast", date: today },
+    { id: "d2", name: "Grilled Chicken Breast", serving: "6 oz", cal: 280, p: 52, c: 0, f: 6, meal: "Lunch", date: today },
+    { id: "d3", name: "Brown Rice", serving: "1 cup cooked", cal: 215, p: 5, c: 45, f: 2, meal: "Lunch", date: today },
+    { id: "d4", name: "Broccoli", serving: "1 cup", cal: 55, p: 4, c: 11, f: 1, meal: "Lunch", date: today },
+    { id: "d5", name: "Protein Shake", serving: "1 scoop", cal: 130, p: 25, c: 5, f: 2, meal: "Snacks", date: today }
+  ];
+  entries[yesterday] = [
+    { id: "d6", name: "Oatmeal with Banana", serving: "1 bowl", cal: 340, p: 10, c: 68, f: 5, meal: "Breakfast", date: yesterday },
+    { id: "d7", name: "Turkey Sandwich", serving: "1 sandwich", cal: 410, p: 32, c: 42, f: 12, meal: "Lunch", date: yesterday },
+    { id: "d8", name: "Salmon Fillet", serving: "5 oz", cal: 290, p: 40, c: 0, f: 14, meal: "Dinner", date: yesterday },
+    { id: "d9", name: "Sweet Potato", serving: "1 medium", cal: 130, p: 3, c: 30, f: 0, meal: "Dinner", date: yesterday },
+    { id: "d10", name: "Mixed Greens Salad", serving: "2 cups", cal: 40, p: 2, c: 6, f: 1, meal: "Dinner", date: yesterday },
+    { id: "d11", name: "Apple", serving: "1 medium", cal: 95, p: 0, c: 25, f: 0, meal: "Snacks", date: yesterday }
+  ];
+  entries[twoDaysAgo] = [
+    { id: "d12", name: "Scrambled Eggs", serving: "3 eggs", cal: 210, p: 18, c: 2, f: 15, meal: "Breakfast", date: twoDaysAgo },
+    { id: "d13", name: "Whole Wheat Toast", serving: "2 slices", cal: 160, p: 6, c: 30, f: 2, meal: "Breakfast", date: twoDaysAgo },
+    { id: "d14", name: "Chicken Burrito Bowl", serving: "1 bowl", cal: 620, p: 42, c: 68, f: 16, meal: "Lunch", date: twoDaysAgo },
+    { id: "d15", name: "Ground Beef Stir Fry", serving: "1 serving", cal: 480, p: 38, c: 28, f: 22, meal: "Dinner", date: twoDaysAgo },
+    { id: "d16", name: "Cottage Cheese", serving: "1/2 cup", cal: 110, p: 14, c: 5, f: 3, meal: "Snacks", date: twoDaysAgo }
+  ];
+  localStorage.setItem("mt_entries", JSON.stringify(entries));
+  localStorage.setItem("mt_wlog", JSON.stringify([
+    { date: twoDaysAgo, weight: 194.2 },
+    { date: yesterday, weight: 193.8 },
+    { date: today, weight: 193.4 }
+  ]));
+}
 function getMondayOfWeek(d) {
   const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const day = dt.getDay();
@@ -3949,9 +3987,14 @@ function Onboarding({
       }, "CREATE FREE ACCOUNT"),
       /*#__PURE__*/React.createElement("button", {
         className: "btn", style: { width: "100%", background: "var(--s2)",
-          color: "var(--indll)", border: "1px solid rgba(99,102,241,0.4)" },
+          color: "var(--indll)", border: "1px solid rgba(99,102,241,0.4)", marginBottom: 12 },
         onClick: function() { setAuthModalMode("signin"); setShowAuthModal(true); }
-      }, "SIGN IN")
+      }, "SIGN IN"),
+      /*#__PURE__*/React.createElement("button", {
+        style: { background: "none", border: "none", color: "var(--mu)", fontSize: 13,
+          cursor: "pointer", width: "100%", textAlign: "center", paddingTop: 4 },
+        onClick: function() { _seedDemoData(); setAuthChosen(true); }
+      }, "Try Demo")
     )
   );
 
