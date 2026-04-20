@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script>(function(){function applyNative(){var isNative=window.location.protocol==='capacitor:'||!!window.Capacitor;if(isNative){document.documentElement.classList.add('native');var s=document.createElement('style');s.textContent='.nav{padding-bottom:env(safe-area-inset-bottom,34px)!important}';document.head.appendChild(s);}}applyNative();document.addEventListener('DOMContentLoaded',applyNative);})();</script>
+  <script>(function(){function applyNative(){var isNative=window.location.protocol==='capacitor:'||!!window.Capacitor;if(!isNative)return;document.documentElement.classList.add('native');document.documentElement.style.setProperty('--native-safe-top','59px');var s=document.createElement('style');s.textContent='.nav{padding-bottom:env(safe-area-inset-bottom,34px)!important}html.native .ob-wrap{padding-top:var(--native-safe-top,59px)!important}';document.head.appendChild(s);function measure(){var el=document.createElement('div');el.style.cssText='position:fixed;top:0;left:0;width:1px;pointer-events:none;opacity:0;height:env(safe-area-inset-top,0px)';document.body.appendChild(el);var h=el.offsetHeight;el.remove();if(h>0)document.documentElement.style.setProperty('--native-safe-top',h+'px');}if(document.body){measure();}else{document.addEventListener('DOMContentLoaded',function(){requestAnimationFrame(measure);});}}applyNative();})();</script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -52,12 +52,14 @@
       /* Fullscreen overlays: header padding respects Dynamic Island */
       --overlay-header-pt:calc(env(safe-area-inset-top,44px) + 10px);
       /* Chat input: respects home indicator */
-      --chat-input-pb:max(20px, env(safe-area-inset-bottom,20px))
+      --chat-input-pb:max(20px, env(safe-area-inset-bottom,20px));
+      --app-max-w:430px
     }
+    @media(min-width:600px){:root{--app-max-w:680px}}
     html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:var(--txt)}
     body{font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased}
     #root{height:100%}
-    .app{max-width:430px;margin:0 auto;height:100dvh;height:100vh;display:flex;flex-direction:column;background:var(--bg);position:relative}
+    .app{max-width:var(--app-max-w);margin:0 auto;height:100dvh;height:100vh;display:flex;flex-direction:column;background:var(--bg);position:relative}
 
     /* Header */
     .hdr{flex-shrink:0;padding:calc(var(--st) + 14px) 20px 0;display:flex;align-items:center;justify-content:space-between}
@@ -148,7 +150,7 @@
     .food-row:active{background:var(--s2)}
     /* Edit entry sheet */
     .edit-sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:400;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:fdin 0.2s ease}
-    .edit-sheet{position:fixed;bottom:0;left:0;right:0;width:100%;max-width:430px;margin:0 auto;background:var(--s1);border:1px solid var(--b2);border-radius:24px 24px 0 0;padding:20px 20px calc(var(--sb) + 24px);z-index:401;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    .edit-sheet{position:fixed;bottom:0;left:0;right:0;width:100%;max-width:var(--app-max-w);margin:0 auto;background:var(--s1);border:1px solid var(--b2);border-radius:24px 24px 0 0;padding:20px 20px calc(var(--sb) + 24px);z-index:401;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
     .edit-sheet-handle{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 18px}
     .edit-sheet-title{font-size:15px;font-weight:700;color:var(--txt);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .edit-sheet-sub{font-size:11px;color:var(--mu);margin-bottom:18px}
@@ -168,7 +170,7 @@
     .edit-save-btn:active{transform:scale(0.98)}
 
     /* FAB */
-    .fab{position:fixed;bottom:var(--fab-bottom);left:16px;right:16px;max-width:398px;margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
+    .fab{position:fixed;bottom:var(--fab-bottom);left:16px;right:16px;max-width:calc(var(--app-max-w) - 32px);margin:0 auto;background:linear-gradient(135deg,var(--ind),var(--vio));color:#fff;border:none;border-radius:18px;padding:15px;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px var(--glow);z-index:40;transition:transform 0.15s}
     .fab:active{transform:scale(0.97)}
 
     /* Nav — native iOS tab bar: no height calc, padding defines the zones */
@@ -186,7 +188,7 @@
     /* Modal */
     .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fdin 0.2s ease}
     @keyframes fdin{from{opacity:0}to{opacity:1}}
-    .sheet{background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;width:100%;max-width:430px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:calc(var(--sb) + 30px);-webkit-overflow-scrolling:touch;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    .sheet{background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;width:100%;max-width:var(--app-max-w);max-height:85vh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:calc(var(--sb) + 30px);-webkit-overflow-scrolling:touch;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
     .sheet-fixed{flex-shrink:0;padding:20px 18px 0}
     .sheet-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 18px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
     .sheet-scroll::-webkit-scrollbar{display:none}
@@ -338,7 +340,7 @@
     .chat-fullscreen{
       position:fixed;
       inset:0;
-      width:100%;max-width:430px;
+      width:100%;max-width:var(--app-max-w);
       left:50%;transform:translateX(-50%);
       height:100vh;height:100dvh;
       z-index:9999;
@@ -436,10 +438,11 @@
     .no-worker-text{font-size:13px;color:var(--mu);line-height:1.65}
 
     /* ── Onboarding ── */
-    .ob-wrap{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column;overflow:hidden;max-width:430px;margin:0 auto}
+    .ob-wrap{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column;overflow:hidden;max-width:var(--app-max-w);margin:0 auto}
     .ob-progress{height:3px;background:var(--b1);flex-shrink:0}
     .ob-progress-fill{height:100%;background:linear-gradient(90deg,var(--ind),var(--vio));transition:width 0.4s ease}
     .ob-body{flex:1;overflow-y:auto;padding:32px 24px 24px;-webkit-overflow-scrolling:touch}
+    html.native .ob-body{padding-top:32px}
     .ob-step-label{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;font-weight:700}
     .ob-title{font-family:'Bebas Neue',sans-serif;font-size:38px;line-height:1.05;letter-spacing:1px;margin-bottom:8px}
     .ob-title em{color:var(--indl);font-style:normal}
@@ -498,7 +501,7 @@
 
 
     /* Settings panel — full-screen */
-    .settings-panel{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:300;background:var(--s1);border-left:1px solid var(--b2);border-right:1px solid var(--b2);border-radius:0;height:100%;display:flex;flex-direction:column;overflow:hidden;padding-bottom:calc(var(--sb) + 8px);animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    .settings-panel{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--app-max-w);z-index:300;background:var(--s1);border-left:1px solid var(--b2);border-right:1px solid var(--b2);border-radius:0;height:100%;display:flex;flex-direction:column;overflow:hidden;padding-bottom:calc(var(--sb) + 8px);animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
     .settings-panel-overlay{position:fixed;inset:0;z-index:299;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:fdin 0.2s ease}
     .sp-handle-row{flex-shrink:0;padding:calc(env(safe-area-inset-top,0px) + 14px) 20px 14px;display:flex;align-items:center;justify-content:space-between}
     .sp-panel-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1.5px}
@@ -652,7 +655,7 @@
     /* Install Banner */
     .install-banner{
       position:fixed;top:0;left:50%;transform:translateX(-50%);
-      width:100%;max-width:430px;z-index:500;
+      width:100%;max-width:var(--app-max-w);z-index:500;
       background:linear-gradient(135deg,rgba(99,102,241,0.97),rgba(139,92,246,0.97));
       backdrop-filter:blur(12px);
       padding:10px 16px;
@@ -672,7 +675,7 @@
     /* Update banner */
     .update-banner{
       position:fixed;top:0;left:50%;transform:translateX(-50%);
-      width:100%;max-width:430px;z-index:600;
+      width:100%;max-width:var(--app-max-w);z-index:600;
       background:linear-gradient(135deg,rgba(16,185,129,0.97),rgba(5,150,105,0.97));
       backdrop-filter:blur(12px);
       padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 10px;
@@ -775,7 +778,7 @@
     .addfood-fs{
       position:fixed;
       inset:0;
-      width:100%;max-width:430px;
+      width:100%;max-width:var(--app-max-w);
       left:50%;transform:translateX(-50%);
       height:100vh;height:100dvh;
       z-index:9999;background:var(--bg);
@@ -809,10 +812,10 @@
 </head>
 <body>
 <style>@keyframes mt-spin{to{transform:rotate(360deg)}}</style>
-<div id="root"><div style="display:flex;flex-direction:column;height:100dvh;max-width:430px;margin:0 auto;background:#06060f"><div style="padding:calc(env(safe-area-inset-top,44px) + 14px) 20px 0;display:flex;align-items:center"><div style="font-size:22px;letter-spacing:3px;color:#f4f4ff;font-family:system-ui,sans-serif;font-weight:700">MACRO<span style="color:#818cf8">TRACK</span></div></div><div style="flex:1;display:flex;align-items:center;justify-content:center"><div style="width:44px;height:44px;border-radius:50%;border:3px solid rgba(99,102,241,0.2);border-top-color:#818cf8;animation:mt-spin 0.75s linear infinite"></div></div></div></div>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin async></script>
+<div id="root"><div style="display:flex;flex-direction:column;height:100dvh;max-width:680px;margin:0 auto;background:#06060f"><div style="padding:calc(env(safe-area-inset-top,44px) + 14px) 20px 0;display:flex;align-items:center"><div style="font-size:22px;letter-spacing:3px;color:#f4f4ff;font-family:system-ui,sans-serif;font-weight:700">MACRO<span style="color:#818cf8">TRACK</span></div></div><div style="flex:1;display:flex;align-items:center;justify-content:center"><div style="width:44px;height:44px;border-radius:50%;border:3px solid rgba(99,102,241,0.2);border-top-color:#818cf8;animation:mt-spin 0.75s linear infinite"></div></div></div></div>
+<script src="./vendor/react.production.min.js"></script>
+<script src="./vendor/react-dom.production.min.js"></script>
+<script src="./vendor/supabase.js" async></script>
 <!-- Babel removed: JSX pre-compiled -->
 <script>
 function _initApp(){
@@ -850,6 +853,25 @@ const USDA = "https://api.nal.usda.gov/fdc/v1";
 
 /* ── Worker URL — hardcoded so users need zero configuration ── */
 const DEFAULT_WORKER_URL = "https://macrotrack-ai.kjgoodwin01.workers.dev";
+
+/* ── RevenueCat ── */
+// Set your iOS Public SDK key from app.revenuecat.com → your project → API Keys
+const RC_IOS_API_KEY = "appl_ymQYVtpPQPyXYriUcshsQJERwzm";
+const RC_ENTITLEMENT_PRO = "pro";
+const RC_ENTITLEMENT_MAX = "max";
+
+function getRCPlugin() {
+  return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Purchases;
+}
+
+// Returns "free" | "pro" | "max" from a RevenueCat CustomerInfo object
+function rcTierFromCustomerInfo(info) {
+  var active = info && info.entitlements && info.entitlements.active;
+  if (!active) return "free";
+  if (active[RC_ENTITLEMENT_MAX]) return "max";
+  if (active[RC_ENTITLEMENT_PRO]) return "pro";
+  return "free";
+}
 
 /* ── Push Notification helpers ── */
 const VAPID_PUBLIC_KEY = "BKnDOMYyxnl9r_aYRi1iqmXIcyOiZhj1QFHLVQHCt7pPFaojOUwer-q1XO5rBU_mIEwXuzKxgplmumOZV-GyE8s";
@@ -1039,6 +1061,7 @@ function _seedDemoData() {
     { date: yesterday, weight: 193.8 },
     { date: today, weight: 193.4 }
   ]));
+  localStorage.setItem("mt_sub", JSON.stringify({ status: "max", checkedAt: Date.now() }));
 }
 function getMondayOfWeek(d) {
   const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -1087,7 +1110,11 @@ function lsSave(key, val) {
 function lsLoad(key, init) {
   try {
     const s = localStorage.getItem(key);
-    return s ? JSON.parse(s) : init;
+    if (!s) return init;
+    const parsed = JSON.parse(s);
+    // Guard: if init is an array but stored value is not, return init
+    if (Array.isArray(init) && !Array.isArray(parsed)) return init;
+    return parsed;
   } catch {
     return init;
   }
@@ -3769,7 +3796,7 @@ function Onboarding({
   const [editFat, setEditFat] = useState("");
   // ── Account auth/restore state ──
   // authChosen = true once user signs in, creates account, or explicitly skips
-  const [authChosen, setAuthChosen] = useState(!!_authUserId);
+  const [authChosen, setAuthChosen] = useState(!!_authUserId || !!localStorage.getItem("mt_onboarded"));
   const [authModalMode, setAuthModalMode] = useState("create"); // "create" | "signin"
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -4383,29 +4410,75 @@ function Onboarding({
 }
 
 /* ── ProGate — upgrade prompt shown inside gated tabs ── */
+/* Uses RevenueCat / Apple IAP for all purchases. */
 function ProGate({ feature, workerUrl, deviceId, userEmail, subscription, onSubscriptionChange }) {
   var _billing = React.useState("monthly"); var billing = _billing[0]; var setBilling = _billing[1];
   var _loading = React.useState(null); var loading = _loading[0]; var setLoading = _loading[1];
   var _error = React.useState(""); var error = _error[0]; var setError = _error[1];
+  var _packages = React.useState(null); var rcPackages = _packages[0]; var setRcPackages = _packages[1];
 
-  var PRICES = {
-    pro:  { monthly: "price_1TLY3w2ezo0ehDtiQPdplUqg", annual: "price_1TLY5K2ezo0ehDtiWQ9tTQTL" },
-    max:  { monthly: "price_1TLY8Y2ezo0ehDtisIIKD8OW", annual: "price_1TLY8r2ezo0ehDtiWPZeKGmw" },
+  // Apple IAP product identifiers — must match App Store Connect + RevenueCat offering
+  var RC_PRODUCTS = {
+    pro:  { monthly: "macrotrack_pro_monthly",  annual: "macrotrack_pro_annual"  },
+    max:  { monthly: "macrotrack_max_monthly",  annual: "macrotrack_max_annual"  },
   };
 
-  async function handleCheckout(tier) {
+  React.useEffect(function() {
+    var Purchases = getRCPlugin();
+    if (!Purchases) return;
+    Purchases.getOfferings().then(function(result) {
+      setRcPackages((result.current && result.current.availablePackages) || []);
+    }).catch(function(e) { console.warn("[RC] getOfferings:", e); });
+  }, []);
+
+  function findRCPackage(tier, billingCycle) {
+    if (!rcPackages) return null;
+    var productId = RC_PRODUCTS[tier][billingCycle];
+    return rcPackages.find(function(p) { return p.product && p.product.identifier === productId; }) || null;
+  }
+
+  async function handlePurchase(tier) {
+    var Purchases = getRCPlugin();
+    if (!Purchases) { setError("In-app purchases unavailable"); return; }
+    var pkg = findRCPackage(tier, billing);
+    if (!pkg) { setError("Product not found — try again"); return; }
     setLoading(tier); setError("");
-    var priceId = PRICES[tier][billing];
     try {
-      var r = await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "create_checkout_session", priceId: priceId,
-          deviceId: deviceId, email: userEmail || undefined })
-      });
-      var data = await r.json();
-      if (data.url) { window.location.href = data.url; }
-      else { setError(data.error || "Could not start checkout"); setLoading(null); }
-    } catch(e) { setError("Network error — try again"); setLoading(null); }
+      var result = await Purchases.purchasePackage({ aPackage: pkg });
+      var newTier = rcTierFromCustomerInfo(result.customerInfo);
+      if (newTier !== "free") {
+        onSubscriptionChange({ status: newTier, checkedAt: Date.now() });
+        fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "rc_sync", deviceId: deviceId, tier: newTier })
+        }).catch(function(){});
+      }
+    } catch(e) {
+      if (!e || (e.code !== "PURCHASE_CANCELLED" && e.message !== "Purchase was cancelled.")) {
+        setError("Purchase failed — please try again");
+      }
+    }
+    setLoading(null);
+  }
+
+  async function handleRestorePurchases() {
+    var Purchases = getRCPlugin();
+    if (!Purchases) return;
+    setLoading("restore"); setError("");
+    try {
+      var result = await Purchases.restorePurchases();
+      var tier = rcTierFromCustomerInfo(result.customerInfo);
+      if (tier !== "free") {
+        onSubscriptionChange({ status: tier, checkedAt: Date.now() });
+        fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "rc_sync", deviceId: deviceId, tier: tier })
+        }).catch(function(){});
+      } else {
+        setError("No active subscription found");
+      }
+    } catch(e) { setError("Restore failed — try again"); }
+    setLoading(null);
   }
 
   var featureTitle = feature === "coach" ? "AI Nutrition Coach" : "AI Meal Planner";
@@ -4477,7 +4550,7 @@ function ProGate({ feature, workerUrl, deviceId, userEmail, subscription, onSubs
           })
         ),
         /*#__PURE__*/React.createElement("button", {
-          onClick: function() { handleCheckout("pro"); },
+          onClick: function() { handlePurchase("pro"); },
           disabled: !!loading,
           style: { width: "100%", padding: "10px 0", borderRadius: 10, border: "none",
             background: "var(--ind)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
@@ -4514,7 +4587,7 @@ function ProGate({ feature, workerUrl, deviceId, userEmail, subscription, onSubs
           })
         ),
         /*#__PURE__*/React.createElement("button", {
-          onClick: function() { handleCheckout("max"); },
+          onClick: function() { handlePurchase("max"); },
           disabled: !!loading,
           style: { width: "100%", padding: "10px 0", borderRadius: 10, border: "1px solid var(--ind)",
             background: "transparent", color: "var(--ind)", fontSize: 13, fontWeight: 700, cursor: "pointer",
@@ -4525,7 +4598,13 @@ function ProGate({ feature, workerUrl, deviceId, userEmail, subscription, onSubs
     error && /*#__PURE__*/React.createElement("div", { className: "err", style: { marginBottom: 12, textAlign: "center" } }, error),
     /*#__PURE__*/React.createElement("div", {
       style: { textAlign: "center", fontSize: 11, color: "var(--mu)", lineHeight: 1.6 }
-    }, "Secured by Stripe \u2022 Cancel anytime \u2022 No surprise charges")
+    }, "Payments processed by Apple \u2022 Cancel anytime in Settings"),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: handleRestorePurchases,
+      disabled: loading === "restore",
+      style: { display: "block", margin: "16px auto 0", background: "none", border: "none",
+        color: "var(--mu)", fontSize: 13, cursor: "pointer", textDecoration: "underline" }
+    }, loading === "restore" ? "Restoring\u2026" : "Restore Purchases")
   );
 }
 
@@ -7046,6 +7125,12 @@ function App() {
       if (Browser) { try { await Browser.close(); } catch(e) {} }
       var url = data && data.url;
       if (!url) return;
+      // Demo mode trigger: live.macrotrack.app://demo
+      if (url.startsWith("live.macrotrack.app://demo")) {
+        _seedDemoData();
+        window.location.reload();
+        return;
+      }
       var sb = _initSupabase();
       if (!sb) return;
       // Exchange PKCE code for session — onAuthStateChange fires on success
@@ -7055,6 +7140,25 @@ function App() {
     });
     return function() { listener && listener.remove && listener.remove(); };
   }, []);
+
+  // ── RevenueCat: initialize on native, sync entitlement to subscription state ──
+  useEffect(function() {
+    var Purchases = getRCPlugin();
+    if (!Purchases || window.location.protocol !== "capacitor:") return;
+    if (userName === "Demo") return;
+    (async function() {
+      try {
+        await Purchases.configure({ apiKey: RC_IOS_API_KEY });
+        var userId = effectiveUserId();
+        if (userId) await Purchases.logIn({ appUserID: userId });
+        var info = await Purchases.getCustomerInfo();
+        var tier = rcTierFromCustomerInfo(info.customerInfo);
+        if (tier !== "free") {
+          setSubscriptionRaw({ status: tier, checkedAt: Date.now() });
+        }
+      } catch(e) { console.warn("[RC] init error:", e); }
+    })();
+  }, [onboarded]);
 
   async function handleAuthSignedIn(result) {
     if (!result) return;
@@ -7170,12 +7274,12 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   function setTheme(t) {
     setThemeRaw(t);
-    document.documentElement.className = t === "light" ? "light" : "";
+    document.documentElement.classList.toggle("light", t === "light");
   }
 
   // Apply theme on mount
   useEffect(function () {
-    document.documentElement.className = theme === "light" ? "light" : "";
+    document.documentElement.classList.toggle("light", theme === "light");
   }, []);
   const [keyIn, setKeyIn] = useState("");
   const [modal, setModal] = useState(null);
@@ -7368,8 +7472,8 @@ function App() {
       if (cloud.profile && !userName && cloud.profile.name) {
         setUserNameRaw(cloud.profile.name);
       }
-      // Update subscription status from cloud
-      if (cloud.subscription_status) {
+      // Update subscription status from cloud (skip for demo mode)
+      if (cloud.subscription_status && userName !== "Demo") {
         setSubscriptionRaw({ status: cloud.subscription_status, checkedAt: Date.now() });
       }
     });
@@ -7380,6 +7484,7 @@ function App() {
   useEffect(function() {
     if (!workerUrl || !onboarded) return;
     if (tab !== "coach" && tab !== "meals") return;
+    if (userName === "Demo") return; // demo mode: skip server check, keep max status
     var lastCheck = subscription.checkedAt || 0;
     if (Date.now() - lastCheck < 60000) return;
     var subPayload = { type: "get_subscription", deviceId: effectiveUserId() };
