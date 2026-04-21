@@ -961,7 +961,9 @@ var _supabase = null;
 function _initSupabase() {
   if (_supabase) return _supabase;
   if (window.supabase && SUPABASE_URL !== "YOUR_SUPABASE_URL") {
-    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { flowType: "pkce" }
+    });
   }
   return _supabase;
 }
@@ -3570,37 +3572,32 @@ function AuthModal({ onClose, onSignedIn, mode, workerUrl }) {
     if (!sb) { setError("Auth unavailable — try email code"); return; }
     setLoading(true); setError("");
 
+    // Apple Sign-In in Capacitor: call native via WKScriptMessageHandlerWithReply.
+    // JS awaits window.webkit.messageHandlers.signInWithApple.postMessage() which returns a Promise.
     if (provider === "apple" && window.location.protocol === "capacitor:") {
       try {
-        var SignInWithApple = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SignInWithApple;
-        if (!SignInWithApple) { setError("Apple Sign-In not available"); setLoading(false); return; }
-
         var rawNonce = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
         var hashBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(rawNonce));
         var hashedNonce = Array.from(new Uint8Array(hashBuf)).map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
 
-        var result = await SignInWithApple.authorize({
-          clientId: "live.macrotrack.app",
-          redirectURI: SUPABASE_URL + "/auth/v1/callback",
-          scopes: "email name",
-          nonce: hashedNonce,
-        });
+        if (!window.webkit || !window.webkit.messageHandlers || !window.webkit.messageHandlers.signInWithApple) {
+          setError("Apple Sign-In not available"); setLoading(false); return;
+        }
+        var result = await window.webkit.messageHandlers.signInWithApple.postMessage({ nonce: hashedNonce });
 
-        var identityToken = result && result.response && result.response.identityToken;
+        var identityToken = result && result.identityToken;
         if (!identityToken) { setError("Apple Sign-In failed — no token returned"); setLoading(false); return; }
 
         var res = await sb.auth.signInWithIdToken({ provider: "apple", token: identityToken, nonce: rawNonce });
         if (res.error) { setError(res.error.message); setLoading(false); return; }
-        // onAuthStateChange fires → authUser updates → App effect handles cloud restore
         onClose();
       } catch(e) {
-        // User cancelled — swallow silently
-        if (e && (e.code === "1001" || (e.message && e.message.toLowerCase().includes("cancel")))) {
+        if (e && e.message && e.message.toLowerCase().includes("canceled")) {
           setLoading(false); return;
         }
         setError(e && e.message ? e.message : "Apple Sign-In failed");
-        setLoading(false);
       }
+      setLoading(false);
       return;
     }
 
@@ -7057,6 +7054,15 @@ function WorkoutTab({ workouts, setWorkouts, workoutTemplates, setWorkoutTemplat
 
 /* ── App ── */
 function App() {
+  // Signal native shell to dismiss the launch overlay once React has mounted
+  useEffect(function() {
+    try {
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.appReady) {
+        window.webkit.messageHandlers.appReady.postMessage(null);
+      }
+    } catch(e) {}
+  }, []);
+
   // Migrate stale tab keys from old nav (weight→physique, goals→physique)
   const [tab, setTab] = useLocal("mt_tab", "log");
   useEffect(function() {
@@ -7136,7 +7142,10 @@ function App() {
       // Exchange PKCE code for session — onAuthStateChange fires on success
       var parsed = new URL(url);
       var code = parsed.searchParams.get("code");
-      if (code) { await sb.auth.exchangeCodeForSession(url); }
+      if (code) {
+        var exchResult = await sb.auth.exchangeCodeForSession(code);
+        if (!exchResult.error) setShowAuthModal(false);
+      }
     });
     return function() { listener && listener.remove && listener.remove(); };
   }, []);

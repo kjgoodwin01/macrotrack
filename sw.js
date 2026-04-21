@@ -1,6 +1,6 @@
 // MacroTrack Service Worker
 // Bump this version number with every deploy to force an immediate update
-const VERSION = "mt-v115";
+const VERSION = "mt-v117";
 const CACHE = VERSION;
 
 // Files to precache on install
