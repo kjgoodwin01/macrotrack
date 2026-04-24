@@ -885,7 +885,33 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
+async function subscribeToPushNative(workerUrl, deviceId, preferences, email) {
+  var PN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+  if (!PN) return {error:"Push plugin unavailable — please update the app"};
+  try {
+    var perm = await PN.requestPermissions();
+    if (perm.receive !== "granted") return {error:"Permission denied — enable in iOS Settings > MacroTrack"};
+    var apnsToken = await new Promise(function(resolve, reject) {
+      var done = false;
+      function settle(fn, val) { if (!done) { done = true; fn(val); } }
+      PN.addListener("registration", function(d) { settle(resolve, d.value); });
+      PN.addListener("registrationError", function(e) { settle(reject, new Error(e.error || "APNs registration failed")); });
+      PN.register().catch(function(e) { settle(reject, e); });
+      setTimeout(function() { settle(reject, new Error("APNs registration timed out")); }, 15000);
+    });
+    fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({type:"push_subscribe_apns", deviceId:deviceId, email:email||null, apnsToken:apnsToken, preferences:preferences||{}}),
+    }).catch(function(){});
+    return {ok:true};
+  } catch(e) { return {error:e.message}; }
+}
+
 async function subscribeToPush(workerUrl, deviceId, preferences, email) {
+  if (window.location.protocol === "capacitor:") {
+    return subscribeToPushNative(workerUrl, deviceId, preferences, email);
+  }
   function timeout(ms, msg) {
     return new Promise(function(_, reject) {
       setTimeout(function() { reject(new Error(msg)); }, ms);
@@ -7195,14 +7221,16 @@ function App() {
         }
       } else {
         setPushEnabledRaw(false);
-        // Unsubscribe from browser push manager so re-subscribe starts clean
-        try {
-          var reg2 = await navigator.serviceWorker.getRegistration();
-          if (reg2) {
-            var existingSub = await reg2.pushManager.getSubscription();
-            if (existingSub) await existingSub.unsubscribe();
-          }
-        } catch(e){}
+        if (window.location.protocol !== "capacitor:") {
+          // Unsubscribe from browser push manager so re-subscribe starts clean
+          try {
+            var reg2 = await navigator.serviceWorker.getRegistration();
+            if (reg2) {
+              var existingSub = await reg2.pushManager.getSubscription();
+              if (existingSub) await existingSub.unsubscribe();
+            }
+          } catch(e){}
+        }
         fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
           method: "POST", headers: {"Content-Type": "application/json"},
           body: JSON.stringify({type: "push_unsubscribe", deviceId: effectiveUserId()}),

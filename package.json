@@ -7,14 +7,15 @@
   },
   "license": "ISC",
   "scripts": {
-    "build": "mkdir -p www && cp app.html www/index.html && cp sw.js www/ && cp manifest.json www/ && cp icon-192.png www/ && cp icon-512.png www/"
+    "build": "mkdir -p www && cp app.html www/index.html && cp sw.js www/ && cp manifest.json www/ && cp icon-192.png www/ && cp icon-512.png www/ && cp -r vendor www/"
   },
   "dependencies": {
-    "@capacitor-community/apple-sign-in": "^7.1.0",
     "@capacitor/app": "^8.1.0",
     "@capacitor/browser": "^8.0.3",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
-    "@capacitor/ios": "^8.3.1"
+    "@capacitor/ios": "^8.3.1",
+    "@capacitor/push-notifications": "^8.0.3",
+    "@revenuecat/purchases-capacitor": "^13.0.1"
   }
 }

@@ -182,6 +182,56 @@ async function incrementWeeklyUsage(env, deviceId, type) {
   await env.CODES.put(key, String((cur ? parseInt(cur) : 0) + 1), { expirationTtl: 691200 }); // 8 days
 }
 
+// ── RevenueCat webhook ────────────────────────────────────────────────────
+// Maps RC entitlement IDs → subscription_status tier
+const RC_ENTITLEMENT_MAX = "max";
+const RC_ENTITLEMENT_PRO = "pro";
+
+async function handleRevenueCatWebhook(request, env) {
+  const authHeader = request.headers.get("Authorization") || "";
+  if (env.RC_WEBHOOK_AUTH && authHeader !== "Bearer " + env.RC_WEBHOOK_AUTH) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+  }
+
+  let payload;
+  try { payload = await request.json(); }
+  catch (e) { return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: { "Content-Type": "application/json" } }); }
+
+  const event = payload.event;
+  if (!event) return new Response(JSON.stringify({ received: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+
+  const appUserId = event.app_user_id;
+  const aliases = event.aliases || [];
+  const eventType = event.type;
+  const entitlementIds = event.entitlement_ids || [];
+
+  // Determine new tier
+  let tier = "free";
+  if (["INITIAL_PURCHASE", "RENEWAL", "UNCANCELLATION", "NON_RENEWING_PURCHASE"].includes(eventType)) {
+    if (entitlementIds.includes(RC_ENTITLEMENT_MAX)) tier = "max";
+    else if (entitlementIds.includes(RC_ENTITLEMENT_PRO)) tier = "pro";
+  }
+  // CANCELLATION: still active until period end — keep tier
+  // EXPIRATION / BILLING_ISSUE: downgrade to free
+  if (eventType === "EXPIRATION" || eventType === "SUBSCRIBER_ALIAS") {
+    tier = "free";
+  }
+
+  if (!appUserId) return new Response(JSON.stringify({ received: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+
+  // Update by app_user_id (= our device_id / Supabase auth UID)
+  const allIds = [appUserId, ...aliases].filter(Boolean);
+  for (const uid of allIds) {
+    await sbAdmin(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(uid), {
+      subscription_status: tier,
+      rc_app_user_id: appUserId,
+    });
+  }
+
+  console.log("[rc-webhook] event:", eventType, "appUserId:", appUserId, "tier:", tier);
+  return new Response(JSON.stringify({ received: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+}
+
 async function handleStripeWebhook(request, env) {
   const rawBody = await request.text();
   const sigHeader = request.headers.get("stripe-signature") || "";
@@ -597,6 +647,57 @@ async function sendWebPush(endpoint, p256dhKey, authKey, payload, vapidPublicKey
   }
 }
 
+// ── APNs sender (native iOS push) ─────────────────────────────────────────
+async function sendApnsPush(apnsToken, title, bodyText, env) {
+  if (!env.APNS_PRIVATE_KEY || !env.APNS_KEY_ID || !env.APNS_TEAM_ID) {
+    console.log("[sendApnsPush] Missing APNs credentials in env");
+    return { ok: false, status: 0, error: "Missing APNs credentials" };
+  }
+  try {
+    function toB64Url(str) {
+      return btoa(str).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    }
+    const headerB64 = toB64Url(JSON.stringify({ alg: "ES256", kid: env.APNS_KEY_ID }));
+    const now = Math.floor(Date.now() / 1000);
+    const payloadB64 = toB64Url(JSON.stringify({ iss: env.APNS_TEAM_ID, iat: now }));
+    const unsigned = headerB64 + "." + payloadB64;
+
+    // Import the PKCS8 p8 key (stored with or without PEM headers)
+    const b64 = env.APNS_PRIVATE_KEY.replace(/-----[^-]+-----/g, "").replace(/\s/g, "");
+    const der = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const cryptoKey = await crypto.subtle.importKey(
+      "pkcs8", der,
+      { name: "ECDSA", namedCurve: "P-256" },
+      false, ["sign"]
+    );
+    const sigBuf = await crypto.subtle.sign(
+      { name: "ECDSA", hash: { name: "SHA-256" } },
+      cryptoKey,
+      new TextEncoder().encode(unsigned)
+    );
+    const jwt = "bearer " + unsigned + "." + b64urlEncode(sigBuf);
+
+    const apnsBody = JSON.stringify({ aps: { alert: { title, body: bodyText }, sound: "default" } });
+    const response = await fetch("https://api.push.apple.com/3/device/" + apnsToken, {
+      method: "POST",
+      headers: {
+        "Authorization": jwt,
+        "apns-topic": "live.macrotrack.app",
+        "apns-priority": "10",
+        "apns-push-type": "alert",
+        "Content-Type": "application/json",
+      },
+      body: apnsBody,
+    });
+    const respText = await response.text();
+    console.log("[sendApnsPush] status:", response.status, "body:", respText);
+    return { ok: response.ok, status: response.status };
+  } catch (e) {
+    console.log("[sendApnsPush] ERROR:", e.message);
+    return { ok: false, status: 0, error: e.message };
+  }
+}
+
 const COACH_SYSTEM = `You are a no-nonsense personal nutrition and fitness coach inside MacroTrack — a chat-based mobile app. Direct, honest, specific, motivating without being fake.
 
 You have the user's complete data: goal (cut/bulk/maintain), target weight, calorie and macro targets, food logs for the past week, weight history, adherence patterns.
@@ -663,6 +764,17 @@ export default {
       console.log("[sendPush] called for sub.id:", sub.id, "sub.device_id:", sub.device_id, "title:", title);
       if (!sub.endpoint) {
         console.log("[sendPush] SKIPPED — sub.endpoint is undefined for sub.id:", sub.id);
+        return;
+      }
+      // APNs path — native iOS subscriptions stored as "apns://<token>"
+      if (sub.endpoint.startsWith("apns://")) {
+        const apnsToken = sub.endpoint.slice(7);
+        console.log("[sendPush] APNs path for sub.id:", sub.id);
+        const result = await sendApnsPush(apnsToken, title, bodyText, env);
+        if (result.status === 410 || result.status === 400) {
+          console.log("[sendPush] APNs token invalid, deleting sub.id:", sub.id);
+          await sb(env, "DELETE", "push_subscriptions?id=eq." + sub.id);
+        }
         return;
       }
       try {
@@ -803,6 +915,9 @@ export default {
     const reqUrl = new URL(request.url);
     if (reqUrl.pathname.endsWith("/stripe-webhook")) {
       return handleStripeWebhook(request, env);
+    }
+    if (reqUrl.pathname.endsWith("/rc-webhook")) {
+      return handleRevenueCatWebhook(request, env);
     }
 
     let body;
@@ -1803,6 +1918,36 @@ export default {
       return jsonRes({ ok: true }, 200, cors);
     }
 
+    // ── PUSH: Subscribe (native iOS APNs) ────────────────────────────────
+    if (type === "push_subscribe_apns") {
+      const { deviceId, email, apnsToken, preferences } = body;
+      if (!deviceId || !apnsToken) {
+        return jsonRes({ error: "Missing deviceId or apnsToken" }, 400, cors);
+      }
+      let resolvedDeviceId = deviceId;
+      const profileCheck = await sbAdmin(env, "GET", "profiles?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
+      if ((!profileCheck.data || profileCheck.data.length === 0) && email) {
+        const emailClean = email.trim().toLowerCase();
+        const byEmail = await sbAdmin(env, "GET", "profiles?email=eq." + encodeURIComponent(emailClean) + "&limit=1");
+        if (byEmail.data && byEmail.data.length > 0) {
+          resolvedDeviceId = byEmail.data[0].device_id;
+        }
+      }
+      const result = await sb(env, "POST", "push_subscriptions", {
+        device_id: resolvedDeviceId,
+        endpoint: "apns://" + apnsToken,
+        p256dh: "",
+        auth: "",
+        notify_report: preferences?.report !== false,
+        notify_correction: preferences?.correction !== false,
+        notify_reminder: preferences?.reminder || false,
+        reminder_hour: preferences?.reminderHour || 12,
+        updated_at: new Date().toISOString(),
+      });
+      if (!result.ok) return jsonRes({ error: "Failed to save APNs subscription" }, 500, cors);
+      return jsonRes({ ok: true }, 200, cors);
+    }
+
     // ── PUSH: Update preferences ──────────────────────────────────────────
     if (type === "push_update_prefs") {
       const { deviceId, preferences } = body;
@@ -2113,6 +2258,18 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
       const result = await stripeApi(env.STRIPE_SECRET_KEY, "POST", "checkout/sessions", params);
       if (!result.ok) return jsonRes({ error: (result.data.error && result.data.error.message) || "Stripe error" }, 502, cors);
       return jsonRes({ url: result.data.url }, 200, cors);
+    }
+
+    // ── REVENUECAT: Sync tier after native IAP purchase ───────────────────
+    if (type === "rc_sync") {
+      const { deviceId, tier } = body;
+      if (!deviceId || !tier) return jsonRes({ error: "Missing deviceId or tier" }, 400, cors);
+      const allowed = ["free", "pro", "max"];
+      if (!allowed.includes(tier)) return jsonRes({ error: "Invalid tier" }, 400, cors);
+      await sbAdmin(env, "PATCH", "profiles?device_id=eq." + encodeURIComponent(deviceId), {
+        subscription_status: tier,
+      });
+      return jsonRes({ ok: true }, 200, cors);
     }
 
     // ── STRIPE: Get subscription status ──────────────────────────────────
