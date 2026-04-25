@@ -7123,7 +7123,7 @@ function App() {
 
   // ── Push notification state ──
   const [pushEnabled, setPushEnabledRaw] = useLocal("mt_push_enabled", false);
-  const [pushPrefs, setPushPrefsRaw] = useLocal("mt_push_prefs", {report:true, correction:true, reminder:false, reminderHour:12});
+  const [pushPrefs, setPushPrefsRaw] = useLocal("mt_push_prefs", {report:true, correction:true, reminder:true, reminderHour:12});
 
   // ── Coach personality mode ──
   const [coachMode, setCoachMode] = useLocal("mt_coach_mode", "balanced");
