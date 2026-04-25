@@ -749,6 +749,10 @@ export default {
   async scheduled(event, env, ctx) {
     console.log("[scheduled] handler entered. cron:", event.cron, "scheduledTime:", event.scheduledTime);
 
+    // Use service-role key if available (bypasses RLS), otherwise fall back to anon key
+    const dbQuery = env.SUPABASE_SERVICE_ROLE_KEY ? sbAdmin : sb;
+    console.log("[scheduled] using", env.SUPABASE_SERVICE_ROLE_KEY ? "sbAdmin" : "sb (no service role key set)");
+
     const now = new Date();
     const hour = now.getUTCHours();
     const day = now.getUTCDay();
@@ -803,7 +807,7 @@ export default {
     // ── Weekly report: Sunday 2 PM UTC = 10 AM EDT ──────────────────────
     console.log("[scheduled] checking weekly report block: day === 0 && hour === 14 →", day === 0 && hour === 14);
     if (day === 0 && hour === 14) {
-      const subs = await sbAdmin(env, "GET", "push_subscriptions?notify_report=eq.true&limit=5000");
+      const subs = await dbQuery(env, "GET", "push_subscriptions?notify_report=eq.true&limit=5000");
       console.log("[scheduled] weekly report subs count:", (subs.data || []).length, "subs.ok:", subs.ok);
       for (const sub of (subs.data || [])) {
         console.log("[scheduled] sending weekly report push to sub.id:", sub.id);
@@ -814,7 +818,7 @@ export default {
     // ── Daily reminder: 4 PM UTC = 12 PM EDT ───────────────────────────
     console.log("[scheduled] checking daily reminder block: hour === 16 →", hour === 16);
     if (hour === 16) {
-      const subs = await sbAdmin(env, "GET", "push_subscriptions?notify_reminder=eq.true&limit=5000");
+      const subs = await dbQuery(env, "GET", "push_subscriptions?notify_reminder=eq.true&limit=5000");
       console.log("[scheduled] daily reminder subs count:", (subs.data || []).length, "subs.ok:", subs.ok);
       if (subs.data && subs.data.length > 0) {
         for (const sub of subs.data) {
@@ -823,7 +827,7 @@ export default {
               console.log("[scheduled] daily reminder — sub.device_id is undefined for sub.id:", sub.id, "SKIPPING");
               continue;
             }
-            const entries = await sbAdmin(env, "GET",
+            const entries = await dbQuery(env, "GET",
               "food_entries?device_id=eq." + encodeURIComponent(sub.device_id) +
               "&log_date=eq." + todayISO + "&limit=1"
             );
@@ -844,7 +848,7 @@ export default {
     // Fires if user is under their personal protein goal for the day
     console.log("[scheduled] checking protein gap block: hour === 21 →", hour === 21);
     if (hour === 21) {
-      const subs = await sbAdmin(env, "GET", "push_subscriptions?notify_correction=eq.true&limit=5000");
+      const subs = await dbQuery(env, "GET", "push_subscriptions?notify_correction=eq.true&limit=5000");
       console.log("[scheduled] protein gap subs count:", (subs.data || []).length, "subs.ok:", subs.ok);
       if (subs.data && subs.data.length > 0) {
         for (const sub of subs.data) {
@@ -855,7 +859,7 @@ export default {
             }
 
             // Resolve personal protein goal from profile
-            const profile = await sbAdmin(env, "GET",
+            const profile = await dbQuery(env, "GET",
               "profiles?device_id=eq." + encodeURIComponent(sub.device_id) + "&limit=1"
             );
             if (!profile.data || profile.data.length === 0) {
@@ -873,7 +877,7 @@ export default {
             }
 
             // Sum today's protein from food_entries
-            const entries = await sbAdmin(env, "GET",
+            const entries = await dbQuery(env, "GET",
               "food_entries?device_id=eq." + encodeURIComponent(sub.device_id) +
               "&log_date=eq." + todayISO + "&limit=200"
             );
@@ -1903,7 +1907,7 @@ export default {
         }
       }
       const keys = subscription.keys || {};
-      const result = await sbAdmin(env, "POST", "push_subscriptions", {
+      const result = await sb(env, "POST", "push_subscriptions", {
         device_id: resolvedDeviceId,
         endpoint: subscription.endpoint,
         p256dh: keys.p256dh || "",
@@ -1933,7 +1937,7 @@ export default {
           resolvedDeviceId = byEmail.data[0].device_id;
         }
       }
-      const result = await sbAdmin(env, "POST", "push_subscriptions", {
+      const result = await sb(env, "POST", "push_subscriptions", {
         device_id: resolvedDeviceId,
         endpoint: "apns://" + apnsToken,
         p256dh: "",
