@@ -899,11 +899,15 @@ async function subscribeToPushNative(workerUrl, deviceId, preferences, email) {
       PN.register().catch(function(e) { settle(reject, e); });
       setTimeout(function() { settle(reject, new Error("APNs registration timed out")); }, 15000);
     });
-    fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+    var resp = await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({type:"push_subscribe_apns", deviceId:deviceId, email:email||null, apnsToken:apnsToken, preferences:preferences||{}}),
-    }).catch(function(){});
+    });
+    if (!resp.ok) {
+      var errJson = {}; try { errJson = await resp.json(); } catch(e) {}
+      return {error: errJson.error || "Server error saving subscription"};
+    }
     return {ok:true};
   } catch(e) { return {error:e.message}; }
 }
@@ -7250,6 +7254,18 @@ function App() {
     setPushPrefsRaw(newPrefs);
     if (pushEnabled) updatePushPrefs(workerUrl, effectiveUserId(), newPrefs);
   }
+  // One-time migration: old default was reminder:false, new default is true.
+  // Since the reminder never actually fired before, no user deliberately turned it off.
+  useEffect(function() {
+    if (!localStorage.getItem("mt_push_prefs_migrated_v1")) {
+      localStorage.setItem("mt_push_prefs_migrated_v1", "1");
+      if (pushPrefs.reminder === false) {
+        var migrated = Object.assign({}, pushPrefs, {reminder: true});
+        setPushPrefsRaw(migrated);
+        if (pushEnabled) updatePushPrefs(workerUrl, effectiveUserId(), migrated);
+      }
+    }
+  }, []);
   useEffect(function () {
     const isInstalled = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: fullscreen)").matches || window.location.protocol === 'capacitor:';
     if (!isInstalled && !installDismissed) {

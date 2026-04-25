@@ -1903,7 +1903,7 @@ export default {
         }
       }
       const keys = subscription.keys || {};
-      const result = await sb(env, "POST", "push_subscriptions", {
+      const result = await sbAdmin(env, "POST", "push_subscriptions", {
         device_id: resolvedDeviceId,
         endpoint: subscription.endpoint,
         p256dh: keys.p256dh || "",
@@ -1933,7 +1933,7 @@ export default {
           resolvedDeviceId = byEmail.data[0].device_id;
         }
       }
-      const result = await sb(env, "POST", "push_subscriptions", {
+      const result = await sbAdmin(env, "POST", "push_subscriptions", {
         device_id: resolvedDeviceId,
         endpoint: "apns://" + apnsToken,
         p256dh: "",
