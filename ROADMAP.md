@@ -28,6 +28,7 @@ Goal: downloadable app store app generating subscription revenue, beating MFP an
 
 ## Phase 3 — Differentiation
 
+- [x] Native iOS push notifications — APNs via @capacitor/push-notifications. WKWebView has no PushManager so web push was silently failing ("Push not supported"). Fixed by routing Capacitor context through APNs; worker generates APNs JWT (ES256) and sends via api.push.apple.com. Scheduled crons (daily reminder 12 PM EDT, protein gap 5 PM EDT, weekly report Sunday 10 AM EDT) fire from Cloudflare Worker. Three bugs fixed 2026-04-25 before notifications actually delivered: (1) scheduled handler was using anon-key sb() to query Supabase — protected tables returned nothing, so notifications were silently skipped; (2) notify_reminder defaulted to false so noon reminders never fired; (3) push_subscriptions upsert was missing ?on_conflict=device_id, causing duplicate key errors on re-subscribe and silently failing (old code swallowed the error with fire-and-forget fetch). All fixed in builds 6–8.
 - [ ] Proactive AI coach insights — push-based coaching, not just chat-based
 - [ ] Predictive logging — "you usually have a protein shake here"
 - [ ] Photo meal logging with macro estimation
