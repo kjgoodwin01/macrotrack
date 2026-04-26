@@ -654,12 +654,16 @@ async function sendApnsPush(apnsToken, title, bodyText, env) {
     return { ok: false, status: 0, error: "Missing APNs credentials" };
   }
   try {
+    // Trim to guard against accidental whitespace/newlines in stored secrets
+    const apnsKeyId = env.APNS_KEY_ID.trim();
+    const apnsTeamId = env.APNS_TEAM_ID.trim();
+
     function toB64Url(str) {
       return btoa(str).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
     }
-    const headerB64 = toB64Url(JSON.stringify({ alg: "ES256", kid: env.APNS_KEY_ID }));
+    const headerB64 = toB64Url(JSON.stringify({ alg: "ES256", kid: apnsKeyId }));
     const now = Math.floor(Date.now() / 1000);
-    const payloadB64 = toB64Url(JSON.stringify({ iss: env.APNS_TEAM_ID, iat: now }));
+    const payloadB64 = toB64Url(JSON.stringify({ iss: apnsTeamId, iat: now }));
     const unsigned = headerB64 + "." + payloadB64;
 
     // Import the PKCS8 p8 key (stored with or without PEM headers)
@@ -678,22 +682,34 @@ async function sendApnsPush(apnsToken, title, bodyText, env) {
     const jwt = "bearer " + unsigned + "." + b64urlEncode(sigBuf);
 
     const apnsBody = JSON.stringify({ aps: { alert: { title, body: bodyText }, sound: "default" } });
+    const apnsHeaders = {
+      "Authorization": jwt,
+      "apns-topic": "live.macrotrack.app",
+      "apns-priority": "10",
+      "apns-push-type": "alert",
+      "Content-Type": "application/json",
+    };
+
+    // Try production endpoint first; fall back to sandbox for development builds
     const response = await fetch("https://api.push.apple.com/3/device/" + apnsToken, {
-      method: "POST",
-      headers: {
-        "Authorization": jwt,
-        "apns-topic": "live.macrotrack.app",
-        "apns-priority": "10",
-        "apns-push-type": "alert",
-        "Content-Type": "application/json",
-      },
-      body: apnsBody,
+      method: "POST", headers: apnsHeaders, body: apnsBody,
     });
     const respText = await response.text();
-    console.log("[sendApnsPush] status:", response.status, "body:", respText);
-    return { ok: response.ok, status: response.status };
+    console.log("[sendApnsPush] production status:", response.status, "body:", respText, "keyId:", apnsKeyId, "teamId:", apnsTeamId);
+
+    if (response.status === 400 && respText.includes("BadDeviceToken")) {
+      // Token may be a sandbox (development build) token — retry against sandbox endpoint
+      const sandboxRes = await fetch("https://api.sandbox.push.apple.com/3/device/" + apnsToken, {
+        method: "POST", headers: apnsHeaders, body: apnsBody,
+      });
+      const sandboxText = await sandboxRes.text();
+      console.log("[sendApnsPush] sandbox status:", sandboxRes.status, "body:", sandboxText);
+      return { ok: sandboxRes.ok, status: sandboxRes.status, body: sandboxText, endpoint: "sandbox" };
+    }
+
+    return { ok: response.ok, status: response.status, body: respText, endpoint: "production" };
   } catch (e) {
-    console.log("[sendApnsPush] ERROR:", e.message);
+    console.log("[sendApnsPush] ERROR:", e.message, e.stack);
     return { ok: false, status: 0, error: e.message };
   }
 }
@@ -775,8 +791,13 @@ export default {
         const apnsToken = sub.endpoint.slice(7);
         console.log("[sendPush] APNs path for sub.id:", sub.id);
         const result = await sendApnsPush(apnsToken, title, bodyText, env);
-        if (result.status === 410 || result.status === 400) {
-          console.log("[sendPush] APNs token invalid, deleting sub.id:", sub.id);
+        // Only delete on confirmed invalid token: 410 Unregistered, or 400 with explicit BadDeviceToken.
+        // Do NOT delete on generic 400 (covers JWT errors, bad payload, etc.) to avoid self-destructing.
+        const isInvalidToken = result.status === 410 ||
+          (result.status === 400 && result.body &&
+            (result.body.includes("BadDeviceToken") || result.body.includes("Unregistered")));
+        if (isInvalidToken) {
+          console.log("[sendPush] APNs token confirmed invalid/unregistered, deleting sub.id:", sub.id);
           await sb(env, "DELETE", "push_subscriptions?id=eq." + sub.id);
         }
         return;
@@ -804,9 +825,9 @@ export default {
       }
     }
 
-    // ── Weekly report: Sunday 2 PM UTC = 10 AM EDT ──────────────────────
-    console.log("[scheduled] checking weekly report block: day === 0 && hour === 14 →", day === 0 && hour === 14);
-    if (day === 0 && hour === 14) {
+    // ── Weekly report: Sunday 1 PM UTC = 9 AM EDT ───────────────────────
+    console.log("[scheduled] checking weekly report block: day === 0 && hour === 13 →", day === 0 && hour === 13);
+    if (day === 0 && hour === 13) {
       const subs = await dbQuery(env, "GET", "push_subscriptions?notify_report=eq.true&limit=5000");
       console.log("[scheduled] weekly report subs count:", (subs.data || []).length, "subs.ok:", subs.ok);
       for (const sub of (subs.data || [])) {
@@ -1818,6 +1839,22 @@ export default {
       if (adminKey !== "MACROTRACK_ADMIN_2026") return jsonRes({ error: "Unauthorized" }, 401, cors);
       const r = await sb(env, "GET", "profiles?order=subscription_status.desc,updated_at.desc&limit=500");
       return jsonRes({ ok: true, users: r.data || [] }, 200, cors);
+    }
+
+    // ── ADMIN: Test APNs push for a device ───────────────────────────────
+    if (type === "admin_test_apns") {
+      const { adminKey, deviceId } = body;
+      if (adminKey !== "MACROTRACK_ADMIN_2026") return jsonRes({ error: "Unauthorized" }, 401, cors);
+      if (!deviceId) return jsonRes({ error: "Missing deviceId" }, 400, cors);
+      const sub = await sbAdmin(env, "GET", "push_subscriptions?device_id=eq." + encodeURIComponent(deviceId) + "&limit=1");
+      if (!sub.data || sub.data.length === 0) return jsonRes({ error: "No subscription found for deviceId" }, 404, cors);
+      const s = sub.data[0];
+      if (!s.endpoint || !s.endpoint.startsWith("apns://")) {
+        return jsonRes({ error: "Not an APNs subscription", endpoint: s.endpoint }, 400, cors);
+      }
+      const apnsToken = s.endpoint.slice(7);
+      const result = await sendApnsPush(apnsToken, "MacroTrack Test 🧪", "Push delivery test — if you see this, APNs is working!", env);
+      return jsonRes({ result, tokenPreview: apnsToken.slice(0, 16) + "..." }, 200, cors);
     }
 
     // ── WAITLIST: List (admin) ────────────────────────────────────────────

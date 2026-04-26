@@ -12,4 +12,4 @@ preview_id = "e8be9aaa22bf452b89c29f8e4d40bd85"
 
 # Cron triggers (mirrors production schedule)
 [triggers]
-crons = ["0 14 * * SUN", "0 16 * * *", "0 21 * * *"]
+crons = ["0 13 * * SUN", "0 16 * * *", "0 21 * * *"]
