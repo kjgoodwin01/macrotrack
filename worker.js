@@ -364,9 +364,48 @@ function detectChain(q) {
   return CHAIN_KEYWORDS.some(c => q.includes(c));
 }
 
+// ── Search cache key normalization ────────────────────────────────────────────
+// Stop words stripped from cache keys
+const CACHE_STOP_WORDS = new Set(["the","a","an","with","and","or","in","of","at","for","to","from"]);
+
+// Flavor/variant/marketing words that don't define the core product.
+// Stripping these lets "kirkland energy drink peach" and "kirkland energy drink" share a cache entry.
+const VARIANT_WORDS = new Set([
+  // Flavors
+  "peach","mango","strawberry","blueberry","raspberry","cherry","lemon","lime",
+  "watermelon","pineapple","grape","tropical","citrus","berry","mixed","apple",
+  "vanilla","chocolate","mocha","caramel","cinnamon",
+  // Style / marketing
+  "original","classic","unflavored","plain","regular","new","improved",
+  "signature","select","premium","organic","natural","raw","wild","fresh",
+  // Diet/size qualifiers
+  "diet","light","lite","zero","low","reduced","extra","plus","pro","max","ultra","super","mini",
+]);
+
+// Normalize a query into a stable cache key:
+// lowercase → strip punctuation → remove stop words → sort words alphabetically
+// "Kirkland Peach Energy Drink" and "kirkland energy drink peach" produce the same key.
+function normSearchKey(q) {
+  return q.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length >= 2 && !CACHE_STOP_WORDS.has(w))
+    .sort()
+    .join(" ");
+}
+
+// Strip variant/flavor words from a normalized key to get the base product key.
+// "drink energy kirkland peach" → "drink energy kirkland"
+// Requires at least 2 words to remain; otherwise returns the original.
+function baseSearchKey(normQ) {
+  const words = normQ.split(" ").filter(w => !VARIANT_WORDS.has(w));
+  return words.length >= 2 ? words.join(" ") : normQ;
+}
+
 async function callSearchOrchestrator(apiKey, query, candidates, recentFoods, isChain) {
-  // Compact candidate format — single-letter keys to minimise prompt tokens
-  const slim = candidates.map(c => ({
+  // Include index so AI can reference real DB entries — macros come from the DB, not AI knowledge
+  const slim = candidates.map((c, i) => ({
+    i,
     n: c.description,
     b: c.brandOwner || "",
     cal: getNutrientVal(c.foodNutrients, 1008),
@@ -376,40 +415,39 @@ async function callSearchOrchestrator(apiKey, query, candidates, recentFoods, is
   }));
 
   const candidateBlock = slim.length > 0
-    ? `Candidates:${JSON.stringify(slim)}\n`
+    ? `DB candidates (use "ci" to reference by index i):\n${JSON.stringify(slim)}\n`
     : `No DB results — use your knowledge.\n`;
 
-  // Personalisation: surface foods this user already knows and logs
   const recentBlock = Array.isArray(recentFoods) && recentFoods.length > 0
     ? `User frequently logs: ${JSON.stringify(recentFoods.slice(0, 10))}. If any closely match "${query}", place them at index 0-2.\n`
     : "";
 
-  // Restaurant mode: tell Claude to use its knowledge of official published menu data
   const restaurantBlock = isChain
     ? `RESTAURANT QUERY: Use your knowledge of this chain's official published menu nutrition data. ` +
       `Return specific named menu items (e.g. "Big Mac", "Chicken Burrito Bowl"). ` +
       `For each item: total_cal/total_p/total_c/total_f are the whole-item values as published. ` +
       `Calculate cal100=(total_cal/item_grams)*100, same for p100/c100/f100. ` +
       `Primary serving must be the whole item e.g. {"label":"1 Big Mac (220g)","g":220}. ` +
-      `source="ai_generated". Ignore DB candidates if they contradict known menu data.\n`
+      `ci=-1, source="ai_generated". Ignore DB candidates if they contradict known menu data.\n`
     : "";
 
   const result = await callClaude(
     apiKey,
-    "Nutrition DB. Output raw JSON array only — no markdown, no text.",
+    "You are a nutrition database assistant. Output raw JSON array only — no markdown, no explanation, no text outside the JSON.",
     [{
       role: "user",
       content:
         `Query:"${query}"\n${candidateBlock}${recentBlock}${restaurantBlock}\n` +
-        `Return exactly 8 objects. Rules:\n` +
-        `[0]=best match for "${query}", accurate macros, Title Case name.\n` +
-        `[1-7]=closely related variants — every item must be unmistakably about "${query}".\n` +
-        `Discard any candidate unrelated to "${query}"; fill gaps from your knowledge instead.\n` +
-        `cal100/p100/c100/f100=per 100g. source="ai_verified" if from candidates, "ai_generated" if new.\n` +
-        `servings=array of 2-4 objects [{label,g}] with realistic human portions e.g. [{"label":"1 large egg","g":50},{"label":"2 eggs","g":100},{"label":"100g","g":100}].\n` +
-        `[{"name":"","brand":"","cal100":0,"p100":0,"c100":0,"f100":0,"servings":[{"label":"100g","g":100}],"source":"ai_generated"}]`
+        `Return exactly 8 JSON objects ranked by relevance. Strict rules:\n` +
+        `[0] = THE single best match. If query names a specific brand (e.g. "Kirkland", "Quest", "Fairlife"), [0] MUST be that exact brand — even if no DB candidate matches (use ci=-1). NEVER substitute a different brand at [0] just because it has a DB entry.\n` +
+        `[1-7] = popular variants or closely related items — all must clearly relate to "${query}". NO unrelated foods. Prefer DB candidates (ci >= 0) for these slots.\n` +
+        `CRITICAL — "ci" field: if a result is from a DB candidate with matching brand, set ci to that candidate's "i". If brand doesn't match or product isn't in DB, ci=-1.\n` +
+        `When ci >= 0: source="ai_verified", cal100/p100/c100/f100 MUST exactly equal the candidate's cal/p/c/f values.\n` +
+        `When ci = -1: source="ai_generated". IMPORTANT: cal100/p100/c100/f100 are PER 100G values. A 10-cal drink in a 250ml can = 4 cal/100g. A 150-cal bar weighing 60g = 250 cal/100g. Always divide by weight, not serving count.\n` +
+        `servings = 2-4 realistic human portions, e.g. [{"label":"1 cup (245g)","g":245},{"label":"1/2 cup (123g)","g":123},{"label":"100g","g":100}].\n` +
+        `Schema: [{"name":"","brand":"","ci":-1,"cal100":0,"p100":0,"c100":0,"f100":0,"servings":[{"label":"100g","g":100}],"source":"ai_generated"}]`
     }],
-    768,
+    2000,
     "claude-haiku-4-5-20251001"
   );
 
@@ -425,33 +463,56 @@ async function callSearchOrchestrator(apiKey, query, candidates, recentFoods, is
       return null;
     }
 
-    // Convert AI output back to USDA-compatible shape so client parseFood works unchanged
     const foods = arr.slice(0, 8).map((item, idx) => {
       const srvArr = Array.isArray(item.servings) && item.servings.length > 0 ? item.servings : null;
       const primary = srvArr ? srvArr[0] : null;
+
+      const ci = typeof item.ci === "number" ? item.ci : -1;
+      const orig = (ci >= 0 && ci < candidates.length) ? candidates[ci] : null;
+
+      if (orig) {
+        // Use real DB nutrients — never trust AI-regenerated macros for known DB entries
+        return {
+          fdcId: orig.fdcId,
+          description: item.name || orig.description,
+          brandOwner: item.brand || orig.brandOwner || "",
+          dataType: "AI Verified",
+          foodNutrients: orig.foodNutrients,
+          servingSize: primary ? (Number(primary.g) || orig.servingSize || 100) : (orig.servingSize || 100),
+          servingSizeUnit: orig.servingSizeUnit || "g",
+          householdServingFullText: primary ? (primary.label || orig.householdServingFullText || "1 serving") : (orig.householdServingFullText || "100g"),
+          foodPortions: srvArr
+            ? srvArr.slice(1).filter(s => Number(s.g) > 0).map(s => ({
+                portionDescription: s.label || (s.g + "g"),
+                gramWeight: Number(s.g),
+              }))
+            : (orig.foodPortions || []),
+          source: "ai_verified",
+        };
+      }
+
+      // No DB match — use AI-generated macros (restaurant items, unlisted products)
       return {
         fdcId: `ai-${idx}`,
         description: item.name || "Unknown Food",
         brandOwner: item.brand || "",
-        dataType: item.source === "ai_generated" ? "AI Generated" : "AI Verified",
+        dataType: "AI Generated",
         foodNutrients: [
           { nutrientId: 1008, value: Number(item.cal100) || 0 },
           { nutrientId: 1003, value: Number(item.p100)   || 0 },
           { nutrientId: 1005, value: Number(item.c100)   || 0 },
           { nutrientId: 1004, value: Number(item.f100)   || 0 },
         ],
-        // Primary serving drives the default size in FoodDetail
         servingSize: primary ? (Number(primary.g) || 100) : (Number(item.servingGrams) || 100),
         servingSizeUnit: "g",
         householdServingFullText: primary ? (primary.label || "100g") : (item.serving || "100g"),
-        // Additional servings flow through foodPortions → parseFood → FoodDetail size picker
         foodPortions: srvArr
           ? srvArr.slice(1).filter(s => Number(s.g) > 0).map(s => ({
               portionDescription: s.label || (s.g + "g"),
               gramWeight: Number(s.g),
             }))
           : [],
-        source: item.source || "ai_verified",
+        source: "ai_generated",
       };
     });
 
@@ -925,7 +986,7 @@ export default {
   },
 
   // ── Main request handler ────────────────────────────────────────────
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin") || "";
     const cors = corsHeaders(origin);
 
@@ -1169,6 +1230,54 @@ export default {
       return jsonRes({ ok: true }, 200, cors);
     }
 
+
+    // ── COMMUNITY FOOD REPORT ─────────────────────────────────────────────
+    // Called whenever a user logs a food. Writes verified nutrition data to
+    // ureport: KV keys (1-year TTL) so future searches surface it first.
+    // AI-generated entries are skipped — only USDA/OFF/barcode data is trusted.
+    if (type === "report_food") {
+      const { food } = body;
+      if (!food || !food.description) return jsonRes({ error: "Missing food" }, 400, cors);
+
+      const fdcId = String(food.fdcId || "");
+      // Skip AI-generated entries — macros are estimates, not label data
+      if (!fdcId || fdcId.startsWith("ai-")) {
+        return jsonRes({ ok: true, skipped: true }, 200, cors);
+      }
+
+      const source = fdcId.startsWith("off-") ? "barcode_scan" : (food.source || "usda");
+
+      const entry = {
+        fdcId:                  food.fdcId,
+        description:            food.description,
+        brandOwner:             food.brandOwner || "",
+        dataType:               "Community Verified",
+        foodNutrients:          food.foodNutrients || [],
+        servingSize:            food.servingSize || 100,
+        servingSizeUnit:        food.servingSizeUnit || "g",
+        householdServingFullText: food.householdServingFullText || "1 serving",
+        foodPortions:           food.foodPortions || [],
+        source,
+      };
+
+      const entryJson = JSON.stringify([entry]);
+      const ttl = 5 * 365 * 24 * 3600; // 5 years — user-verified data is long-lived
+
+      // Generate all normalized keys this food should be reachable under
+      const descNorm  = normSearchKey(food.description);
+      const descBase  = baseSearchKey(descNorm);
+      const withBrand = normSearchKey((food.description + " " + (food.brandOwner || "")).trim());
+      const brandBase = baseSearchKey(withBrand);
+      const keysToWrite = [...new Set([descNorm, descBase, withBrand, brandBase].filter(k => k.split(" ").length >= 2))];
+
+      ctx.waitUntil(Promise.all(
+        keysToWrite.map(k => env.CODES.put("ureport:" + k, entryJson, { expirationTtl: ttl }).catch(() => {}))
+      ));
+
+      console.log(`[report_food] "${food.description}" → ${keysToWrite.length} keys source=${source}`);
+      return jsonRes({ ok: true, keys: keysToWrite.length }, 200, cors);
+    }
+
     // ── FOOD SEARCH (V11 - AI ORCHESTRATED + KV CACHE) ───────────────────
     if (type === "usda_search") {
       const { query, recentFoods } = body;
@@ -1177,40 +1286,79 @@ export default {
       const q = query.trim().toLowerCase();
       const qWords = q.split(/\s+/);
       const isChain = detectChain(q);
+      const cacheTtl = 604800; // 7 days for all queries — food data rarely changes
 
-      // ── KV cache check — common foods ~50ms, chains cached 7 days ────────
-      const cacheKey = "search:" + q;
-      const cacheTtl = isChain ? 604800 : 86400; // 7 days for chains, 24h for generic
+      // ── Two-level KV cache ────────────────────────────────────────────────
+      // Level 1 — exact normalized key: word-sorted, stop-words stripped.
+      //   "kirkland peach energy drink" and "kirkland energy drink peach" → same key.
+      // Level 2 — base key: also strips flavor/variant words.
+      //   "kirkland energy drink peach" and "kirkland energy drink" → same key.
+      const qNorm   = normSearchKey(q);
+      const qBase   = baseSearchKey(qNorm);
+      const cacheKey = "search:" + qNorm;
+      const baseKey  = qBase !== qNorm ? "search:" + qBase : null;
+
       try {
-        const cached = await env.CODES.get(cacheKey);
-        if (cached) {
-          console.log(`[search-orchestrator] cache HIT "${q}" (chain=${isChain})`);
-          return jsonRes({ foods: JSON.parse(cached), cached: true }, 200, cors);
+        // Read ureport (user-verified) and AI/DB cache in parallel — 4 keys, one round-trip
+        const ureportKey  = "ureport:" + qNorm;
+        const ureportBase = baseKey ? "ureport:" + qBase : null;
+        const [urExact, urBase, exactHit, baseHit] = await Promise.all([
+          env.CODES.get(ureportKey).catch(() => null),
+          ureportBase ? env.CODES.get(ureportBase).catch(() => null) : Promise.resolve(null),
+          env.CODES.get(cacheKey).catch(() => null),
+          baseKey ? env.CODES.get(baseKey).catch(() => null) : Promise.resolve(null),
+        ]);
+
+        const reportHit = urExact || urBase;
+        const cacheHit  = exactHit || baseHit;
+
+        if (reportHit || cacheHit) {
+          // Alias-write the cache key if we only hit the base
+          if (!exactHit && baseHit) {
+            ctx.waitUntil(env.CODES.put(cacheKey, baseHit, { expirationTtl: cacheTtl }));
+          }
+          if (reportHit && cacheHit) {
+            // Merge: user-verified foods first, then AI/DB results (dedup by fdcId)
+            const repFoods   = JSON.parse(reportHit);
+            const repIds     = new Set(repFoods.map(f => f.fdcId));
+            const cacheFoods = JSON.parse(cacheHit).filter(f => !repIds.has(f.fdcId));
+            const merged     = [...repFoods, ...cacheFoods].slice(0, 8);
+            console.log(`[search] cache HIT (merged) "${qNorm}" rep=${repFoods.length} ai=${cacheFoods.length}`);
+            return jsonRes({ foods: merged, cached: true }, 200, cors);
+          }
+          if (reportHit) {
+            console.log(`[search] cache HIT (ureport) "${qNorm}"`);
+            return jsonRes({ foods: JSON.parse(reportHit), cached: true }, 200, cors);
+          }
+          console.log(`[search] cache HIT (ai/db) "${qNorm}"`);
+          return jsonRes({ foods: JSON.parse(cacheHit), cached: true }, 200, cors);
         }
       } catch (e) {
-        console.log(`[search-orchestrator] cache read error: ${e.message}`);
+        console.log(`[search] cache read error: ${e.message}`);
       }
 
-      // Fetch from USDA (only if API key is configured) and OFF in parallel
-      const usdaPromise = env.USDA_API_KEY
-        ? fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(q)}&pageSize=8&api_key=${env.USDA_API_KEY}`)
-            .then(r => {
-              if (!r.ok) { console.log(`[search-orchestrator] USDA HTTP ${r.status}`); return {foods:[]}; }
-              return r.json();
-            }).catch(e => { console.log(`[search-orchestrator] USDA fetch error: ${e.message}`); return {foods:[]}; })
-        : (console.log(`[search-orchestrator] USDA_API_KEY not set`), Promise.resolve({foods:[]}));
+      // ── Fetch USDA + OFF (capped at 2.5s each) ─────────────────────
+      const fetchWithTimeout = (promise, ms) =>
+        Promise.race([promise, new Promise(res => setTimeout(() => res(null), ms))]);
 
-      const offPromise = fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=12&fields=product_name,brands,serving_size,serving_quantity,nutriments,code,unique_scans_n`,
-        { headers: { "User-Agent": "MacroTrack App" } }
-      ).then(r => r.ok ? r.json() : {products:[]}).catch(() => ({products:[]}));
+      const usdaFetch = env.USDA_API_KEY
+        ? fetchWithTimeout(
+            fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(q)}&pageSize=25&dataType=Branded%2CFoundation%2CSR%20Legacy&api_key=${env.USDA_API_KEY}`)
+              .then(r => r.ok ? r.json() : {foods:[]})
+              .catch(() => ({foods:[]})),
+            2500).then(r => r || {foods:[]})
+        : Promise.resolve({foods:[]});
 
-      const [usdaRaw, offRaw] = await Promise.all([usdaPromise, offPromise]);
+      const offFetch = fetchWithTimeout(
+        fetch(
+          `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=25&sort_by=unique_scans_n&fields=product_name,brands,serving_size,serving_quantity,nutriments,code,unique_scans_n`,
+          { headers: { "User-Agent": "MacroTrack App" } }
+        ).then(r => r.ok ? r.json() : {products:[]}).catch(() => ({products:[]})),
+        2500).then(r => r || {products:[]});
 
-      // Diagnostic logging so we can see exactly what each source returns
-      console.log(`[search-orchestrator] query="${q}" USDA foods=${usdaRaw.foods?.length ?? "err"} OFF products=${offRaw.products?.length ?? "err"}`);
+      const [usdaRaw, offRaw] = await Promise.all([usdaFetch, offFetch]);
 
-      // Normalise both sources into a unified shape
+      // ── Score + dedup DB results ─────────────────────────────────────
       const combined = [];
 
       (offRaw.products || []).forEach(p => {
@@ -1239,31 +1387,33 @@ export default {
         combined.push({ ...f, source: "USDA", pop: 0 });
       });
 
-      console.log(`[search-orchestrator] query="${q}" combined after normalise=${combined.length}`);
+      // Generic words that should NOT count as brand-name signals.
+      // Prevents "energy" in "Monster Energy Company" from beating a Kirkland query.
+      const GENERIC_WORDS = new Set([
+        "energy","drink","food","bar","shake","mix","powder","milk","water","juice",
+        "tea","coffee","protein","sugar","fat","carb","organic","natural","brand",
+        "company","corp","group","farms","foods","nutrition","health","fit","pure",
+        "plus","pro","max","ultra","original","classic","premium","select","co",
+      ]);
 
-      // Score, sort, and deduplicate — relevance only, no source bias
       const scored = combined.map(item => {
         const desc  = item.description.toLowerCase();
         const brand = (item.brandOwner || "").toLowerCase();
         let score = 0;
 
-        // Exact or leading match is strongest signal
         if (desc === q)           score += 40000;
         if (desc.startsWith(q))   score += 20000;
 
-        // Every query word present in name scores high; brand matches score less
-        const nameMatches  = qWords.filter(w => desc.includes(w)).length;
-        const brandMatches = qWords.filter(w => brand.includes(w)).length;
-        score += nameMatches  * 8000;
-        score += brandMatches * 2000;
+        const nameMatches = qWords.filter(w => desc.includes(w)).length;
+        score += nameMatches * 6000;
 
-        // Hard penalty for items with zero name-word overlap — likely irrelevant
+        const brandMatches = qWords.filter(w =>
+          w.length >= 5 && !GENERIC_WORDS.has(w) && brand.includes(w)
+        ).length;
+        score += brandMatches * 20000;
+
         if (nameMatches === 0) score -= 30000;
-
-        // Popularity signal from OFF (scans), but only when the item is relevant
         if (nameMatches > 0) score += Math.min((item.pop || 0) * 10, 5000);
-
-        // Penalise legal-entity clutter in brand names and survey data
         if (brand.includes("llc") || brand.includes("inc") || brand.includes("operations")) score -= 3000;
         if (item.dataType === "Survey (FNDDS)") score -= 8000;
 
@@ -1272,42 +1422,53 @@ export default {
       scored.sort((a, b) => b._score - a._score);
 
       const seen = new Set();
-      const candidates = [];
+      const dbResults = [];
       for (const item of scored) {
         const nameParts = item.description.toLowerCase().replace(/[^a-z0-9 ]/g, "").split(/\s+/);
         const key = `${(item.brandOwner || "").toLowerCase().slice(0, 8)}|${nameParts.slice(0, 2).join("")}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          candidates.push(item);
-        }
-        if (candidates.length >= 8) break;
+        if (!seen.has(key)) { seen.add(key); dbResults.push(item); }
+        if (dbResults.length >= 15) break;
       }
 
-      // Fallback: first 8 of the deterministic candidates
-      const fallback = candidates.slice(0, 8).map(c => ({ ...c, source: c.source + "_fallback" }));
+      const fallback = dbResults.slice(0, 8).map(c => ({ ...c, source: c.source + "_fallback" }));
 
-      // ── AI Orchestration (2.5s hard timeout) ─────────────────────────────
-      // Run even with 0 candidates — AI can generate results from knowledge
+      // ── Stale-while-revalidate ────────────────────────────────────────────
+      // First search returns DB results immediately (~2.5s).
+      // Background AI runs after the response is sent — it has 8s budget and uses
+      // direct awaits (not nested ctx.waitUntil) to reliably write the KV cache.
+      // Second search for the same food hits the AI-enriched cache and is instant + correct.
+
+      // Write initial DB fallback to cache (1h TTL — short, AI will overwrite soon)
+      ctx.waitUntil(env.CODES.put(cacheKey, JSON.stringify(fallback), { expirationTtl: 3600 }));
+      if (baseKey) ctx.waitUntil(env.CODES.put(baseKey, JSON.stringify(fallback), { expirationTtl: 3600 }));
+
+      // Background AI enrichment — direct awaits inside so KV writes are reliable
       if (env.ANTHROPIC_API_KEY) {
-        try {
-          const aiResult = await Promise.race([
-            callSearchOrchestrator(env.ANTHROPIC_API_KEY, q, candidates, recentFoods, isChain),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("ai_timeout")), 2500)),
-          ]);
-
-          if (aiResult && Array.isArray(aiResult.foods) && aiResult.foods.length > 0) {
-            console.log(`[search-orchestrator] query="${q}" chain=${isChain} returned ${aiResult.foods.length} AI results, index-0="${aiResult.foods[0].description}"`);
-            // Cache — chains for 7 days (menus rarely change), generic for 24h
-            env.CODES.put(cacheKey, JSON.stringify(aiResult.foods), { expirationTtl: cacheTtl }).catch(() => {});
-            return jsonRes({ foods: aiResult.foods }, 200, cors);
+        ctx.waitUntil((async () => {
+          try {
+            const aiResult = await Promise.race([
+              callSearchOrchestrator(env.ANTHROPIC_API_KEY, q, dbResults.slice(0, 15), recentFoods, isChain),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("ai_timeout")), 8000)),
+            ]);
+            if (aiResult?.foods?.length > 0) {
+              const foodsJson = JSON.stringify(aiResult.foods);
+              await env.CODES.put(cacheKey, foodsJson, { expirationTtl: cacheTtl });
+              if (baseKey) await env.CODES.put(baseKey, foodsJson, { expirationTtl: cacheTtl });
+              try {
+                const topBase = baseSearchKey(normSearchKey(aiResult.foods[0]?.description || ""));
+                if (topBase && topBase !== qNorm && topBase !== qBase) {
+                  await env.CODES.put("search:" + topBase, foodsJson, { expirationTtl: cacheTtl });
+                }
+              } catch (_) {}
+              console.log(`[search] bg-AI cached "${q}" index-0="${aiResult.foods[0].description}"`);
+            }
+          } catch (e) {
+            console.log(`[search] bg-AI failed "${q}": ${e.message}`);
           }
-        } catch (e) {
-          console.log(`[search-orchestrator] query="${q}" fell back — reason: ${e.message}`);
-        }
+        })());
       }
 
-      // Deterministic fallback
-      console.log(`[search-orchestrator] query="${q}" using fallback (${fallback.length} results)`);
+      console.log(`[search] "${q}" returning DB fallback (${fallback.length}), AI enriching in bg`);
       return jsonRes({ foods: fallback }, 200, cors);
     }
 

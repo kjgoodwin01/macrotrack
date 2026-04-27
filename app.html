@@ -1049,6 +1049,44 @@ async function loadFromCloud(workerUrl) {
   }
 }
 
+/* ── Community food reporter ── */
+// Fire-and-forget: when a user logs a food, report its verified nutrition data
+// to the worker so future searches by anyone surface correct macros first.
+// AI-generated foods (fdcId starts with "ai-") are skipped — macros are estimates.
+function reportFood(workerUrl, food) {
+  if (!food || !food.name) return;
+  var fdcId = String(food.fdcId || "");
+  if (!fdcId || fdcId.startsWith("ai-")) return;
+  try {
+    fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "report_food",
+        food: {
+          fdcId: food.fdcId,
+          description: food.name,
+          brandOwner: food.brand || "",
+          dataType: food.dataType || "",
+          foodNutrients: [
+            { nutrientId: 1008, value: food.cal100 || 0 },
+            { nutrientId: 1003, value: food.p100 || 0 },
+            { nutrientId: 1005, value: food.c100 || 0 },
+            { nutrientId: 1004, value: food.f100 || 0 },
+          ],
+          servingSize:              (food.servings && food.servings[0]) ? food.servings[0].grams : 100,
+          servingSizeUnit:          "g",
+          householdServingFullText: (food.servings && food.servings[0]) ? food.servings[0].label : "1 serving",
+          foodPortions:             (food.servings || []).slice(1).map(function(s) {
+            return { portionDescription: s.label, gramWeight: s.grams };
+          }),
+          source: fdcId.startsWith("off-") ? "barcode_scan" : "usda",
+        }
+      })
+    }).catch(function(){});
+  } catch(e) {}
+}
+
 /* ── Date helpers ── */
 function isoDate(d) {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -1927,7 +1965,7 @@ function FoodDetail({
         p: m.p,
         c: m.c,
         f: m.f
-      });
+      }, food);
     }
   }, "Add to ", meal), /*#__PURE__*/React.createElement("button", {
     className: "btn-ghost",
@@ -2619,7 +2657,8 @@ function AddFoodModal({
     };
     reader.readAsDataURL(file);
   }
-  function confirm(entry) {
+  function confirm(entry, rawFood) {
+    if (rawFood) reportFood(workerUrl, rawFood);
     onAdd(entry);
     onClose();
   }
