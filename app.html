@@ -150,7 +150,9 @@
     .food-row:active{background:var(--s2)}
     /* Edit entry sheet */
     .edit-sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:400;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:fdin 0.2s ease}
-    .edit-sheet{position:fixed;bottom:0;left:0;right:0;width:100%;max-width:var(--app-max-w);margin:0 auto;background:var(--s1);border:1px solid var(--b2);border-radius:24px 24px 0 0;padding:20px 20px calc(var(--sb) + 24px);z-index:401;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
+    @keyframes sheet-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .edit-sheet{position:fixed;bottom:0;left:0;right:0;width:100%;max-width:var(--app-max-w);margin:0 auto;background:var(--s1);border:1px solid var(--b2);border-radius:24px 24px 0 0;padding:20px 20px calc(var(--sb) + 24px);z-index:401;animation:sheet-up 0.3s cubic-bezier(0.4,0,0.2,1)}
+    html.native .edit-sheet{padding-bottom:calc(var(--nav-h) + 10px)}
     .edit-sheet-handle{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 18px}
     .edit-sheet-title{font-size:15px;font-weight:700;color:var(--txt);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .edit-sheet-sub{font-size:11px;color:var(--mu);margin-bottom:18px}
@@ -823,7 +825,8 @@ const {
   useState,
   useEffect,
   useRef,
-  useCallback
+  useCallback,
+  useMemo
 } = React;
 
 /* ── Constants ── */
@@ -1093,6 +1096,21 @@ function isoDate(d) {
 }
 function todayISO() {
   return isoDate(new Date());
+}
+function computeStreak(entries) {
+  var streak = 0;
+  var d = new Date();
+  // If nothing logged today, start checking from yesterday
+  if (!entries[isoDate(d)] || entries[isoDate(d)].length === 0) {
+    d.setDate(d.getDate() - 1);
+  }
+  while (true) {
+    var key = isoDate(d);
+    if (!entries[key] || entries[key].length === 0) break;
+    streak++;
+    d.setDate(d.getDate() - 1);
+  }
+  return streak;
 }
 
 function _seedDemoData() {
@@ -1599,7 +1617,8 @@ function UpdateBanner({ onRestart, onDismiss }) {
 function CalHero({
   logged,
   goals,
-  exerciseCal
+  exerciseCal,
+  streak
 }) {
   var ec = exerciseCal || 0;
   var budget = goals.calories + ec;
@@ -1685,7 +1704,9 @@ function CalHero({
     }
   })), /*#__PURE__*/React.createElement("div", {
     className: "mpill-goal"
-  }, goals.fat, "g goal"))));
+  }, goals.fat, "g goal"))), streak > 0 && /*#__PURE__*/React.createElement("div", {
+    style: { textAlign: "right", marginTop: 10, fontSize: 12, fontWeight: 700, color: streak >= 7 ? "var(--amb)" : "var(--mu)", fontFamily: "'JetBrains Mono',monospace" }
+  }, "🔥 ", streak, " day", streak !== 1 ? "s" : ""));
 }
 
 /* ── WeekSelector ── */
@@ -2335,7 +2356,8 @@ function AddFoodModal({
   onAdd,
   targetMeal,
   usdaKey,
-  workerUrl
+  workerUrl,
+  entries
 }) {
   const scrollRef = useRef(null);
   const [tab, setTab] = useState("search");
@@ -2346,16 +2368,14 @@ function AddFoodModal({
   const [sErr, setSErr] = useState("");
   const [selected, setSelected] = useState(null);
 
-  // ── Recents: pull from localStorage, dedupe by name, sort by most recent ──
-  const recents = useState(function(){
+  // ── Recents: derived from live entries prop so they update immediately ──
+  const recents = useMemo(function(){
     try {
-      var entries = JSON.parse(localStorage.getItem("mt_entries") || "{}");
       var seen = {};
       var list = [];
-      // Iterate dates in reverse chronological order
-      var dates = Object.keys(entries).sort().reverse();
+      var dates = Object.keys(entries || {}).sort().reverse();
       for(var di=0; di<dates.length; di++){
-        var dayItems = entries[dates[di]] || [];
+        var dayItems = (entries || {})[dates[di]] || [];
         for(var fi=0; fi<dayItems.length; fi++){
           var item = dayItems[fi];
           var key = (item.name||"").toLowerCase().trim();
@@ -2376,7 +2396,7 @@ function AddFoodModal({
       }
       return list;
     } catch(e){ return []; }
-  })[0];
+  }, [entries]);
 
   // ── Smart Meal Bundles: detect foods logged together 3+ times ──
   const bundles = useState(function(){
@@ -2465,6 +2485,8 @@ function AddFoodModal({
   var _smn = React.useState(""); var saveMealName = _smn[0]; var setSaveMealName = _smn[1];
   var _em = React.useState(null); var editingMeal = _em[0]; var setEditingMeal = _em[1];
   var _sf = React.useState(false); var savedFeedback = _sf[0]; var setSavedFeedback = _sf[1];
+  var _ais = React.useState(null); var activeItemSearch = _ais[0]; var setActiveItemSearch = _ais[1];
+  var itemSearchTimer = React.useRef(null);
 
   async function submitNlp(){
     var text = nlpText.trim();
@@ -2725,6 +2747,37 @@ function AddFoodModal({
     setEditingMeal(function(prev) {
       return Object.assign({}, prev, { items: prev.items.filter(function(_, i) { return i !== idx; }) });
     });
+  }
+  function searchForItem(idx, q) {
+    setActiveItemSearch({idx:idx, query:q, results:[], loading: q.length >= 2});
+    clearTimeout(itemSearchTimer.current);
+    if (!q || q.length < 2) return;
+    itemSearchTimer.current = setTimeout(async function() {
+      try {
+        var r = await fetch(workerUrl.replace(/\/$/, ""), {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({type:"usda_search", query:q, pageSize:5})
+        });
+        var d = await r.json();
+        setActiveItemSearch(function(prev){ return prev && prev.idx===idx ? Object.assign({},prev,{loading:false,results:(d.foods||[]).map(parseFood)}) : prev; });
+      } catch(e) {
+        setActiveItemSearch(function(prev){ return prev && prev.idx===idx ? Object.assign({},prev,{loading:false}) : prev; });
+      }
+    }, 400);
+  }
+  function selectItemFood(food) {
+    var serv = food.servings && food.servings[0];
+    var grams = serv ? serv.grams : 100;
+    var m = scaleMacros(food, grams, 1);
+    var idx = activeItemSearch.idx;
+    setEditingMeal(function(prev) {
+      var items = prev.items.map(function(it, i) {
+        if (i !== idx) return it;
+        return Object.assign({}, it, {name:food.name, serving:serv?serv.label:"1 serving", cal:m.cal, p:m.p, c:m.c, f:m.f});
+      });
+      return Object.assign({}, prev, {items:items});
+    });
+    setActiveItemSearch(null);
   }
   function switchTab(t) {
     setTab(t);
@@ -3246,8 +3299,9 @@ function AddFoodModal({
   ),
   /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"var(--mu)",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700,marginBottom:8}}, "Items"),
   editingMeal.items.map(function(item, idx) {
+    var isSearching = activeItemSearch && activeItemSearch.idx === idx;
     return /*#__PURE__*/React.createElement("div", {key:idx,style:{background:"var(--card)",borderRadius:10,padding:12,marginBottom:8}},
-      /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:8,marginBottom:8}},
+      /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:8,marginBottom:isSearching?6:8}},
         /*#__PURE__*/React.createElement("input", {
           className:"field",
           style:{flex:1},
@@ -3255,10 +3309,41 @@ function AddFoodModal({
           value:item.name,
           onChange:function(e){updateEditItem(idx,"name",e.target.value);}
         }),
+        workerUrl && /*#__PURE__*/React.createElement("button", {
+          onClick:function(){ isSearching ? setActiveItemSearch(null) : searchForItem(idx, item.name); },
+          style:{background:"none",border:"none",color:isSearching?"var(--indl)":"var(--mu)",fontSize:15,cursor:"pointer",padding:"0 4px",flexShrink:0},
+          title:"Search food database"
+        }, isSearching ? "\u00D7" : "\uD83D\uDD0D"),
         /*#__PURE__*/React.createElement("button", {
           onClick:function(){removeEditItem(idx);},
           style:{background:"none",border:"none",color:"var(--rose)",fontSize:20,cursor:"pointer",padding:"0 6px",flexShrink:0}
         }, "\u00D7")
+      ),
+      isSearching && /*#__PURE__*/React.createElement("div", {style:{marginBottom:8}},
+        /*#__PURE__*/React.createElement("input", {
+          className:"field",
+          style:{marginBottom:6},
+          placeholder:"Search food database\u2026",
+          autoFocus:true,
+          value:activeItemSearch.query,
+          onChange:function(e){searchForItem(idx,e.target.value);}
+        }),
+        activeItemSearch.loading && /*#__PURE__*/React.createElement("div", {style:{fontSize:12,color:"var(--mu)",padding:"4px 0"}}, "Searching\u2026"),
+        !activeItemSearch.loading && activeItemSearch.results.length > 0 && /*#__PURE__*/React.createElement("div", {style:{background:"var(--bg)",borderRadius:8,overflow:"hidden",border:"1px solid var(--bdr)"}},
+          activeItemSearch.results.map(function(food, fi) {
+            return /*#__PURE__*/React.createElement("div", {
+              key:fi,
+              onClick:function(){selectItemFood(food);},
+              style:{padding:"8px 10px",borderBottom:fi<activeItemSearch.results.length-1?"1px solid var(--bdr)":"none",cursor:"pointer",fontSize:13}
+            },
+              /*#__PURE__*/React.createElement("div", {style:{fontWeight:600,marginBottom:2}}, food.name),
+              /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"var(--mu)"}},
+                (food.brand||food.dataType||"") + (food.cal100 ? " \u00B7 " + food.cal100 + " kcal/100g" : "")
+              )
+            );
+          })
+        ),
+        !activeItemSearch.loading && activeItemSearch.results.length===0 && activeItemSearch.query.length>=2 && /*#__PURE__*/React.createElement("div", {style:{fontSize:12,color:"var(--mu)",padding:"4px 0"}}, "No results found")
       ),
       /*#__PURE__*/React.createElement("input", {
         className:"field",
@@ -5870,7 +5955,9 @@ function CoachTab({
       (volLines ? "Weekly volume: " + volLines + "\n" : "") +
       (rmLines ? "Est. 1RMs: " + rmLines + "\n" : "") +
       "Last 7 days:\n" + trainingLines;
-    return "USER PROFILE:\n" + "Goal: " + goalTypeLabel + " | Target weight: " + (goals.targetWeight ? goals.targetWeight + " lbs" : "not set") + " | Progress: " + toGo + "\n" + "Daily targets: " + goals.calories + " kcal | Protein: " + goals.protein + "g | Carbs: " + goals.carbs + "g | Fat: " + goals.fat + "g\n\n" + "THIS WEEK ADHERENCE:\n" + adherence + "\n" + calAdherence + "\n\n" + "TODAY (" + today + "):\n" + "Consumed: " + todayTot.cal + "/" + goals.calories + " kcal (" + (remCal > 0 ? remCal + " kcal remaining" : Math.abs(remCal) + " kcal over") + ")\n" + "Protein: " + todayTot.p + "g/" + (remP > 0 ? remP + "g remaining" : Math.abs(remP) + "g over target") + "\n" + "Carbs: " + todayTot.c + "g | Fat: " + todayTot.f + "g\n" + "Foods logged today: " + (todayFoods || "nothing yet") + "\n\n" + "LAST 7 DAYS DETAIL:\n" + last7 + "\n\n" + "WEIGHT HISTORY:\n" + wLines + wTrend + "\n\nTRAINING:\n" + trainingBlock;
+    const streakVal = computeStreak(entries);
+    const streakLine = streakVal > 0 ? "Logging streak: " + streakVal + " day" + (streakVal !== 1 ? "s" : "") + "\n" : "";
+    return "USER PROFILE:\n" + "Goal: " + goalTypeLabel + " | Target weight: " + (goals.targetWeight ? goals.targetWeight + " lbs" : "not set") + " | Progress: " + toGo + "\n" + "Daily targets: " + goals.calories + " kcal | Protein: " + goals.protein + "g | Carbs: " + goals.carbs + "g | Fat: " + goals.fat + "g\n\n" + "THIS WEEK ADHERENCE:\n" + adherence + "\n" + calAdherence + "\n" + streakLine + "\n" + "TODAY (" + today + "):\n" + "Consumed: " + todayTot.cal + "/" + goals.calories + " kcal (" + (remCal > 0 ? remCal + " kcal remaining" : Math.abs(remCal) + " kcal over") + ")\n" + "Protein: " + todayTot.p + "g/" + (remP > 0 ? remP + "g remaining" : Math.abs(remP) + "g over target") + "\n" + "Carbs: " + todayTot.c + "g | Fat: " + todayTot.f + "g\n" + "Foods logged today: " + (todayFoods || "nothing yet") + "\n\n" + "LAST 7 DAYS DETAIL:\n" + last7 + "\n\n" + "WEIGHT HISTORY:\n" + wLines + wTrend + "\n\nTRAINING:\n" + trainingBlock;
   }
 
   // Returns true if today is Sunday (day 0)
@@ -5982,7 +6069,7 @@ function CoachTab({
       text: text.trim(),
       time: t
     };
-    const newMsgs = msgs.concat([userMsg]);
+    const newMsgs = msgs.concat([userMsg]).slice(-50);
     setMsgs(newMsgs);
     setInput("");
     setAiTyping(true);
@@ -6740,16 +6827,16 @@ function WorkoutTab({ workouts, setWorkouts, workoutTemplates, setWorkoutTemplat
   }
 
   function getSessionStats() {
-    var totalSets = 0; var totalVol = 0; var cardioMins = 0;
+    var totalSets = 0; var topSet = 0; var cardioMins = 0;
     dateWorkouts.forEach(function(ex) {
       if (ex.type === "cardio") { cardioMins += ex.duration || 0; return; }
       var sets = ex.setLog && ex.setLog.length ? ex.setLog.filter(function(s){ return !s.warmup; }).length || ex.setLog.length : (parseInt(ex.sets) || 1);
       totalSets += sets;
       if (ex.setLog && ex.setLog.length) {
-        ex.setLog.forEach(function(s) { if (!s.warmup) totalVol += (parseW(s.weight) * (parseInt(s.reps)||0)); });
-      } else { totalVol += (parseW(ex.weight) * (parseInt(ex.reps)||0) * (parseInt(ex.sets)||1)); }
+        ex.setLog.forEach(function(s) { if (!s.warmup) { var w = parseW(s.weight); if (w > topSet) topSet = w; } });
+      } else { var w = parseW(ex.weight); if (w > topSet) topSet = w; }
     });
-    return { totalSets: totalSets, totalVol: Math.round(totalVol), cardioMins: cardioMins };
+    return { totalSets: totalSets, topSet: topSet, cardioMins: cardioMins };
   }
 
   async function handleNlpParse() {
@@ -6888,8 +6975,8 @@ function WorkoutTab({ workouts, setWorkouts, workoutTemplates, setWorkoutTemplat
               /*#__PURE__*/React.createElement("div", { className: "train-stat-lbl" }, "Sets")
             ),
             /*#__PURE__*/React.createElement("div", { className: "train-stat" },
-              /*#__PURE__*/React.createElement("div", { className: "train-stat-val" }, stats.totalVol > 0 ? (stats.totalVol >= 1000 ? (stats.totalVol/1000).toFixed(1)+"k" : stats.totalVol) : stats.cardioMins > 0 ? stats.cardioMins+"m" : "\u2014"),
-              /*#__PURE__*/React.createElement("div", { className: "train-stat-lbl" }, stats.cardioMins > 0 && stats.totalVol === 0 ? "Cardio" : "Volume lb")
+              /*#__PURE__*/React.createElement("div", { className: "train-stat-val" }, stats.topSet > 0 ? stats.topSet+"lb" : stats.cardioMins > 0 ? stats.cardioMins+"m" : "\u2014"),
+              /*#__PURE__*/React.createElement("div", { className: "train-stat-lbl" }, stats.cardioMins > 0 && stats.topSet === 0 ? "Cardio" : "Top Set")
             ),
             prSet.size > 0 && /*#__PURE__*/React.createElement("div", { className: "train-stat" },
               /*#__PURE__*/React.createElement("div", { className: "train-stat-val", style: { color: "var(--eml)" } }, "\uD83C\uDFC6" + prSet.size),
@@ -7461,8 +7548,15 @@ function App() {
     if (v) showToast("✓ Worker URL saved");
   }
 
-  // setWorkouts — saves locally and syncs the affected date to Supabase
+  // setWorkouts — saves locally, stamps a modification time, and syncs to Supabase
   function setWorkouts(updater, syncDate) {
+    if (syncDate) {
+      try {
+        var ts = JSON.parse(localStorage.getItem("mt_workouts_ts") || "{}");
+        ts[syncDate] = Date.now();
+        localStorage.setItem("mt_workouts_ts", JSON.stringify(ts));
+      } catch(e) {}
+    }
     setWorkoutsRaw(function(prev) {
       var next = typeof updater === "function" ? updater(prev) : updater;
       if (syncDate && next[syncDate] !== undefined) {
@@ -7545,13 +7639,20 @@ function App() {
           });
         });
       }
-      // Merge cloud workouts — cloud wins per date (last-sync wins, offline dates preserved)
+      // Merge cloud workouts — newer timestamp wins per date
       if (cloud.workouts && cloud.workouts.length > 0) {
+        var localTs = {};
+        try { localTs = JSON.parse(localStorage.getItem("mt_workouts_ts") || "{}"); } catch(e) {}
         setWorkoutsRaw(function(prev) {
           var merged = Object.assign({}, prev);
           cloud.workouts.forEach(function(row) {
-            // Cloud wins for this date — it holds the most recently synced state
-            merged[row.log_date] = row.exercises || [];
+            var localModified = localTs[row.log_date] || 0;
+            var cloudModified = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+            // Cloud wins only if its data is newer than the last local write for this date.
+            // If local is newer (e.g. a deletion synced before the app closed), keep local.
+            if (cloudModified > localModified) {
+              merged[row.log_date] = row.exercises || [];
+            }
           });
           return merged;
         });
@@ -7814,12 +7915,21 @@ function App() {
 
   function saveEdit() {
     if (!editItem) return;
+    const qty = parseFloat(editQty) || 1;
+    // Rebuild serving label to reflect qty multiplier
+    let newServing = editItem.serving || "";
+    if (newServing) {
+      const match = newServing.match(/^[\d.]+x\s+(.+)$/);
+      const baseServing = match ? match[1] : newServing;
+      newServing = qty !== 1 ? qty + "x " + baseServing : baseServing;
+    }
     // If a field was left blank, keep the original value rather than zeroing it out.
     const updated = Object.assign({}, editItem, {
       p:   editP.trim()   !== "" ? Math.round(parseFloat(editP)   || 0) : (editItem.p   || 0),
       c:   editC.trim()   !== "" ? Math.round(parseFloat(editC)   || 0) : (editItem.c   || 0),
       f:   editF.trim()   !== "" ? Math.round(parseFloat(editF)   || 0) : (editItem.f   || 0),
       cal: editCal.trim() !== "" ? Math.round(parseFloat(editCal) || 0) : (editItem.cal || 0),
+      serving: newServing || editItem.serving,
     });
     setEntriesRaw(function(prev) {
       const n = Object.assign({}, prev);
@@ -7867,6 +7977,32 @@ function App() {
     });
     showToast("✓ Day cleared");
   }
+  const streak = useMemo(() => computeStreak(entries), [entries]);
+
+  // Sync today's data to the iOS home screen widget via App Group UserDefaults
+  useEffect(function() {
+    if (!window.webkit?.messageHandlers?.syncWidgetData) return;
+    var today = todayISO();
+    var todayE = entries[today] || [];
+    var consumed = todayE.reduce(function(a, e) {
+      return { cal: a.cal + e.cal, p: a.p + e.p, c: a.c + e.c, f: a.f + e.f };
+    }, { cal: 0, p: 0, c: 0, f: 0 });
+    try {
+      window.webkit.messageHandlers.syncWidgetData.postMessage({
+        calConsumed: consumed.cal,
+        calGoal: goals.calories,
+        protein: consumed.p,
+        proteinGoal: goals.protein,
+        carbs: consumed.c,
+        carbsGoal: goals.carbs,
+        fat: consumed.f,
+        fatGoal: goals.fat,
+        streak: streak,
+        date: today
+      });
+    } catch(_) {}
+  }, [entries, goals, streak]);
+
   const dayEntries = entries[selectedDate] || [];
   const logged = dayEntries.reduce((a, e) => ({
     calories: a.calories + e.cal,
@@ -8040,7 +8176,8 @@ function App() {
   }), /*#__PURE__*/React.createElement(CalHero, {
     logged: logged,
     goals: goals,
-    exerciseCal: exerciseCal
+    exerciseCal: exerciseCal,
+    streak: streak
   }), /*#__PURE__*/React.createElement(CourseCorrection, {
     logged: logged,
     goals: goals,
@@ -8905,7 +9042,8 @@ function App() {
     onAdd: addEntry,
     targetMeal: targetMeal,
     usdaKey: usdaKey,
-    workerUrl: workerUrl
+    workerUrl: workerUrl,
+    entries: entries
   }), modal === "weight" && /*#__PURE__*/React.createElement(WeightModal, {
     onClose: () => setModal(null),
     onLog: logWeight
