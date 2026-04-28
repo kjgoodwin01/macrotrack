@@ -7883,7 +7883,7 @@ function App() {
     setEditC(String(item.c || 0));
     setEditF(String(item.f || 0));
     setEditCal(String(item.cal || 0));
-    setEditQty("1");
+    setEditQty(String(item.qty || 1));
     setCalManual(false);
   }
 
@@ -7892,10 +7892,11 @@ function App() {
     if (field === "qty") {
       setEditQty(n);
       const ratio = parseFloat(n) || 0;
-      setEditP(String(Math.round((editItem.p || 0) * ratio)));
-      setEditC(String(Math.round((editItem.c || 0) * ratio)));
-      setEditF(String(Math.round((editItem.f || 0) * ratio)));
-      setEditCal(String(Math.round((editItem.cal || 0) * ratio)));
+      const baseQty = parseFloat(editItem.qty) || 1;
+      setEditP(String(Math.round((editItem.p || 0) / baseQty * ratio)));
+      setEditC(String(Math.round((editItem.c || 0) / baseQty * ratio)));
+      setEditF(String(Math.round((editItem.f || 0) / baseQty * ratio)));
+      setEditCal(String(Math.round((editItem.cal || 0) / baseQty * ratio)));
       setCalManual(false);
     }
     if (field === "p") { setEditP(n); if (!calManual) setEditCal(String(Math.round((parseFloat(n)||0)*4 + (parseFloat(editC)||0)*4 + (parseFloat(editF)||0)*9))); }
@@ -7930,6 +7931,7 @@ function App() {
       f:   editF.trim()   !== "" ? Math.round(parseFloat(editF)   || 0) : (editItem.f   || 0),
       cal: editCal.trim() !== "" ? Math.round(parseFloat(editCal) || 0) : (editItem.cal || 0),
       serving: newServing || editItem.serving,
+      qty: qty,
     });
     setEntriesRaw(function(prev) {
       const n = Object.assign({}, prev);
