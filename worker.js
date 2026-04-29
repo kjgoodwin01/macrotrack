@@ -909,8 +909,27 @@ export default {
               console.log("[scheduled] daily reminder — sub.device_id is undefined for sub.id:", sub.id, "SKIPPING");
               continue;
             }
+            // Resolve canonical device_id — push subscription may have a stale device_id
+            // if the user authenticated after registering push (auth UUID != original mt_ ID)
+            let checkDeviceId = sub.device_id;
+            try {
+              const profLookup = await dbQuery(env, "GET",
+                "profiles?device_id=eq." + encodeURIComponent(sub.device_id) + "&select=email&limit=1"
+              );
+              if (profLookup.data && profLookup.data.length > 0 && profLookup.data[0].email) {
+                const canonical = await dbQuery(env, "GET",
+                  "profiles?email=eq." + encodeURIComponent(profLookup.data[0].email) +
+                  "&order=updated_at.desc&limit=1"
+                );
+                if (canonical.data && canonical.data.length > 0) {
+                  checkDeviceId = canonical.data[0].device_id;
+                  if (checkDeviceId !== sub.device_id)
+                    console.log("[scheduled] daily reminder — resolved device_id from", sub.device_id, "→", checkDeviceId);
+                }
+              }
+            } catch (_) {}
             const entries = await dbQuery(env, "GET",
-              "food_entries?device_id=eq." + encodeURIComponent(sub.device_id) +
+              "food_entries?device_id=eq." + encodeURIComponent(checkDeviceId) +
               "&log_date=eq." + todayISO + "&limit=1"
             );
             const hasLogged = entries.data && entries.data.length > 0;
@@ -940,9 +959,28 @@ export default {
               continue;
             }
 
+            // Resolve canonical device_id — same migration guard as daily reminder
+            let checkDeviceId = sub.device_id;
+            try {
+              const profLookup = await dbQuery(env, "GET",
+                "profiles?device_id=eq." + encodeURIComponent(sub.device_id) + "&select=email&limit=1"
+              );
+              if (profLookup.data && profLookup.data.length > 0 && profLookup.data[0].email) {
+                const canonical = await dbQuery(env, "GET",
+                  "profiles?email=eq." + encodeURIComponent(profLookup.data[0].email) +
+                  "&order=updated_at.desc&limit=1"
+                );
+                if (canonical.data && canonical.data.length > 0) {
+                  checkDeviceId = canonical.data[0].device_id;
+                  if (checkDeviceId !== sub.device_id)
+                    console.log("[scheduled] protein gap — resolved device_id from", sub.device_id, "→", checkDeviceId);
+                }
+              }
+            } catch (_) {}
+
             // Resolve personal protein goal from profile
             const profile = await dbQuery(env, "GET",
-              "profiles?device_id=eq." + encodeURIComponent(sub.device_id) + "&limit=1"
+              "profiles?device_id=eq." + encodeURIComponent(checkDeviceId) + "&limit=1"
             );
             if (!profile.data || profile.data.length === 0) {
               console.log("[scheduled] protein gap — no profile for sub.id:", sub.id, "SKIPPING");
@@ -960,7 +998,7 @@ export default {
 
             // Sum today's protein from food_entries
             const entries = await dbQuery(env, "GET",
-              "food_entries?device_id=eq." + encodeURIComponent(sub.device_id) +
+              "food_entries?device_id=eq." + encodeURIComponent(checkDeviceId) +
               "&log_date=eq." + todayISO + "&limit=200"
             );
             const proteinLogged = !entries.data || entries.data.length === 0 ? 0 : Math.round(entries.data.reduce(function(sum, e) {
@@ -1207,8 +1245,7 @@ export default {
       } else if (!profileCheck.data || profileCheck.data.length === 0) {
         return jsonRes({ error: "Profile not found — complete onboarding first" }, 403, cors);
       }
-      // Upsert: UNIQUE(device_id, log_date) means duplicate days are merged, never created
-      const result = await sb(env, "POST", "workout_sessions", {
+      const result = await sb(env, "POST", "workout_sessions?on_conflict=device_id,log_date", {
         device_id: resolvedDeviceId,
         log_date: date,
         exercises: exercises,
@@ -2147,6 +2184,12 @@ export default {
         updated_at: new Date().toISOString(),
       });
       if (!result.ok) return jsonRes({ error: "Failed to save APNs subscription" }, 500, cors);
+      // Delete any stale subscription rows that share this APNs token but have an old device_id
+      // (happens when a user re-authenticates and their device_id changes)
+      await sbAdmin(env, "DELETE",
+        "push_subscriptions?endpoint=eq." + encodeURIComponent("apns://" + apnsToken) +
+        "&device_id=neq." + encodeURIComponent(resolvedDeviceId)
+      ).catch(() => {});
       return jsonRes({ ok: true }, 200, cors);
     }
 
@@ -2419,7 +2462,7 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
         return jsonRes({ ok: true, noop: true }, 200, cors);
       }
 
-      // Migrate all three tables and store email for future OTP sign-ins
+      // Migrate all tables and store email for future OTP sign-ins
       const profilePatch = { device_id: newUserId };
       if (email) profilePatch.email = email.trim().toLowerCase();
       await Promise.all([
@@ -2429,6 +2472,20 @@ Example output: [{"name":"Large Eggs","serving":"2 large","grams":100,"cal":143,
         sbAdmin(env, "PATCH", "weight_log?device_id=eq." + encodeURIComponent(oldDeviceId),
           { device_id: newUserId }),
       ]);
+
+      // Migrate push_subscriptions — without this, the cron job looks up food entries
+      // under the old device_id (finds none) and sends a false "haven't logged" notification.
+      const newSubCheck = await sbAdmin(env, "GET",
+        "push_subscriptions?device_id=eq." + encodeURIComponent(newUserId) + "&limit=1");
+      if (newSubCheck.data && newSubCheck.data.length > 0) {
+        // New device_id already has an active subscription; remove the stale old one.
+        await sbAdmin(env, "DELETE",
+          "push_subscriptions?device_id=eq." + encodeURIComponent(oldDeviceId));
+      } else {
+        await sbAdmin(env, "PATCH",
+          "push_subscriptions?device_id=eq." + encodeURIComponent(oldDeviceId),
+          { device_id: newUserId });
+      }
 
       return jsonRes({ ok: true }, 200, cors);
     }

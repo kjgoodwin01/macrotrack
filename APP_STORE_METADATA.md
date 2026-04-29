@@ -81,6 +81,53 @@ Welcome to MacroTrack! Log food, track macros, and chat with your AI nutrition c
 
 ---
 
+## Subscription Products Metadata
+
+Paste these into each product in ASC → Monetization → Subscriptions.
+
+### Subscription Group Name
+```
+MacroTrack Pro
+```
+
+---
+
+### macrotrack_pro_monthly — Pro Monthly
+
+| Field | Value |
+|---|---|
+| **Display Name** | MacroTrack Pro |
+| **Description** | AI coach & meal plans, billed monthly |
+
+---
+
+### macrotrack_pro_annual — Pro Annual
+
+| Field | Value |
+|---|---|
+| **Display Name** | MacroTrack Pro Annual |
+| **Description** | AI coach & meal plans, billed annually |
+
+---
+
+### macrotrack_max_monthly — Max Monthly
+
+| Field | Value |
+|---|---|
+| **Display Name** | MacroTrack Max |
+| **Description** | Unlimited AI coaching & meals, monthly |
+
+---
+
+### macrotrack_max_annual — Max Annual
+
+| Field | Value |
+|---|---|
+| **Display Name** | MacroTrack Max Annual |
+| **Description** | Unlimited AI coaching & meals, annually |
+
+---
+
 ## Pricing & Availability
 
 | Field | Value |

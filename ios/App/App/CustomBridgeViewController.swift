@@ -1,6 +1,7 @@
 import Capacitor
 import UIKit
 import AuthenticationServices
+import WidgetKit
 
 class CustomBridgeViewController: CAPBridgeViewController {
     private var splashView: UIView?
@@ -16,6 +17,7 @@ class CustomBridgeViewController: CAPBridgeViewController {
 
         showSplash()
         webView?.configuration.userContentController.add(self, name: "appReady")
+        webView?.configuration.userContentController.add(self, name: "syncWidgetData")
         webView?.configuration.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "signInWithApple")
         DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
             self?.hideSplash()
@@ -56,6 +58,16 @@ extension CustomBridgeViewController: WKScriptMessageHandler {
                                 didReceive message: WKScriptMessage) {
         if message.name == "appReady" {
             DispatchQueue.main.async { [weak self] in self?.hideSplash() }
+        } else if message.name == "syncWidgetData" {
+            guard let body = message.body as? [String: Any],
+                  let defaults = UserDefaults(suiteName: "group.live.macrotrack.app") else { return }
+            let keys = ["calConsumed", "calGoal", "protein", "proteinGoal", "carbs", "carbsGoal", "fat", "fatGoal", "streak"]
+            for key in keys {
+                if let val = body[key] as? Int { defaults.set(val, forKey: "mt_\(key)") }
+            }
+            if let dateStr = body["date"] as? String { defaults.set(dateStr, forKey: "mt_date") }
+            defaults.synchronize()
+            WidgetCenter.shared.reloadAllTimelines()
         }
     }
 }

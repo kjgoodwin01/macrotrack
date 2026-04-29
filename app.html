@@ -189,6 +189,7 @@
 
     /* Modal */
     .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fdin 0.2s ease}
+    .overlay-top{z-index:350}
     @keyframes fdin{from{opacity:0}to{opacity:1}}
     .sheet{background:var(--s1);border:1px solid var(--b2);border-radius:26px 26px 0 0;width:100%;max-width:var(--app-max-w);max-height:85vh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:calc(var(--sb) + 30px);-webkit-overflow-scrolling:touch;animation:sup 0.3s cubic-bezier(0.4,0,0.2,1)}
     .sheet-fixed{flex-shrink:0;padding:20px 18px 0}
@@ -3590,7 +3591,11 @@ function GoalsModal({
         carbs: parseInt(ca, 10),
         fat: parseInt(f, 10),
         targetWeight: parseFloat(tw) || null,
-        goalType: gt
+        goalType: gt,
+        age: goals.age || null,
+        sex: goals.sex || null,
+        heightCm: goals.heightCm || null,
+        activity: goals.activity || null
       });
       onClose();
     }
@@ -3603,6 +3608,154 @@ function GoalsModal({
     }
   }))));
 }
+
+/* ── ProfileModal ── */
+function ProfileModal({ goals, latestWeight, latestWeightDate, onClose, onSave, onLogWeight }) {
+  var totalInches = Math.round((goals.heightCm || 0) / 2.54);
+  var _s = React.useState(goals.sex || "male"); var sex = _s[0]; var setSex = _s[1];
+  var _a = React.useState(goals.age ? String(goals.age) : ""); var age = _a[0]; var setAge = _a[1];
+  var _hf = React.useState(goals.heightCm ? String(Math.floor(totalInches / 12)) : ""); var heightFt = _hf[0]; var setHeightFt = _hf[1];
+  var _hi = React.useState(goals.heightCm ? String(totalInches % 12) : ""); var heightIn = _hi[0]; var setHeightIn = _hi[1];
+  var _ac = React.useState(goals.activity || "moderate"); var activity = _ac[0]; var setActivity = _ac[1];
+
+  var ACTIVITY_OPTS = [
+    { id: "sedentary", label: "Sedentary", sub: "Desk job, no gym" },
+    { id: "light",     label: "Light",     sub: "1–2x / week" },
+    { id: "moderate",  label: "Moderate",  sub: "3–4x / week" },
+    { id: "active",    label: "Active",    sub: "5–6x / week" },
+    { id: "veryactive",label: "Very Active",sub: "Daily training" }
+  ];
+
+  var heightCm = ftToCm(heightFt, heightIn);
+  var tdeePreview = (age && heightCm && latestWeight)
+    ? calcTDEE(parseInt(age), sex, heightCm, latestWeight, activity) : null;
+
+  function save() {
+    onSave(Object.assign({}, goals, {
+      age: parseInt(age) || null,
+      sex: sex,
+      heightCm: heightCm || goals.heightCm || null,
+      activity: activity
+    }));
+    onClose();
+  }
+
+  return /*#__PURE__*/React.createElement("div", {
+    className: "overlay overlay-top",
+    onClick: function(e) { if (e.target === e.currentTarget) onClose(); }
+  }, /*#__PURE__*/React.createElement("div", { className: "sheet", style: { height: "92dvh", maxHeight: "92dvh", animation: "fdin 0.18s ease" } },
+    /*#__PURE__*/React.createElement("div", { className: "sheet-fixed" },
+      /*#__PURE__*/React.createElement("div", { className: "sheet-handle" }),
+      /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 } },
+        /*#__PURE__*/React.createElement("div", { className: "sheet-title", style: { marginBottom: 0 } }, "Your Profile"),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: onClose,
+          style: { background: "rgba(255,255,255,0.06)", border: "none", color: "var(--mu)", fontSize: 18, width: 32, height: 32, borderRadius: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }
+        }, "✕")
+      )
+    ),
+    /*#__PURE__*/React.createElement("div", { className: "sheet-scroll" },
+
+      /*#__PURE__*/React.createElement("div", { className: "fg" },
+        /*#__PURE__*/React.createElement("div", { className: "fl" }, "Sex"),
+        /*#__PURE__*/React.createElement("div", { className: "ob-seg", style: { marginBottom: 0 } },
+          [["male","Male"],["female","Female"]].map(function(o) {
+            return /*#__PURE__*/React.createElement("button", {
+              key: o[0],
+              className: "ob-seg-btn" + (sex === o[0] ? " active" : ""),
+              onClick: function() { setSex(o[0]); }
+            }, o[1]);
+          })
+        )
+      ),
+
+      /*#__PURE__*/React.createElement("div", { className: "fg" },
+        /*#__PURE__*/React.createElement("div", { className: "fl" }, "Age"),
+        /*#__PURE__*/React.createElement("input", {
+          className: "field", type: "number", placeholder: "e.g. 28",
+          value: age, onChange: function(e) { setAge(e.target.value); }
+        })
+      ),
+
+      /*#__PURE__*/React.createElement("div", { className: "fg" },
+        /*#__PURE__*/React.createElement("div", { className: "fl" }, "Height"),
+        /*#__PURE__*/React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+          /*#__PURE__*/React.createElement("input", {
+            className: "field", type: "number", placeholder: "ft",
+            value: heightFt, onChange: function(e) { setHeightFt(e.target.value); }
+          }),
+          /*#__PURE__*/React.createElement("input", {
+            className: "field", type: "number", placeholder: "in",
+            value: heightIn, onChange: function(e) { setHeightIn(e.target.value); }
+          })
+        )
+      ),
+
+      /*#__PURE__*/React.createElement("div", { className: "fg" },
+        /*#__PURE__*/React.createElement("div", { className: "fl" }, "Current Weight"),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: onLogWeight,
+          style: {
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "12px 14px", borderRadius: 12, cursor: "pointer",
+            background: "rgba(255,255,255,0.03)", border: "1px solid var(--b1)",
+            fontFamily: "'DM Sans',sans-serif", transition: "background 0.15s"
+          }
+        },
+          /*#__PURE__*/React.createElement("div", { style: { textAlign: "left" } },
+            latestWeight
+              ? /*#__PURE__*/React.createElement("div", { style: { fontSize: 17, fontWeight: 600, color: "var(--txt)", fontFamily: "'JetBrains Mono',monospace" } }, latestWeight + " lbs")
+              : /*#__PURE__*/React.createElement("div", { style: { fontSize: 14, color: "var(--mu)" } }, "Not logged yet"),
+            latestWeightDate && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "var(--mu)", marginTop: 2 } }, "Last logged " + latestWeightDate)
+          ),
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: "var(--indll)", fontWeight: 600 } }, "Log →")
+        )
+      ),
+
+      /*#__PURE__*/React.createElement("div", { className: "fg" },
+        /*#__PURE__*/React.createElement("div", { className: "fl", style: { marginBottom: 10 } }, "Activity Level"),
+        /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+          ACTIVITY_OPTS.map(function(opt) {
+            var active = activity === opt.id;
+            return /*#__PURE__*/React.createElement("div", {
+              key: opt.id,
+              onClick: function() { setActivity(opt.id); },
+              style: {
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "12px 14px", borderRadius: 12, cursor: "pointer",
+                background: active ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.03)",
+                border: "1px solid " + (active ? "rgba(99,102,241,0.4)" : "var(--b1)"),
+                transition: "all 0.15s"
+              }
+            },
+              /*#__PURE__*/React.createElement("div", null,
+                /*#__PURE__*/React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: active ? "var(--indll)" : "var(--txt)" } }, opt.label),
+                /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: "var(--mu)", marginTop: 2 } }, opt.sub)
+              ),
+              active && /*#__PURE__*/React.createElement("div", { style: { width: 10, height: 10, borderRadius: "50%", background: "var(--ind)", flexShrink: 0 } })
+            );
+          })
+        )
+      ),
+
+      tdeePreview && /*#__PURE__*/React.createElement("div", {
+        style: {
+          background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)",
+          borderRadius: 14, padding: "14px 16px", marginBottom: 16
+        }
+      },
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "var(--mu)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 4, fontWeight: 700 } }, "Estimated TDEE"),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 26, fontWeight: 700, color: "var(--indll)", fontFamily: "'JetBrains Mono',monospace" } }, tdeePreview + " kcal/day"),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: "var(--mu)", marginTop: 3 } }, "Used for exercise calorie estimates")
+      ),
+
+      /*#__PURE__*/React.createElement("button", { className: "btn", onClick: save }, "Save Profile"),
+      /*#__PURE__*/React.createElement("button", { className: "btn-ghost", onClick: onClose }, "Cancel"),
+      /*#__PURE__*/React.createElement("div", { style: { height: 16 } })
+    )
+  ));
+}
+
 function WorkerUrlInput({
   onSave
 }) {
@@ -4128,7 +4281,11 @@ function Onboarding({
         carbs: finalCarb,
         fat: finalFat,
         targetWeight: parseFloat(targetWeight) || null,
-        goalType: goalType
+        goalType: goalType,
+        age: parseInt(age) || null,
+        sex: sex || "male",
+        heightCm: heightCm || null,
+        activity: activity || "moderate"
       },
       startWeight: parseFloat(weight) || null
     });
@@ -6686,12 +6843,16 @@ function CourseCorrection({logged, goals, entries, isToday}){
 }
 
 /* ── Exercise calorie estimator (MET-based) ── */
-function calcExerciseCal(exercises, weightLbs) {
+function calcExerciseCal(exercises, weightLbs, age, sex) {
   var kg = (weightLbs || 160) * 0.4536;
+  // Sex modifier: females burn ~10% fewer calories at same MET/weight due to body composition
+  var sexFactor = (sex === "female") ? 0.90 : 1.0;
+  // Age modifier: ~2% drop per decade after age 20, floor at 0.80
+  var ageFactor = age ? Math.max(0.80, 1 - (Math.max(0, age - 20) * 0.002)) : 1.0;
   var total = 0;
   (exercises || []).forEach(function(ex) {
     var name = (ex.name || "").toLowerCase();
-    if (ex.type === "cardio" && ex.duration) {
+    if (ex.type === "cardio" && (ex.duration || ex.distance)) {
       var met = 7;
       if (name.includes("run") || name.includes("jog") || name.includes("sprint")) met = 10;
       else if (name.includes("walk")) met = 4;
@@ -6700,10 +6861,19 @@ function calcExerciseCal(exercises, weightLbs) {
       else if (name.includes("elliptical") || name.includes("stair")) met = 7;
       else if (name.includes("row")) met = 8;
       else if (name.includes("hike")) met = 6;
-      total += met * kg * (Number(ex.duration) / 60);
+      var durationMin = Number(ex.duration) || 0;
+      if (!durationMin && ex.distance) {
+        var distMiles = parseFloat((ex.distance || "").toString()) || 0;
+        var mph = name.includes("run") || name.includes("jog") || name.includes("sprint") ? 6
+          : name.includes("walk") || name.includes("hike") ? 3
+          : name.includes("bike") || name.includes("cycl") || name.includes("spin") ? 12
+          : name.includes("swim") ? 2
+          : 6;
+        durationMin = distMiles / mph * 60;
+      }
+      total += met * kg * (durationMin / 60) * sexFactor * ageFactor;
     } else if (ex.sets) {
-      // Strength/bodyweight: ~3 min per set (1 min work + 2 min rest), 5 METs
-      total += 5 * kg * (Number(ex.sets) * 3 / 60);
+      total += 5 * kg * (Number(ex.sets) * 3 / 60) * sexFactor * ageFactor;
     }
   });
   return Math.round(total);
@@ -8043,7 +8213,7 @@ function App() {
   const latW = sorted[sorted.length - 1];
   const prevW = sorted[sorted.length - 2];
   const wDelta = latW && prevW ? (latW.weight - prevW.weight).toFixed(1) : null;
-  const exerciseCal = calcExerciseCal(workouts[selectedDate] || [], latW ? latW.weight : null);
+  const exerciseCal = calcExerciseCal(workouts[selectedDate] || [], latW ? latW.weight : null, goals.age, goals.sex);
   const adapt = computeAdaptiveTDEE(sorted, entries, goals);
 
   // ── Auto-adjust calories when TDEE confidence is high ───────────────
@@ -8977,6 +9147,30 @@ function App() {
           /*#__PURE__*/React.createElement("div", { className: "sp-title" }, "Account"),
           /*#__PURE__*/React.createElement(AccountCard, { user: displayUser, onSignIn: function(){ setShowAuthModal(true); setSettingsOpen(false); }, onSignOut: handleAuthSignOut })
         ),
+        // Profile
+        /*#__PURE__*/React.createElement("div", { className: "sp-section" },
+          /*#__PURE__*/React.createElement("div", { className: "sp-title" }, "Profile"),
+          /*#__PURE__*/React.createElement("button", {
+            onClick: function() { setModal("profile"); },
+            style: {
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "14px 16px", borderRadius: 14, cursor: "pointer",
+              background: "rgba(255,255,255,0.03)", border: "1px solid var(--b1)",
+              fontFamily: "'DM Sans',sans-serif", transition: "background 0.15s",
+              textAlign: "left"
+            }
+          },
+            /*#__PURE__*/React.createElement("div", null,
+              /*#__PURE__*/React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: "var(--txt)" } }, "Personal Info"),
+              /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: "var(--mu)", marginTop: 3 } },
+                goals.age && goals.heightCm
+                  ? (goals.sex === "female" ? "Female" : "Male") + " · " + goals.age + " yrs · " + Math.floor(goals.heightCm / 30.48) + "’" + Math.round((goals.heightCm / 2.54) % 12) + "”"
+                  : "Set up for accurate calorie estimates"
+              )
+            ),
+            /*#__PURE__*/React.createElement("div", { style: { color: "var(--mu)", fontSize: 20, lineHeight: 1 } }, "›")
+          )
+        ),
         // Coach Personality
         /*#__PURE__*/React.createElement("div", { className: "sp-section" },
           /*#__PURE__*/React.createElement("div", { className: "sp-title" }, "Coach Personality"),
@@ -9073,6 +9267,13 @@ function App() {
     goals: goals,
     onClose: () => setModal(null),
     onSave: setGoals
+  }), modal === "profile" && /*#__PURE__*/React.createElement(ProfileModal, {
+    goals: goals,
+    latestWeight: latW ? latW.weight : null,
+    latestWeightDate: latW ? latW.date : null,
+    onClose: () => setModal(null),
+    onSave: function(updated) { setGoals(updated); showToast("✓ Profile saved"); },
+    onLogWeight: function() { setModal("weight"); }
   }));
 }
 
