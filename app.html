@@ -5817,21 +5817,27 @@ function DataBackup({
 
 /* ── Adapt Engine ── */
 /* ── Adaptive TDEE Engine ── */
-// Uses EMA trend weight + reverse-engineered TDEE from real calorie/weight data.
+// Uses linear regression trend + reverse-engineered TDEE from real calorie/weight data.
 // Falls back to simple 7-day heuristic while data is still accumulating.
 function computeAdaptiveTDEE(wlog, entries, goals) {
   if (wlog.length < 7) return null;
   const goalType = goals.goalType || "cut";
 
-  // ── Step 1: EMA trend weight (α=0.1 → ~10-day smoothing) ────────────
-  // Smooths out water weight / meal weight noise so the signal is clear.
-  const ALPHA = 0.1;
-  var ema = wlog[0].weight;
-  var trendData = wlog.map(function(w) {
-    ema = ALPHA * w.weight + (1 - ALPHA) * ema;
-    return { date: w.date, raw: w.weight, trend: Math.round(ema * 100) / 100 };
+  // ── Step 1: Linear regression trend line ────────────────────────────
+  // Fits a straight line through all weight entries (least-squares). Shows
+  // the true slope of weight change without EMA lag.
+  var n = wlog.length;
+  var sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+  for (var i = 0; i < n; i++) {
+    sumX += i; sumY += wlog[i].weight;
+    sumXY += i * wlog[i].weight; sumX2 += i * i;
+  }
+  var lrSlope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  var lrIntercept = (sumY - lrSlope * sumX) / n;
+  var trendData = wlog.map(function(w, i) {
+    return { date: w.date, raw: w.weight, trend: Math.round((lrIntercept + lrSlope * i) * 100) / 100 };
   });
-  var latestTrend = trendData[trendData.length - 1].trend;
+  var latestTrend = trendData[n - 1].trend;
 
   // ── Step 2: Reverse-engineer TDEE from calories in + trend weight change
   // Formula: TDEE = (ΣCalories - ΔTrendWeight_lbs × 3500) / days

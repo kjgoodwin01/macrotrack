@@ -903,6 +903,7 @@ export default {
       const subs = await dbQuery(env, "GET", "push_subscriptions?notify_reminder=eq.true&limit=5000");
       console.log("[scheduled] daily reminder subs count:", (subs.data || []).length, "subs.ok:", subs.ok);
       if (subs.data && subs.data.length > 0) {
+        const sentDeviceIds = new Set();
         for (const sub of subs.data) {
           try {
             if (!sub.device_id) {
@@ -928,6 +929,12 @@ export default {
                 }
               }
             } catch (_) {}
+            // Deduplicate — skip if we already sent to this canonical device_id this run
+            // (prevents duplicate notifications when a user has both web and APNs subs)
+            if (sentDeviceIds.has(checkDeviceId)) {
+              console.log("[scheduled] daily reminder — already sent to device_id:", checkDeviceId, "for sub.id:", sub.id, "SKIPPING duplicate");
+              continue;
+            }
             const entries = await dbQuery(env, "GET",
               "food_entries?device_id=eq." + encodeURIComponent(checkDeviceId) +
               "&log_date=eq." + todayISO + "&limit=1"
@@ -937,6 +944,7 @@ export default {
             if (!hasLogged) {
               console.log("[scheduled] sending daily reminder push to sub.id:", sub.id);
               await sendPush(sub, "Don't Forget to Log 💪", "You haven't logged any food today. Stay on track.");
+              sentDeviceIds.add(checkDeviceId);
             }
           } catch (e) {
             console.log("[scheduled] daily reminder ERROR for sub.id:", sub.id, e.message);
@@ -952,6 +960,7 @@ export default {
       const subs = await dbQuery(env, "GET", "push_subscriptions?notify_correction=eq.true&limit=5000");
       console.log("[scheduled] protein gap subs count:", (subs.data || []).length, "subs.ok:", subs.ok);
       if (subs.data && subs.data.length > 0) {
+        const sentDeviceIds = new Set();
         for (const sub of subs.data) {
           try {
             if (!sub.device_id) {
@@ -977,6 +986,12 @@ export default {
                 }
               }
             } catch (_) {}
+
+            // Deduplicate — skip if we already sent to this canonical device_id this run
+            if (sentDeviceIds.has(checkDeviceId)) {
+              console.log("[scheduled] protein gap — already sent to device_id:", checkDeviceId, "for sub.id:", sub.id, "SKIPPING duplicate");
+              continue;
+            }
 
             // Resolve personal protein goal from profile
             const profile = await dbQuery(env, "GET",
@@ -1012,6 +1027,7 @@ export default {
               const msg = "You've had " + proteinLogged + "g of protein today. You still need " + gap + "g to hit your " + proteinGoal + "g goal!";
               console.log("[scheduled] sending protein gap push to sub.id:", sub.id);
               await sendPush(sub, "Protein Gap Alert 🎯", msg);
+              sentDeviceIds.add(checkDeviceId);
             }
           } catch (e) {
             console.log("[scheduled] protein gap ERROR for sub.id:", sub.id, e.message);
