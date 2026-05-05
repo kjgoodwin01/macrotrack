@@ -248,8 +248,8 @@
     .sc.tr{top:-2px;right:-2px;border-width:3px 3px 0 0;border-radius:0 5px 0 0}
     .sc.bl{bottom:-2px;left:-2px;border-width:0 0 3px 3px;border-radius:0 0 0 5px}
     .sc.br{bottom:-2px;right:-2px;border-width:0 3px 3px 0;border-radius:0 0 5px 0}
-    .scan-line{position:absolute;left:8px;right:8px;height:2px;background:linear-gradient(90deg,transparent,var(--indl),transparent);animation:sl 2s ease-in-out infinite;top:50%}
-    @keyframes sl{0%,100%{transform:translateY(-30px);opacity:0.5}50%{transform:translateY(30px);opacity:1}}
+    .scan-line{position:absolute;left:8px;right:8px;height:2px;background:linear-gradient(90deg,transparent,var(--indl),transparent);animation:sl 1.5s ease-in-out infinite}
+    @keyframes sl{0%{top:4px;opacity:0.6}50%{top:calc(100% - 6px);opacity:1}100%{top:4px;opacity:0.6}}
     .scanner-hint{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:11px;color:rgba(255,255,255,0.6)}
     .loading-row{display:flex;align-items:center;gap:10px;color:var(--mu);font-size:13px;padding:12px 0}
     .spin{width:18px;height:18px;flex-shrink:0;border:2px solid rgba(255,255,255,0.08);border-top-color:var(--ind);border-radius:50%;animation:spin 0.7s linear infinite}
@@ -1837,6 +1837,7 @@ function FoodDetail({
   const [qty, setQty] = useState(1);
   const [customGrams, setCustomGrams] = useState("");
   const [useCustom, setUseCustom] = useState(false);
+  const addedRef = useRef(false);
   const serv = food.servings[si];
 
   // Effective grams — either from serving+qty or custom input
@@ -1978,7 +1979,8 @@ function FoodDetail({
   }, "\xD7")), /*#__PURE__*/React.createElement("button", {
     className: "btn",
     onClick: function () {
-      if (effectiveGrams <= 0) return;
+      if (effectiveGrams <= 0 || addedRef.current) return;
+      addedRef.current = true;
       onConfirm({
         name: food.name,
         serving: servingLabel,
@@ -2004,11 +2006,57 @@ function BarcodeScanner({
   const [status, setStatus] = useState("starting");
   const [code, setCode] = useState("");
   const [manualCode, setManualCode] = useState("");
+  const [torchOn, setTorchOn] = useState(false);
   const detectedRef = useRef(false);
   const streamRef = useRef(null);
   const timerRef = useRef(null);
   useEffect(() => {
     let dead = false;
+    const NativeScanner = window.location.protocol === "capacitor:" &&
+      window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.BarcodeScanner;
+
+    if (NativeScanner) {
+      async function goNative() {
+        try {
+          let { camera } = await NativeScanner.checkPermissions();
+          if (camera === "prompt" || camera === "prompt-with-rationale") {
+            const res = await NativeScanner.requestPermissions();
+            camera = res.camera;
+          }
+          if (camera !== "granted") {
+            if (!dead) setStatus("error");
+            return;
+          }
+          if (dead) return;
+          NativeScanner.addListener("barcodeScanned", async function(event) {
+            if (dead || detectedRef.current) return;
+            const val = event.barcode && event.barcode.rawValue;
+            if (val && val.length >= 6) {
+              detectedRef.current = true;
+              NativeScanner.removeAllListeners().catch(function() {});
+              await NativeScanner.stopScan();
+              setCode(val);
+              setStatus("success");
+              setTimeout(function() { if (!dead) onDetected(val); }, 300);
+            }
+          });
+          await NativeScanner.startScan({
+            formats: ["EAN_13", "EAN_8", "UPC_A", "UPC_E", "CODE_128", "CODE_39"]
+          });
+          if (!dead) setStatus("scanning");
+        } catch (e) {
+          if (!dead) setStatus("error");
+        }
+      }
+      goNative();
+      return function() {
+        dead = true;
+        detectedRef.current = true;
+        NativeScanner.removeAllListeners().catch(function() {});
+        NativeScanner.stopScan().catch(function() {});
+      };
+    }
+
     async function go() {
       // Lazy-load Quagga only when barcode scanner is first opened
       if (!window.Quagga) {
@@ -2110,6 +2158,9 @@ function BarcodeScanner({
       return null;
     }
     var scanAttempts = 0;
+    var lastCandidate = null;
+    var candidateCount = 0;
+    var videoReady = false;
     async function scan() {
       if (dead || detectedRef.current) return;
       const video = videoRef.current;
@@ -2124,32 +2175,50 @@ function BarcodeScanner({
         }, 100);
         return;
       }
-      scanAttempts = 0; // reset once video is ready
+      // First time video is ready: short pause for auto-focus before scanning
+      if (!videoReady) {
+        videoReady = true;
+        timerRef.current = setTimeout(function () {
+          if (!dead) scan();
+        }, 300);
+        return;
+      }
+      scanAttempts = 0;
 
       // Try all 4 orientations — whichever one finds the barcode wins
-      // This guarantees it works no matter how the phone is held
       const angles = [0, -90, 90, 180];
+      let found = null;
       for (let i = 0; i < angles.length; i++) {
         if (dead || detectedRef.current) return;
         try {
           const canvas = drawRotated(video, angles[i]);
           const val = await tryDetect(canvas);
-          if (val) {
-            if (!dead && !detectedRef.current) {
-              detectedRef.current = true;
-              setCode(val);
-              setStatus("success");
-              if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-              setTimeout(function () {
-                onDetected(val);
-              }, 300);
-            }
-            return;
-          }
+          if (val) { found = val; break; }
         } catch (e) {}
       }
 
-      // Nothing found in any orientation — try again shortly
+      if (found) {
+        if (found === lastCandidate) {
+          candidateCount++;
+        } else {
+          // New candidate — start streak. A miss doesn't reset this; only a
+          // different value does, so empty frames between reads don't stall confirmation.
+          lastCandidate = found;
+          candidateCount = 1;
+        }
+        if (candidateCount >= 2 && !dead && !detectedRef.current) {
+          detectedRef.current = true;
+          setCode(found);
+          setStatus("success");
+          if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+          setTimeout(function () {
+            onDetected(found);
+          }, 300);
+          return;
+        }
+      }
+      // No reset on miss — only reset when a different value appears (handled above)
+
       timerRef.current = setTimeout(function () {
         if (!dead && !detectedRef.current) scan();
       }, 100);
@@ -2162,6 +2231,16 @@ function BarcodeScanner({
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     };
   }, []);
+  async function toggleTorch() {
+    if (!streamRef.current) return;
+    const track = streamRef.current.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      const next = !torchOn;
+      await track.applyConstraints({ advanced: [{ torch: next }] });
+      setTorchOn(next);
+    } catch(e) {}
+  }
   function submitManual() {
     const c = manualCode.trim();
     if (c.length >= 6) onDetected(c);
@@ -2228,12 +2307,12 @@ function BarcodeScanner({
       border: "2px solid rgba(99,102,241,0.95)",
       borderRadius: 12,
       position: "relative",
+      overflow: "hidden",
       boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       position: "absolute",
-      top: 0,
       left: 0,
       right: 0,
       height: 2,
@@ -2285,7 +2364,29 @@ function BarcodeScanner({
     style: {
       fontSize: 64
     }
-  }, "\u2705"))), status === "scanning" && /*#__PURE__*/React.createElement("div", {
+  }, "\u2705")), status === "scanning" && /*#__PURE__*/React.createElement("button", {
+    onClick: toggleTorch,
+    style: {
+      position: "absolute",
+      bottom: 12,
+      right: 12,
+      width: 44,
+      height: 44,
+      borderRadius: "50%",
+      border: "none",
+      background: torchOn ? "rgba(99,102,241,0.92)" : "rgba(0,0,0,0.52)",
+      color: "#fff",
+      fontSize: 20,
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 10,
+      backdropFilter: "blur(6px)",
+      WebkitBackdropFilter: "blur(6px)",
+      transition: "background 0.2s"
+    }
+  }, "\ud83d\udd26")), status === "scanning" && /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: "center",
       fontSize: 12,
@@ -2461,6 +2562,7 @@ function AddFoodModal({
   const [bLoad, setBLoad] = useState(false);
   const [bErr, setBErr] = useState("");
   const [bFood, setBFood] = useState(null);
+  const [scannerKey, setScannerKey] = useState(0);
   const [img, setImg] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [aiRes, setAiRes] = useState(null);
@@ -2581,68 +2683,69 @@ function AddFoodModal({
     setBErr("");
     setBFood(null);
     try {
-      // 1. Try Open Food Facts first — free, 3.5M+ branded products, no API key needed
+      // 1. Try USDA via Cloudflare Worker first — authoritative for US branded products
       let found = false;
       try {
-        const offRes = await fetch("https://world.openfoodfacts.org/api/v0/product/" + encodeURIComponent(c) + ".json");
-        if (offRes.ok) {
-          const offData = await offRes.json();
-          if (offData.status === 1 && offData.product) {
-            const p = offData.product;
-            const nm = p.nutriments || {};
-            // OFF stores energy in kcal directly, or in kJ — convert if needed
-            const cal100 = nm["energy-kcal_100g"] ||
-              Math.round((nm["energy-kj_100g"] || nm["energy_100g"] || 0) / 4.184);
-            const name = (p.product_name || p.product_name_en || "").trim();
-            // Only accept the result if it has a name and non-zero calories
-            if (name && cal100 > 0) {
-              const servings = [];
-              // Use the labelled serving size if present
-              const servQty = parseFloat(p.serving_quantity) || 0;
-              if (servQty > 0) {
-                const label = (p.serving_size || "").trim() ||
-                  ("1 serving (" + Math.round(servQty) + "g)");
-                servings.push({ label: label, grams: Math.round(servQty) });
-              }
-              // Always offer a 100g option
-              if (!servings.find(function(s) { return s.grams === 100; })) {
-                servings.push({ label: "100g", grams: 100 });
-              }
-              setBFood({
-                fdcId: c,
-                name: name,
-                brand: (p.brands || "").split(",")[0].trim(),
-                dataType: "Branded",
-                cal100: Math.round(cal100 * 10) / 10,
-                p100: Math.round((nm["proteins_100g"] || 0) * 10) / 10,
-                c100: Math.round((nm["carbohydrates_100g"] || 0) * 10) / 10,
-                f100: Math.round((nm["fat_100g"] || 0) * 10) / 10,
-                servings: servings
-              });
-              found = true;
-            }
-          }
-        }
-      } catch (e) { /* OFF unavailable or timed out — fall through to USDA */ }
-
-      // 2. Fall back to USDA via Cloudflare Worker
-      if (!found) {
         const r = await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ type: "barcode_lookup", upc: c })
         });
-        if (!r.ok) throw new Error("Worker error");
-        const d = await r.json();
-        const foods = d.foods || [];
-        if (foods.length === 0) {
+        if (r.ok) {
+          const d = await r.json();
+          const foods = d.foods || [];
+          if (foods.length > 0) {
+            setBFood(parseFood(foods[0]));
+            found = true;
+          }
+        }
+      } catch (e) { /* Worker unavailable — fall through to Open Food Facts */ }
+
+      // 2. Fall back to Open Food Facts — crowd-sourced, good for international products
+      if (!found) {
+        const offRes = await fetch("https://world.openfoodfacts.org/api/v0/product/" + encodeURIComponent(c) + ".json");
+        if (!offRes.ok) throw new Error("Not found");
+        const offData = await offRes.json();
+        if (offData.status !== 1 || !offData.product) {
           setBErr("No food found for that barcode. Try searching by name.");
+          setTimeout(() => { setBErr(""); setScannerKey(k => k + 1); }, 2000);
           return;
         }
-        setBFood(parseFood(foods[0]));
+        const p = offData.product;
+        const nm = p.nutriments || {};
+        const cal100 = nm["energy-kcal_100g"] ||
+          Math.round((nm["energy-kj_100g"] || nm["energy_100g"] || 0) / 4.184);
+        const name = (p.product_name || p.product_name_en || "").trim();
+        if (!name) {
+          setBErr("No food found for that barcode. Try searching by name.");
+          setTimeout(() => { setBErr(""); setScannerKey(k => k + 1); }, 2000);
+          return;
+        }
+        const servings = [];
+        const servQty = parseFloat(p.serving_quantity) || 0;
+        if (servQty > 0) {
+          const label = (p.serving_size || "").trim() ||
+            ("1 serving (" + Math.round(servQty) + "g)");
+          servings.push({ label: label, grams: Math.round(servQty) });
+        }
+        if (!servings.find(function(s) { return s.grams === 100; })) {
+          servings.push({ label: "100g", grams: 100 });
+        }
+        setBFood({
+          fdcId: c,
+          name: name,
+          brand: (p.brands || "").split(",")[0].trim(),
+          dataType: "Branded",
+          cal100: Math.round(cal100 * 10) / 10,
+          p100: Math.round((nm["proteins_100g"] || 0) * 10) / 10,
+          c100: Math.round((nm["carbohydrates_100g"] || 0) * 10) / 10,
+          f100: Math.round((nm["fat_100g"] || 0) * 10) / 10,
+          servings: servings
+        });
       }
     } catch (e) {
       setBErr("Lookup failed. Check your connection and try again.");
+      setTimeout(() => { setBErr(""); setScannerKey(k => k + 1); }, 2000);
     } finally {
       setBLoad(false);
     }
@@ -3043,6 +3146,7 @@ function AddFoodModal({
       }, "\u2713 Saved to Custom Meals! Find it in the \u2B50 Custom tab.")
     )
   ), tab === "barcode" && /*#__PURE__*/React.createElement("div", null, !bFood ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(BarcodeScanner, {
+    key: scannerKey,
     onDetected: c => {
       setBarcode(c);
       lookupBarcode(c);
@@ -7793,26 +7897,18 @@ function App() {
             f: e.fat
           });
         });
+        var deletedIds;
+        try { deletedIds = new Set(JSON.parse(localStorage.getItem("mt_deleted_ids") || "[]")); } catch(e) { deletedIds = new Set(); }
         setEntriesRaw(function (prev) {
           const merged = Object.assign({}, prev);
           Object.keys(byDate).forEach(function(date) {
             const localEntries = prev[date] || [];
             const cloudEntries = byDate[date] || [];
-            // If local has fewer entries for this date, user deleted something —
-            // keep local state and only add cloud entries that aren't already local
             const localIds = new Set(localEntries.map(function(e) { return e.id; }));
-            const cloudIds = new Set(cloudEntries.map(function(e) { return e.id; }));
-            // Check if any cloud IDs are missing from local (were deleted locally)
-            const hasLocalDeletions = cloudEntries.some(function(e) { return !localIds.has(e.id); });
-            if (hasLocalDeletions && localEntries.length < cloudEntries.length) {
-              // Local has deletions — keep local, just add any brand new cloud entries
-              // that don't exist locally (new entries from other devices)
-              const newFromCloud = cloudEntries.filter(function(e) { return !localIds.has(e.id); });
-              // Don't add them back — they were deleted. Keep local as source of truth.
-              merged[date] = localEntries;
-            } else {
-              merged[date] = cloudEntries;
-            }
+            // Local entries always win (they carry qty, updated macros, serving label).
+            // Only add cloud entries whose IDs are genuinely new (not local, not deleted).
+            const newFromCloud = cloudEntries.filter(function(e) { return !localIds.has(e.id) && !deletedIds.has(e.id); });
+            merged[date] = localEntries.concat(newFromCloud);
           });
           return merged;
         });
@@ -7998,19 +8094,14 @@ function App() {
     return "Your messages reset in " + days + " days, on " + resetDate + ".";
   }
   function addEntry(e) {
+    const entry = Object.assign({}, e, { id: crypto.randomUUID() });
     setEntriesRaw(function (prev) {
       const n = Object.assign({}, prev);
-      const entry = Object.assign({}, e, {
-        id: crypto.randomUUID()
-      });
       n[selectedDate] = (prev[selectedDate] || []).concat([entry]);
-      // Sync to cloud
-      syncToCloud(workerUrl, "sync_add_entry", {
-        entry: Object.assign({}, entry, {
-          date: selectedDate
-        })
-      });
       return n;
+    });
+    syncToCloud(workerUrl, "sync_add_entry", {
+      entry: Object.assign({}, entry, { date: selectedDate })
     });
     showToast("✓ Food logged");
   }
@@ -8041,7 +8132,16 @@ function App() {
     });
     showToast("✓ " + dayData.day + " logged to today");
   }
+  function recordDeletedId(id) {
+    try {
+      var existing = JSON.parse(localStorage.getItem("mt_deleted_ids") || "[]");
+      if (!existing.includes(id)) existing.push(id);
+      if (existing.length > 1000) existing = existing.slice(-1000);
+      localStorage.setItem("mt_deleted_ids", JSON.stringify(existing));
+    } catch(e) {}
+  }
   function delEntry(id) {
+    recordDeletedId(id);
     // Remove from local state immediately for instant UI feedback
     setEntriesRaw(function (prev) {
       const n = Object.assign({}, prev);
@@ -8165,7 +8265,7 @@ function App() {
   function clearDay() {
     // Delete each entry from cloud before clearing local
     var dayItems = entries[selectedDate] || [];
-    dayItems.forEach(function(e){ if(e.id) syncToCloud(workerUrl, "sync_delete_entry", {entryId: e.id}); });
+    dayItems.forEach(function(e){ if(e.id) { recordDeletedId(e.id); syncToCloud(workerUrl, "sync_delete_entry", {entryId: e.id}); } });
     setEntriesRaw(prev => {
       const n = {
         ...prev
@@ -8930,7 +9030,7 @@ function App() {
     className: "stitle"
   }, "Food Database"), /*#__PURE__*/React.createElement("div", {
     className: "muted-t"
-  }, "Barcode scans check Open Food Facts first (3.5M+ branded products, free) then fall back to USDA FoodData Central. Name search uses USDA. No API key needed."), workerUrl && /*#__PURE__*/React.createElement("div", {
+  }, "Barcode scans use USDA FoodData Central (authoritative for US branded products) then fall back to Open Food Facts. Name search uses USDA. No API key needed."), workerUrl && /*#__PURE__*/React.createElement("div", {
     className: "ok-text",
     style: {
       marginTop: 10
