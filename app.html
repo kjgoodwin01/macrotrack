@@ -7531,6 +7531,27 @@ function App() {
 
   const [goals, setGoalsRaw] = useLocal("mt_goals", DEFAULT_GOALS);
   const [entries, setEntriesRaw] = useLocal("mt_entries", {});
+
+  // One-time dedup: remove content-duplicate entries left by the pre-fix server-UUID bug.
+  // Runs once on mount; keeps the first occurrence of each (name+meal+cal) per day.
+  useEffect(function() {
+    setEntriesRaw(function(prev) {
+      var changed = false;
+      var result = {};
+      Object.keys(prev).forEach(function(date) {
+        var seen = {};
+        var filtered = (prev[date] || []).filter(function(e) {
+          var key = (e.name || "").toLowerCase().trim() + "|" + (e.meal || "") + "|" + (e.cal || 0);
+          if (seen[key]) { changed = true; return false; }
+          seen[key] = true;
+          return true;
+        });
+        result[date] = filtered;
+      });
+      return changed ? result : prev;
+    });
+  }, []);
+
   const [wlog, setWlogRaw] = useLocal("mt_wlog", []);
   const [workouts, setWorkoutsRaw] = useLocal("mt_workouts", {});
   const [workoutTemplates, setWorkoutTemplatesRaw] = useLocal("mt_workout_templates", []);
@@ -7907,7 +7928,16 @@ function App() {
             const localIds = new Set(localEntries.map(function(e) { return e.id; }));
             // Local entries always win (they carry qty, updated macros, serving label).
             // Only add cloud entries whose IDs are genuinely new (not local, not deleted).
-            const newFromCloud = cloudEntries.filter(function(e) { return !localIds.has(e.id) && !deletedIds.has(e.id); });
+            // Also content-match against existing local entries so pre-fix server-UUID
+            // entries (which have a different UUID than the client copy) are not re-added.
+            const newFromCloud = cloudEntries.filter(function(e) {
+              if (localIds.has(e.id) || deletedIds.has(e.id)) return false;
+              const eName = (e.name || "").toLowerCase().trim();
+              return !localEntries.some(function(le) {
+                return le.meal === e.meal && le.cal === e.cal &&
+                       (le.name || "").toLowerCase().trim() === eName;
+              });
+            });
             merged[date] = localEntries.concat(newFromCloud);
           });
           return merged;

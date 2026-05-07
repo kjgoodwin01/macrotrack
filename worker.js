@@ -917,7 +917,12 @@ export default {
               const profLookup = await dbQuery(env, "GET",
                 "profiles?device_id=eq." + encodeURIComponent(sub.device_id) + "&select=email&limit=1"
               );
-              if (profLookup.data && profLookup.data.length > 0 && profLookup.data[0].email) {
+              if (!profLookup.data || profLookup.data.length === 0) {
+                // No profile found for this device_id — orphaned subscription, skip it
+                console.log("[scheduled] daily reminder — no profile for sub.device_id:", sub.device_id, "sub.id:", sub.id, "SKIPPING orphan");
+                continue;
+              }
+              if (profLookup.data[0].email) {
                 const canonical = await dbQuery(env, "GET",
                   "profiles?email=eq." + encodeURIComponent(profLookup.data[0].email) +
                   "&order=updated_at.desc&limit=1"
@@ -929,12 +934,13 @@ export default {
                 }
               }
             } catch (_) {}
-            // Deduplicate — skip if we already sent to this canonical device_id this run
-            // (prevents duplicate notifications when a user has both web and APNs subs)
+            // Deduplicate — skip if we already processed this canonical device_id this run
+            // (prevents duplicate notifications when a user has multiple sub rows)
             if (sentDeviceIds.has(checkDeviceId)) {
-              console.log("[scheduled] daily reminder — already sent to device_id:", checkDeviceId, "for sub.id:", sub.id, "SKIPPING duplicate");
+              console.log("[scheduled] daily reminder — already processed device_id:", checkDeviceId, "for sub.id:", sub.id, "SKIPPING duplicate");
               continue;
             }
+            sentDeviceIds.add(checkDeviceId);
             const entries = await dbQuery(env, "GET",
               "food_entries?device_id=eq." + encodeURIComponent(checkDeviceId) +
               "&log_date=eq." + todayISO + "&limit=1"
@@ -944,7 +950,6 @@ export default {
             if (!hasLogged) {
               console.log("[scheduled] sending daily reminder push to sub.id:", sub.id);
               await sendPush(sub, "Don't Forget to Log 💪", "You haven't logged any food today. Stay on track.");
-              sentDeviceIds.add(checkDeviceId);
             }
           } catch (e) {
             console.log("[scheduled] daily reminder ERROR for sub.id:", sub.id, e.message);
@@ -974,7 +979,11 @@ export default {
               const profLookup = await dbQuery(env, "GET",
                 "profiles?device_id=eq." + encodeURIComponent(sub.device_id) + "&select=email&limit=1"
               );
-              if (profLookup.data && profLookup.data.length > 0 && profLookup.data[0].email) {
+              if (!profLookup.data || profLookup.data.length === 0) {
+                console.log("[scheduled] protein gap — no profile for sub.device_id:", sub.device_id, "sub.id:", sub.id, "SKIPPING orphan");
+                continue;
+              }
+              if (profLookup.data[0].email) {
                 const canonical = await dbQuery(env, "GET",
                   "profiles?email=eq." + encodeURIComponent(profLookup.data[0].email) +
                   "&order=updated_at.desc&limit=1"
@@ -987,11 +996,12 @@ export default {
               }
             } catch (_) {}
 
-            // Deduplicate — skip if we already sent to this canonical device_id this run
+            // Deduplicate — skip if we already processed this canonical device_id this run
             if (sentDeviceIds.has(checkDeviceId)) {
-              console.log("[scheduled] protein gap — already sent to device_id:", checkDeviceId, "for sub.id:", sub.id, "SKIPPING duplicate");
+              console.log("[scheduled] protein gap — already processed device_id:", checkDeviceId, "for sub.id:", sub.id, "SKIPPING duplicate");
               continue;
             }
+            sentDeviceIds.add(checkDeviceId);
 
             // Resolve personal protein goal from profile
             const profile = await dbQuery(env, "GET",
@@ -1027,7 +1037,6 @@ export default {
               const msg = "You've had " + proteinLogged + "g of protein today. You still need " + gap + "g to hit your " + proteinGoal + "g goal!";
               console.log("[scheduled] sending protein gap push to sub.id:", sub.id);
               await sendPush(sub, "Protein Gap Alert 🎯", msg);
-              sentDeviceIds.add(checkDeviceId);
             }
           } catch (e) {
             console.log("[scheduled] protein gap ERROR for sub.id:", sub.id, e.message);
@@ -1193,11 +1202,14 @@ export default {
       } else if (!profileCheck.data || profileCheck.data.length === 0) {
         return jsonRes({ error: "Profile not found — complete onboarding first" }, 403, cors);
       }
-      const result = await sb(env, "POST", "food_entries", {
+      const entryRow = {
         device_id: resolvedDeviceId, log_date: entry.date, meal: entry.meal,
         name: entry.name, serving: entry.serving || "",
         cal: entry.cal || 0, protein: entry.p || 0, carbs: entry.c || 0, fat: entry.f || 0,
-      });
+      };
+      // Preserve the client-generated UUID so loadFromCloud dedup works correctly.
+      if (entry.id) entryRow.id = entry.id;
+      const result = await sb(env, "POST", "food_entries", entryRow);
       if (!result.ok) return jsonRes({ error: "Failed to save entry" }, 500, cors);
       const saved = result.data && result.data[0];
       return jsonRes({ ok: true, id: saved ? saved.id : null }, 200, cors);
@@ -1207,14 +1219,16 @@ export default {
     if (type === "sync_update_entry") {
       const { entryId, entry } = body;
       if (!entryId || !entry) return jsonRes({ error: "Missing data" }, 400, cors);
+      const patch = {
+        cal: entry.cal || 0,
+        protein: entry.p || 0,
+        carbs: entry.c || 0,
+        fat: entry.f || 0,
+      };
+      if (entry.serving !== undefined) patch.serving = entry.serving;
       const result = await sb(env, "PATCH",
         "food_entries?id=eq." + encodeURIComponent(entryId),
-        {
-          cal: entry.cal || 0,
-          protein: entry.p || 0,
-          carbs: entry.c || 0,
-          fat: entry.f || 0,
-        }
+        patch
       );
       if (!result.ok) return jsonRes({ error: "Failed to update entry" }, 500, cors);
       return jsonRes({ ok: true }, 200, cors);
