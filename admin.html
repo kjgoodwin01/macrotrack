@@ -4,565 +4,288 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MacroTrack Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&family=Barlow:wght@500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: #08080f; --s1: #0d0d1a; --s2: #111128;
-      --ind: #6366f1; --vio: #8b5cf6; --em: #10b981;
-      --rose: #f43f5e; --amb: #f59e0b;
+      --ind: #6366f1; --vio: #8b5cf6;
       --txt: #f0f0fa; --txt2: #a0a0c0; --mu: #5a5a7a;
       --b1: rgba(255,255,255,0.06);
+      --em: #10b981; --rose: #f43f5e; --amb: #f59e0b;
     }
     body { background: var(--bg); color: var(--txt); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
 
-    /* ── LOGIN ── */
-    .login-wrap {
-      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
-    }
-    .login-card {
-      background: var(--s1); border: 1px solid var(--b1); border-radius: 20px;
-      padding: 40px; width: 100%; max-width: 360px; text-align: center;
-    }
-    .login-logo { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 3px; margin-bottom: 4px; }
-    .login-logo em { color: var(--ind); font-style: normal; }
-    .login-sub { font-size: 12px; color: var(--mu); margin-bottom: 28px; text-transform: uppercase; letter-spacing: 1px; }
-    .field {
-      width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--b1);
-      border-radius: 10px; padding: 13px 16px; color: var(--txt);
-      font-family: 'DM Sans', sans-serif; font-size: 15px; outline: none;
-      margin-bottom: 12px; transition: border-color 0.2s;
-    }
+    /* LOGIN */
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .login-card { background: var(--s1); border: 1px solid var(--b1); border-radius: 20px; padding: 40px; width: 100%; max-width: 340px; text-align: center; }
+    .logo { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 3px; margin-bottom: 6px; }
+    .logo em { color: var(--ind); font-style: normal; }
+    .sub-label { font-size: 11px; color: var(--mu); margin-bottom: 28px; text-transform: uppercase; letter-spacing: 1px; }
+    .field { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--b1); border-radius: 10px; padding: 13px 16px; color: var(--txt); font-family: 'DM Sans', sans-serif; font-size: 15px; outline: none; margin-bottom: 12px; transition: border-color 0.2s; }
     .field:focus { border-color: rgba(99,102,241,0.5); }
-    .btn {
-      width: 100%; padding: 14px; background: linear-gradient(135deg, var(--ind), var(--vio));
-      color: #fff; border: none; border-radius: 10px;
-      font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 2px;
-      cursor: pointer; transition: opacity 0.15s;
-    }
-    .btn:hover { opacity: 0.9; }
+    .btn { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--ind), var(--vio)); color: #fff; border: none; border-radius: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 2px; cursor: pointer; }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .err { color: #fb7185; font-size: 13px; margin-top: 10px; }
 
-    /* ── DASHBOARD ── */
+    /* DASHBOARD */
     .dash { display: none; }
-    .dash-header {
-      background: var(--s1); border-bottom: 1px solid var(--b1);
-      padding: 16px 28px; display: flex; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 10;
-    }
-    .dash-logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 2px; }
+    .dash-header { background: var(--s1); border-bottom: 1px solid var(--b1); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+    .dash-logo { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; }
     .dash-logo em { color: var(--ind); font-style: normal; }
-    .dash-logo span { font-size: 11px; color: var(--mu); letter-spacing: 1px; margin-left: 10px; font-family: 'DM Sans', sans-serif; }
-    .btn-logout { background: none; border: 1px solid var(--b1); border-radius: 8px; padding: 7px 14px; color: var(--mu); font-size: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
-    .btn-logout:hover { color: var(--txt); }
+    .btn-sm { background: none; border: 1px solid var(--b1); border-radius: 8px; padding: 7px 14px; color: var(--mu); font-size: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+    .btn-sm:hover { color: var(--txt); }
 
-    .dash-body { padding: 28px; max-width: 1000px; margin: 0 auto; }
+    .dash-body { padding: 24px; max-width: 1100px; margin: 0 auto; }
 
-    /* Stats bar */
-    .stats-bar {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px;
-    }
-    .stat-card {
-      background: var(--s1); border: 1px solid var(--b1); border-radius: 16px; padding: 18px 20px;
-    }
-    .stat-num { font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 1px; line-height: 1; }
-    .stat-lbl { font-size: 11px; color: var(--mu); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+    /* Stats */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+    .stat { background: var(--s1); border: 1px solid var(--b1); border-radius: 14px; padding: 16px 18px; }
+    .stat-n { font-family: 'Bebas Neue', sans-serif; font-size: 34px; line-height: 1; }
+    .stat-l { font-size: 11px; color: var(--mu); text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
 
-    /* Tabs */
-    .tabs { display: flex; gap: 6px; margin-bottom: 20px; }
-    .tab {
-      padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: 500;
-      cursor: pointer; border: 1px solid transparent; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
-    }
-    .tab.active { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.4); color: #a5b4fc; }
-    .tab:not(.active) { color: var(--mu); border-color: var(--b1); }
-    .tab:not(.active):hover { color: var(--txt2); }
-
-    select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a5a7a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; cursor: pointer; }
-    .sub-badge-free  { color:#5a5a7a; background:rgba(255,255,255,0.05); padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
-    .sub-badge-pro   { color:#a5b4fc; background:rgba(99,102,241,0.15); padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
-    .sub-badge-max   { color:#fcd34d; background:rgba(245,158,11,0.15); padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+    /* Search */
+    .search-row { display: flex; gap: 10px; margin-bottom: 20px; }
+    .search-row .field { margin: 0; flex: 1; }
+    .search-row .btn { width: auto; padding: 13px 22px; font-size: 14px; }
 
     /* Table */
-    .table-wrap {
-      background: var(--s1); border: 1px solid var(--b1); border-radius: 20px; overflow: hidden;
-    }
-    .table-header {
-      padding: 16px 20px; border-bottom: 1px solid var(--b1);
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .table-title { font-size: 14px; font-weight: 600; color: var(--txt2); }
-    .btn-refresh {
-      background: none; border: 1px solid var(--b1); border-radius: 8px; padding: 6px 12px;
-      color: var(--mu); font-size: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif;
-    }
-    .btn-refresh:hover { color: var(--txt); }
-
+    .card { background: var(--s1); border: 1px solid var(--b1); border-radius: 18px; overflow: hidden; }
+    .card-header { padding: 14px 20px; border-bottom: 1px solid var(--b1); display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 13px; font-weight: 600; color: var(--txt2); }
     table { width: 100%; border-collapse: collapse; }
-    th {
-      padding: 12px 20px; font-size: 10px; color: var(--mu);
-      text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
-      text-align: left; border-bottom: 1px solid var(--b1);
-    }
-    td { padding: 14px 20px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; }
+    th { padding: 11px 18px; font-size: 10px; color: var(--mu); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; text-align: left; border-bottom: 1px solid var(--b1); }
+    td { padding: 13px 18px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; }
     tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(255,255,255,0.02); }
+    tr:hover td { background: rgba(255,255,255,0.015); }
 
-    .badge {
-      display: inline-block; padding: 3px 10px; border-radius: 20px;
-      font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
-    }
-    .badge-pending { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
-    .badge-approved { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
-    .badge-denied { background: rgba(244,63,94,0.1); color: #fb7185; border: 1px solid rgba(244,63,94,0.2); }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-free { color: var(--mu); background: rgba(255,255,255,0.05); }
+    .badge-pro  { color: #a5b4fc; background: rgba(99,102,241,0.15); }
+    .badge-max  { color: #fcd34d; background: rgba(245,158,11,0.15); }
 
-    .code-mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ind); letter-spacing: 1px; }
-    .date-col { color: var(--mu); font-size: 12px; }
-    .reason-col { color: var(--txt2); max-width: 200px; font-size: 12px; line-height: 1.5; }
+    select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a5a7a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; cursor: pointer; }
+    select.inline { margin: 0; width: 90px; padding: 6px 26px 6px 10px; font-size: 12px; }
 
-    .action-btns { display: flex; gap: 6px; }
-    .btn-approve {
-      padding: 6px 14px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3);
-      border-radius: 8px; color: #34d399; font-size: 12px; font-weight: 600;
-      cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
-    }
-    .btn-approve:hover { background: rgba(16,185,129,0.25); }
-    .btn-approve:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-deny {
-      padding: 6px 14px; background: rgba(244,63,94,0.08); border: 1px solid rgba(244,63,94,0.2);
-      border-radius: 8px; color: #fb7185; font-size: 12px; font-weight: 600;
-      cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
-    }
-    .btn-deny:hover { background: rgba(244,63,94,0.15); }
-    .btn-deny:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-revoke {
-      padding: 6px 14px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2);
-      border-radius: 8px; color: #fbbf24; font-size: 12px; font-weight: 600;
-      cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
-    }
-    .btn-revoke:hover { background: rgba(245,158,11,0.15); }
-
-    .empty-state { text-align: center; padding: 60px 20px; color: var(--mu); font-size: 14px; }
-    .empty-icon { font-size: 32px; margin-bottom: 12px; }
-
+    .mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--mu); }
     .loading { text-align: center; padding: 40px; color: var(--mu); font-size: 14px; }
+    .empty { text-align: center; padding: 50px; color: var(--mu); font-size: 14px; }
 
-    .toast {
-      position: fixed; bottom: 24px; right: 24px; z-index: 1000;
-      background: var(--s2); border: 1px solid var(--b1); border-radius: 12px;
-      padding: 14px 20px; font-size: 13px; color: var(--txt);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      transform: translateY(80px); opacity: 0;
-      transition: all 0.3s; pointer-events: none;
-    }
+    .toast { position: fixed; bottom: 24px; right: 24px; z-index: 1000; background: var(--s2); border: 1px solid var(--b1); border-radius: 12px; padding: 13px 18px; font-size: 13px; transform: translateY(80px); opacity: 0; transition: all 0.25s; pointer-events: none; }
     .toast.show { transform: translateY(0); opacity: 1; }
-    .toast.success { border-color: rgba(16,185,129,0.4); color: #34d399; }
-    .toast.error { border-color: rgba(244,63,94,0.3); color: #fb7185; }
+    .toast.ok { border-color: rgba(16,185,129,0.4); color: #34d399; }
+    .toast.bad { border-color: rgba(244,63,94,0.3); color: #fb7185; }
 
-    @media(max-width:700px){
-      .stats-bar { grid-template-columns: repeat(2,1fr); }
-      .dash-body { padding: 16px; }
-      th:nth-child(4), td:nth-child(4) { display: none; }
+    @media(max-width:700px) {
+      .stats { grid-template-columns: repeat(2,1fr); }
+      .dash-body { padding: 14px; }
+      th:nth-child(3), td:nth-child(3) { display: none; }
     }
-
-    .wm-text{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;letter-spacing:0.05em;background:linear-gradient(90deg,#6366f1 0%,#a78bfa 35%,#c084fc 55%,#a78bfa 75%,#6366f1 100%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:sweep 4s linear infinite;line-height:1.1;}
-    .tg{font-family:'Barlow',sans-serif;font-weight:500;font-size:6.5px;text-transform:uppercase;letter-spacing:0.22em;margin-top:3px;color:rgba(167,139,250,0.5);}
-    @keyframes sweep{0%{background-position:100% 0}100%{background-position:-100% 0}}
   </style>
 </head>
 <body>
 
-  <!-- LOGIN -->
-  <div class="login-wrap" id="loginWrap">
-    <div class="login-card">
-      <div style="display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:4px;">
-        <div style="width:32px;height:32px;border-radius:8px;background:#161628;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <svg width="18" height="17" viewBox="0 0 68 62" fill="none">
-            <defs>
-              <linearGradient id="mGradA" x1="4" y1="56" x2="64" y2="4" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stop-color="#6366f1"/>
-                <stop offset="50%" stop-color="#a78bfa"/>
-                <stop offset="100%" stop-color="#c084fc"/>
-              </linearGradient>
-            </defs>
-            <path d="M6 56 L6 8 L34 42 L62 8 L62 56" stroke="url(#mGradA)" stroke-width="5.5" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
-          </svg>
-        </div>
-        <div>
-          <div class="wm-text">MACROTRACK</div>
-          <div style="height:1px;margin-top:3px;border-radius:1px;background:linear-gradient(90deg,#6366f1,#a78bfa 50%,transparent 100%);"></div>
-          <div class="tg">Your AI Nutrition Coach</div>
-        </div>
-      </div>
-      <div class="login-sub">Admin Dashboard</div>
-      <input class="field" id="pwInput" type="password" placeholder="Admin password" onkeydown="if(event.key==='Enter')login()"/>
-      <button class="btn" onclick="login()">SIGN IN</button>
-      <div class="err" id="loginErr"></div>
-    </div>
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="logo">MACRO<em>TRACK</em></div>
+    <div class="sub-label">Admin Dashboard</div>
+    <input class="field" id="pwInput" type="password" placeholder="Admin password" onkeydown="if(event.key==='Enter')login()"/>
+    <button class="btn" onclick="login()">SIGN IN</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<div class="dash" id="dash">
+  <div class="dash-header">
+    <div class="dash-logo">MACRO<em>TRACK</em> <span style="font-family:'DM Sans',sans-serif;font-size:11px;color:var(--mu);letter-spacing:0;margin-left:8px;">Admin</span></div>
+    <button class="btn-sm" onclick="logout()">Sign Out</button>
   </div>
 
-  <!-- DASHBOARD -->
-  <div class="dash" id="dash">
-    <div class="dash-header">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <div style="width:28px;height:28px;border-radius:7px;background:#161628;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <svg width="16" height="15" viewBox="0 0 68 62" fill="none">
-            <defs>
-              <linearGradient id="mGradD" x1="4" y1="56" x2="64" y2="4" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stop-color="#6366f1"/>
-                <stop offset="50%" stop-color="#a78bfa"/>
-                <stop offset="100%" stop-color="#c084fc"/>
-              </linearGradient>
-            </defs>
-            <path d="M6 56 L6 8 L34 42 L62 8 L62 56" stroke="url(#mGradD)" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
-          </svg>
-        </div>
-        <div>
-          <div class="wm-text" style="font-size:16px;">MACROTRACK</div>
-          <div class="tg" style="font-size:6px;">Admin Dashboard</div>
-        </div>
+  <div class="dash-body">
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-n" style="color:var(--ind)" id="sTotal">—</div>
+        <div class="stat-l">Total Users</div>
       </div>
-      <button class="btn-logout" onclick="logout()">Sign Out</button>
+      <div class="stat">
+        <div class="stat-n" style="color:#a5b4fc" id="sPro">—</div>
+        <div class="stat-l">Pro</div>
+      </div>
+      <div class="stat">
+        <div class="stat-n" style="color:#fcd34d" id="sMax">—</div>
+        <div class="stat-l">Max</div>
+      </div>
+      <div class="stat">
+        <div class="stat-n" style="color:var(--em)" id="sPaying">—</div>
+        <div class="stat-l">Paying</div>
+      </div>
     </div>
 
-    <div class="dash-body">
-      <!-- Stats -->
-      <div class="stats-bar">
-        <div class="stat-card">
-          <div class="stat-num" id="statTotal" style="color:var(--ind)">—</div>
-          <div class="stat-lbl">Total Signups</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-num" id="statPending" style="color:#fbbf24">—</div>
-          <div class="stat-lbl">Pending</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-num" id="statApproved" style="color:#34d399">—</div>
-          <div class="stat-lbl">Approved</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-num" id="statDenied" style="color:#fb7185">—</div>
-          <div class="stat-lbl">Denied</div>
-        </div>
-      </div>
+    <!-- Search -->
+    <div class="search-row">
+      <input class="field" id="searchInput" placeholder="Search by email or device ID…" onkeydown="if(event.key==='Enter')search()"/>
+      <button class="btn" onclick="search()">SEARCH</button>
+    </div>
+    <div id="searchResult" style="margin-bottom:16px;"></div>
 
-      <!-- Tabs -->
-      <div class="tabs">
-        <div class="tab active" onclick="switchTab('pending', this)">⏳ Pending</div>
-        <div class="tab" onclick="switchTab('approved', this)">✅ Approved</div>
-        <div class="tab" onclick="switchTab('denied', this)">❌ Denied</div>
-        <div class="tab" onclick="switchTab('all', this)">All</div>
-        <div class="tab" onclick="showSubPanel(this)">💳 Subscriptions</div>
+    <!-- All users -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title" id="tableLabel">All Users</div>
+        <button class="btn-sm" onclick="loadUsers()">↻ Refresh</button>
       </div>
-
-      <!-- Waitlist Table -->
-      <div class="table-wrap" id="waitlistPanel">
-        <div class="table-header">
-          <div class="table-title" id="tableTitle">Pending Applications</div>
-          <button class="btn-refresh" onclick="loadWaitlist()">↻ Refresh</button>
-        </div>
-        <div id="tableContent"><div class="loading">Loading...</div></div>
-      </div>
-
-      <!-- Subscriptions Panel -->
-      <div id="subPanel" style="display:none;">
-        <div class="table-wrap" style="margin-bottom:20px;">
-          <div class="table-header">
-            <div class="table-title">Override User Subscription</div>
-          </div>
-          <div style="padding:20px;">
-            <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-              <div style="flex:1;min-width:200px;">
-                <div style="font-size:11px;color:var(--mu);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">Email or Device ID</div>
-                <input id="subLookupInput" class="field" style="margin:0;" placeholder="user@email.com or device_id" />
-              </div>
-              <button class="btn" style="width:auto;padding:13px 24px;font-size:14px;" onclick="lookupUser()">Look Up</button>
-            </div>
-            <div id="subLookupResult" style="margin-top:16px;"></div>
-          </div>
-        </div>
-
-        <div class="table-wrap">
-          <div class="table-header">
-            <div class="table-title">All Active Subscribers</div>
-            <button class="btn-refresh" onclick="loadSubscribers()">↻ Refresh</button>
-          </div>
-          <div id="subscriberList"><div class="loading">Loading...</div></div>
-        </div>
-      </div>
+      <div id="userTable"><div class="loading">Loading…</div></div>
     </div>
   </div>
+</div>
 
-  <div class="toast" id="toast"></div>
+<div class="toast" id="toast"></div>
 
-  <script>
-    const WORKER_URL = "https://macrotrack-ai.kjgoodwin01.workers.dev";
-    const ADMIN_PASSWORD = "MACROTRACK_ADMIN_2026"; // Change this to your password
-    let allData = [];
-    let currentTab = "pending";
+<script>
+  const WORKER = "https://macrotrack-ai.kjgoodwin01.workers.dev";
+  const ADMIN_KEY = "MACROTRACK_ADMIN_2026";
+  let allUsers = [];
 
-    function login(){
-      const pw = document.getElementById("pwInput").value;
-      if(pw === ADMIN_PASSWORD){
-        document.getElementById("loginWrap").style.display = "none";
-        document.getElementById("dash").style.display = "block";
-        loadWaitlist();
+  function login() {
+    const pw = document.getElementById("pwInput").value;
+    if (pw === ADMIN_KEY) {
+      document.getElementById("loginWrap").style.display = "none";
+      document.getElementById("dash").style.display = "block";
+      loadUsers();
+    } else {
+      document.getElementById("loginErr").textContent = "Incorrect password.";
+    }
+  }
+
+  function logout() {
+    document.getElementById("loginWrap").style.display = "flex";
+    document.getElementById("dash").style.display = "none";
+    document.getElementById("pwInput").value = "";
+  }
+
+  async function loadUsers() {
+    document.getElementById("userTable").innerHTML = '<div class="loading">Loading…</div>';
+    try {
+      const r = await fetch(WORKER, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "admin_list_subscribers", adminKey: ADMIN_KEY })
+      });
+      const d = await r.json();
+      allUsers = d.users || [];
+      renderStats(allUsers);
+      renderTable(allUsers);
+    } catch(e) {
+      document.getElementById("userTable").innerHTML = '<div class="loading" style="color:#fb7185;">Failed to load. Check worker.</div>';
+    }
+  }
+
+  function renderStats(users) {
+    const pro = users.filter(u => u.subscription_status === "pro").length;
+    const max = users.filter(u => u.subscription_status === "max").length;
+    document.getElementById("sTotal").textContent = users.length;
+    document.getElementById("sPro").textContent = pro;
+    document.getElementById("sMax").textContent = max;
+    document.getElementById("sPaying").textContent = pro + max;
+  }
+
+  function renderTable(users) {
+    document.getElementById("tableLabel").textContent = "All Users (" + users.length + ")";
+    if (users.length === 0) {
+      document.getElementById("userTable").innerHTML = '<div class="empty">No users yet.</div>';
+      return;
+    }
+    const rows = users.map(u => {
+      const sub = u.subscription_status || "free";
+      const joined = u.updated_at ? new Date(u.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
+      return `<tr>
+        <td><strong>${esc(u.name || "—")}</strong></td>
+        <td style="color:var(--txt2)">${esc(u.email || "—")}</td>
+        <td><span class="badge badge-${sub}">${sub.toUpperCase()}</span></td>
+        <td>
+          <select class="field inline" onchange="setSubscription('${esc(u.device_id)}', this.value, this)">
+            <option value="free" ${sub==="free"?"selected":""}>Free</option>
+            <option value="pro"  ${sub==="pro" ?"selected":""}>Pro</option>
+            <option value="max"  ${sub==="max" ?"selected":""}>Max</option>
+          </select>
+        </td>
+        <td class="mono">${joined}</td>
+        <td class="mono" style="font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(u.device_id || "—")}</td>
+      </tr>`;
+    }).join("");
+    document.getElementById("userTable").innerHTML = `
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Plan</th><th>Change</th><th>Last Active</th><th>Device ID</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  async function search() {
+    const q = document.getElementById("searchInput").value.trim();
+    const el = document.getElementById("searchResult");
+    if (!q) { el.innerHTML = ""; renderTable(allUsers); return; }
+
+    // Local filter first
+    const local = allUsers.filter(u =>
+      (u.email || "").toLowerCase().includes(q.toLowerCase()) ||
+      (u.name  || "").toLowerCase().includes(q.toLowerCase()) ||
+      (u.device_id || "").includes(q)
+    );
+    if (local.length > 0) { renderTable(local); el.innerHTML = ""; return; }
+
+    // Fall back to server lookup
+    el.innerHTML = '<div style="color:var(--mu);font-size:13px;padding:4px 0;">Searching…</div>';
+    try {
+      const r = await fetch(WORKER, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "admin_lookup_user", query: q, adminKey: ADMIN_KEY })
+      });
+      const d = await r.json();
+      if (!d.ok || !d.user) { el.innerHTML = '<div style="color:var(--mu);font-size:13px;padding:4px 0;">No user found.</div>'; return; }
+      el.innerHTML = "";
+      renderTable([d.user]);
+    } catch(e) { el.innerHTML = '<div style="color:#fb7185;font-size:13px;">Error — try again.</div>'; }
+  }
+
+  async function setSubscription(deviceId, status, selectEl) {
+    selectEl.disabled = true;
+    try {
+      const r = await fetch(WORKER, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "admin_set_subscription", deviceId, status, adminKey: ADMIN_KEY })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast("Updated to " + status.toUpperCase(), "ok");
+        // Update badge in same row without full reload
+        const badge = selectEl.closest("tr").querySelector(".badge");
+        if (badge) { badge.className = "badge badge-" + status; badge.textContent = status.toUpperCase(); }
+        // Update local cache
+        const u = allUsers.find(x => x.device_id === deviceId);
+        if (u) u.subscription_status = status;
+        renderStats(allUsers);
       } else {
-        document.getElementById("loginErr").textContent = "Incorrect password.";
+        toast("Error: " + (d.error || "failed"), "bad");
+        selectEl.value = selectEl.dataset.prev || "free";
       }
+    } catch(e) {
+      toast("Failed — try again.", "bad");
+    } finally {
+      selectEl.disabled = false;
     }
+  }
 
-    function logout(){
-      document.getElementById("loginWrap").style.display = "flex";
-      document.getElementById("dash").style.display = "none";
-      document.getElementById("pwInput").value = "";
-    }
+  function esc(s) {
+    if (!s) return "";
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
 
-    async function loadWaitlist(){
-      document.getElementById("tableContent").innerHTML = '<div class="loading">Loading...</div>';
-      try{
-        const r = await fetch(WORKER_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "waitlist_list", adminKey: ADMIN_PASSWORD }),
-        });
-        const d = await r.json();
-        if(d.error){ showToast("Error: " + d.error, "error"); return; }
-        allData = d.waitlist || [];
-        updateStats();
-        renderTable();
-      } catch(e){
-        showToast("Failed to load waitlist", "error");
-      }
-    }
-
-    function updateStats(){
-      const total = allData.length;
-      const pending = allData.filter(x => x.status === "pending").length;
-      const approved = allData.filter(x => x.status === "approved").length;
-      const denied = allData.filter(x => x.status === "denied").length;
-      document.getElementById("statTotal").textContent = total;
-      document.getElementById("statPending").textContent = pending;
-      document.getElementById("statApproved").textContent = approved;
-      document.getElementById("statDenied").textContent = denied;
-    }
-
-    function switchTab(tab, el){
-      currentTab = tab;
-      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-      el.classList.add("active");
-      document.getElementById("subPanel").style.display = "none";
-      document.getElementById("waitlistPanel").style.display = "block";
-      const titles = { pending: "Pending Applications", approved: "Approved Users", denied: "Denied Applications", all: "All Applications" };
-      document.getElementById("tableTitle").textContent = titles[tab];
-      renderTable();
-    }
-
-    function renderTable(){
-      const filtered = currentTab === "all" ? allData : allData.filter(x => x.status === currentTab);
-
-      if(filtered.length === 0){
-        document.getElementById("tableContent").innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">📭</div>
-            No ${currentTab} applications yet.
-          </div>`;
-        return;
-      }
-
-      const rows = filtered.map(item => {
-        const date = new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-        const actions = item.status === "pending"
-          ? `<div class="action-btns">
-               <button class="btn-approve" onclick="approve('${item.id}', '${item.email}', '${item.name}')">✓ Approve</button>
-               <button class="btn-deny" onclick="deny('${item.id}')">✗ Deny</button>
-             </div>`
-          : item.status === "approved"
-          ? `<div>
-               <div class="code-mono" style="margin-bottom:6px">${item.invite_code || "—"}</div>
-               <button class="btn-revoke" onclick="revoke('${item.id}', '${item.invite_code}')">Revoke</button>
-             </div>`
-          : `<button class="btn-approve" onclick="approve('${item.id}', '${item.email}', '${item.name}')">Re-approve</button>`;
-
-        return `<tr>
-          <td><strong>${escHtml(item.name)}</strong></td>
-          <td>${escHtml(item.email)}</td>
-          <td><span class="badge badge-${item.status}">${item.status}</span></td>
-          <td class="reason-col">${escHtml(item.reason || "—")}</td>
-          <td class="date-col">${date}</td>
-          <td>${actions}</td>
-        </tr>`;
-      }).join("");
-
-      document.getElementById("tableContent").innerHTML = `
-        <table>
-          <thead><tr>
-            <th>Name</th><th>Email</th><th>Status</th><th>Reason</th><th>Applied</th><th>Action</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>`;
-    }
-
-    async function approve(id, email, name){
-      const btns = document.querySelectorAll(".btn-approve, .btn-deny");
-      btns.forEach(b => b.disabled = true);
-
-      try{
-        const r = await fetch(WORKER_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "waitlist_approve", id, email, name, adminKey: ADMIN_PASSWORD }),
-        });
-        const d = await r.json();
-        if(d.ok){
-          showToast("✓ Approved! Invite code sent to " + email, "success");
-          await loadWaitlist();
-        } else {
-          showToast("Error: " + (d.error || "Unknown error"), "error");
-          btns.forEach(b => b.disabled = false);
-        }
-      } catch(e){
-        showToast("Failed to approve. Try again.", "error");
-        btns.forEach(b => b.disabled = false);
-      }
-    }
-
-    async function deny(id){
-      if(!confirm("Deny this application?")) return;
-      try{
-        const r = await fetch(WORKER_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "waitlist_deny", id, adminKey: ADMIN_PASSWORD }),
-        });
-        const d = await r.json();
-        if(d.ok){ showToast("Application denied.", "success"); await loadWaitlist(); }
-        else showToast("Error: " + d.error, "error");
-      } catch(e){ showToast("Failed. Try again.", "error"); }
-    }
-
-    async function revoke(id, code){
-      if(!confirm("Revoke access for this user? They will be locked out immediately.")) return;
-      try{
-        const r = await fetch(WORKER_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "waitlist_revoke", id, code, adminKey: ADMIN_PASSWORD }),
-        });
-        const d = await r.json();
-        if(d.ok){ showToast("Access revoked.", "success"); await loadWaitlist(); }
-        else showToast("Error: " + d.error, "error");
-      } catch(e){ showToast("Failed. Try again.", "error"); }
-    }
-
-    function showSubPanel(tabEl) {
-      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-      tabEl.classList.add("active");
-      document.getElementById("waitlistPanel").style.display = "none";
-      document.getElementById("subPanel").style.display = "block";
-      loadSubscribers();
-    }
-
-    async function lookupUser() {
-      const query = document.getElementById("subLookupInput").value.trim();
-      if (!query) return;
-      const el = document.getElementById("subLookupResult");
-      el.innerHTML = '<div class="loading">Looking up...</div>';
-      try {
-        const r = await fetch(WORKER_URL, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "admin_lookup_user", query, adminKey: ADMIN_PASSWORD }),
-        });
-        const d = await r.json();
-        if (!d.ok || !d.user) { el.innerHTML = '<div style="color:var(--mu);font-size:13px;">No user found.</div>'; return; }
-        const u = d.user;
-        el.innerHTML = `
-          <div style="background:var(--s2);border-radius:12px;padding:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-            <div style="flex:1;min-width:160px;">
-              <div style="font-size:13px;font-weight:600;">${escHtml(u.name || "—")}</div>
-              <div style="font-size:11px;color:var(--mu);margin-top:2px;">${escHtml(u.email || u.device_id)}</div>
-              <div style="font-size:10px;color:var(--mu);margin-top:2px;font-family:'JetBrains Mono',monospace;">${escHtml(u.device_id)}</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <select id="subStatusSelect" class="field" style="margin:0;width:120px;padding:10px 32px 10px 12px;">
-                <option value="free" ${u.subscription_status==='free'?'selected':''}>Free</option>
-                <option value="pro" ${u.subscription_status==='pro'?'selected':''}>Pro</option>
-                <option value="max" ${u.subscription_status==='max'?'selected':''}>Max</option>
-              </select>
-              <button class="btn" style="width:auto;padding:10px 20px;font-size:13px;" onclick="setSubscription('${escHtml(u.device_id)}')">Save</button>
-            </div>
-          </div>`;
-      } catch(e) { el.innerHTML = '<div style="color:#fb7185;font-size:13px;">Error — try again.</div>'; }
-    }
-
-    async function setSubscription(deviceId) {
-      const status = document.getElementById("subStatusSelect").value;
-      try {
-        const r = await fetch(WORKER_URL, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "admin_set_subscription", deviceId, status, adminKey: ADMIN_PASSWORD }),
-        });
-        const d = await r.json();
-        if (d.ok) { showToast("Subscription set to " + status.toUpperCase(), "success"); loadSubscribers(); }
-        else showToast("Error: " + d.error, "error");
-      } catch(e) { showToast("Failed. Try again.", "error"); }
-    }
-
-    async function loadSubscribers() {
-      const el = document.getElementById("subscriberList");
-      el.innerHTML = '<div class="loading">Loading...</div>';
-      try {
-        const r = await fetch(WORKER_URL, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "admin_list_subscribers", adminKey: ADMIN_PASSWORD }),
-        });
-        const d = await r.json();
-        if (!d.ok || !d.users || d.users.length === 0) {
-          el.innerHTML = '<div style="padding:20px;color:var(--mu);font-size:13px;">No subscribers yet.</div>';
-          return;
-        }
-        const rows = d.users.map(u => `
-          <tr>
-            <td>${escHtml(u.name || "—")}</td>
-            <td style="color:var(--mu);font-size:12px;">${escHtml(u.email || "—")}</td>
-            <td><span class="sub-badge-${u.subscription_status||'free'}">${(u.subscription_status||'free').toUpperCase()}</span></td>
-            <td>
-              <select class="field" style="margin:0;width:100px;padding:7px 28px 7px 10px;font-size:12px;" onchange="quickSet('${escHtml(u.device_id)}', this.value)">
-                <option value="free" ${u.subscription_status==='free'?'selected':''}>Free</option>
-                <option value="pro" ${u.subscription_status==='pro'?'selected':''}>Pro</option>
-                <option value="max" ${u.subscription_status==='max'?'selected':''}>Max</option>
-              </select>
-            </td>
-          </tr>`).join("");
-        el.innerHTML = `<table><thead><tr><th>Name</th><th>Email</th><th>Plan</th><th>Change</th></tr></thead><tbody>${rows}</tbody></table>`;
-      } catch(e) { el.innerHTML = '<div style="padding:20px;color:#fb7185;font-size:13px;">Error loading subscribers.</div>'; }
-    }
-
-    async function quickSet(deviceId, status) {
-      try {
-        const r = await fetch(WORKER_URL, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "admin_set_subscription", deviceId, status, adminKey: ADMIN_PASSWORD }),
-        });
-        const d = await r.json();
-        if (d.ok) showToast("Updated to " + status.toUpperCase(), "success");
-        else showToast("Error: " + d.error, "error");
-      } catch(e) { showToast("Failed.", "error"); }
-    }
-
-    function escHtml(str){
-      if(!str) return "";
-      return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    }
-
-    function showToast(msg, type){
-      const t = document.getElementById("toast");
-      t.textContent = msg;
-      t.className = "toast " + (type || "");
-      t.classList.add("show");
-      setTimeout(() => t.classList.remove("show"), 3500);
-    }
-  </script>
+  function toast(msg, type) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className = "toast " + type + " show";
+    setTimeout(() => t.className = "toast", 3000);
+  }
+</script>
 </body>
 </html>
