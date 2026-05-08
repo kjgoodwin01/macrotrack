@@ -1544,7 +1544,20 @@ export default {
       const { upc } = body;
       if (!upc) return jsonRes({ error: "Missing upc" }, 400, cors);
 
-      // ── 1. Open Food Facts (3M+ products globally) ───────────────────────
+      // ── 1. USDA FoodData Central — manufacturer-submitted, authoritative for US products ──
+      try {
+        const params = new URLSearchParams({ query: upc, pageSize: "5", api_key: env.USDA_API_KEY });
+        const r = await fetch("https://api.nal.usda.gov/fdc/v1/foods/search?" + params.toString());
+        if (r.ok) {
+          const d = await r.json();
+          const foods = d.foods || [];
+          // Exact GTIN match only — never fall back to foods[0] (wrong product risk)
+          const match = foods.find(f => f.gtinUpc === upc);
+          if (match) return jsonRes({ foods: [match] }, 200, cors);
+        }
+      } catch (e) {}
+
+      // ── 2. Open Food Facts — crowd-sourced, good coverage for international products ──
       try {
         const r = await fetch("https://world.openfoodfacts.org/api/v0/product/" + encodeURIComponent(upc) + ".json",
           { headers: { "User-Agent": "MacroTrack/1.0 (https://macrotrack.live)" } });
@@ -1554,10 +1567,7 @@ export default {
             const p = d.product;
             const n = p.nutriments || {};
 
-            // Best available product name (English preferred)
             const productName = (p.product_name_en || p.product_name || p.abbreviated_product_name || "").trim() || "Unknown Product";
-
-            // Brand: take first if comma-separated
             const brand = (p.brands || "").split(",")[0].trim();
 
             // Energy: prefer kcal/100g; fall back from kJ (1 kcal = 4.184 kJ)
@@ -1577,7 +1587,6 @@ export default {
             if (!servGrams) servGrams = 100;
             const servLabel = p.serving_size ? p.serving_size.trim() : (servGrams + "g");
 
-            // Always include 100g as an extra reference serving
             const extraPortions = servGrams !== 100
               ? [{ portionDescription: "100g", gramWeight: 100 }]
               : [];
@@ -1603,19 +1612,7 @@ export default {
         }
       } catch (e) {}
 
-      // ── 2. USDA FoodData Central (branded foods with GTINs) ─────────────
-      try {
-        const params = new URLSearchParams({ query: upc, pageSize: "5", api_key: env.USDA_API_KEY });
-        const r = await fetch("https://api.nal.usda.gov/fdc/v1/foods/search?" + params.toString());
-        if (r.ok) {
-          const d = await r.json();
-          const foods = d.foods || [];
-          const match = foods.find(f => f.gtinUpc === upc) || foods[0];
-          if (match) return jsonRes({ foods: [match] }, 200, cors);
-        }
-      } catch (e) {}
-
-      // ── 3. AI fallback — Claude tries to identify from barcode digits ────
+      // ── 3. AI fallback — Claude estimates from UPC; flagged so UI can warn the user ──
       try {
         const aiResult = await callClaude(env.ANTHROPIC_API_KEY,
           "You are a product nutrition database. Return ONLY valid JSON.",
@@ -1631,7 +1628,7 @@ export default {
               fdcId: "ai-upc-" + upc,
               description: ai.name,
               brandOwner: ai.brand || "",
-              dataType: "AI Identified",
+              dataType: "AI Estimate",
               gtinUpc: upc,
               foodNutrients: [
                 { nutrientId: 1008, value: Number(ai.cal100) || 0 },

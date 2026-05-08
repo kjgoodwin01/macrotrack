@@ -3186,12 +3186,17 @@ function AddFoodModal({
     className: "spin"
   }), /*#__PURE__*/React.createElement("span", null, "Looking up\u2026")), bErr && /*#__PURE__*/React.createElement("div", {
     className: "err"
-  }, bErr)) : /*#__PURE__*/React.createElement(FoodDetail, {
-    food: bFood,
-    meal: meal,
-    onBack: () => setBFood(null),
-    onConfirm: confirm
-  })), tab === "photo" && /*#__PURE__*/React.createElement("div", null,
+  }, bErr)) : /*#__PURE__*/React.createElement("div", null,
+    bFood && bFood.dataType === "AI Estimate" && /*#__PURE__*/React.createElement("div", {
+      style: { background: "rgba(255,180,0,0.12)", border: "1px solid rgba(255,180,0,0.35)", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: "#f5c842", lineHeight: 1.4 }
+    }, "⚠️ AI estimate — not found in any database. Verify macros before logging."),
+    /*#__PURE__*/React.createElement(FoodDetail, {
+      food: bFood,
+      meal: meal,
+      onBack: () => setBFood(null),
+      onConfirm: confirm
+    })
+  ), tab === "photo" && /*#__PURE__*/React.createElement("div", null,
   /*#__PURE__*/React.createElement("div", {
     className: "chips",
     style: { marginBottom: 14 }
