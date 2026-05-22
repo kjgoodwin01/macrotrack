@@ -72,6 +72,162 @@ async function sbAdmin(env, method, path, body) {
   catch (e) { return { ok: res.ok, status: res.status, data: text }; }
 }
 
+// ── Canonical product database ────────────────────────────────────────────
+
+const KNOWN_BRANDS = [
+  "Kirkland","Red Bull","Monster","Reign","Bang","Celsius","Alani Nu","Ghost",
+  "C4","Gorilla Mind","Prime","Muscle Milk","Quest","Clif","KIND","Larabar",
+  "RXBar","Siggi's","Chobani","Dannon","Yoplait","Fage","Oikos","Noosa",
+  "Nature Valley","Special K","Cheerios","Kashi","Quaker","Kodiak",
+  "Premier Protein","Fairlife","Orgain","Vital Proteins","Garden of Life",
+  "Optimum Nutrition","Dymatize","BSN","Cellucor","MusclePharm",
+  "White Claw","Truly","Bud Light","Michelob Ultra","Corona","Heineken",
+  "Starbucks","Dunkin","Folgers","Maxwell House","Nescafe",
+  "Coca-Cola","Pepsi","Sprite","Fanta","Dr Pepper","Mountain Dew",
+  "Gatorade","Powerade","Body Armor","Liquid IV",
+  "Tyson","Perdue","Oscar Mayer","Applegate","Boar's Head",
+  "Kraft","Tillamook","Cabot","Sargento","Horizon",
+  "Oatly","Silk","Califia","Ripple","Malk",
+  "Rockstar","NOS","Full Throttle","5-hour Energy","Bubly",
+];
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m + 1}, (_, i) =>
+    Array.from({length: n + 1}, (_, j) => i === 0 ? j : j === 0 ? i : 0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+// Fix brand-name typos using Levenshtein against known brand dictionary.
+// Returns { name, brand, corrected } — name has corrected first word if brand matched.
+function normalizeBrands(name, brand) {
+  const nameParts = (name || "").trim().split(/\s+/);
+  const firstWord = nameParts[0] || "";
+  if (firstWord.length < 3) return { name, brand: brand || "", corrected: false };
+
+  const candidates = brand
+    ? [brand.split(",")[0].trim(), ...KNOWN_BRANDS]
+    : KNOWN_BRANDS;
+
+  let bestMatch = null, bestDist = Infinity;
+  for (const candidate of candidates) {
+    const candFirst = candidate.split(/\s+/)[0];
+    if (Math.abs(candFirst.length - firstWord.length) > 3) continue;
+    const dist = levenshtein(firstWord.toLowerCase(), candFirst.toLowerCase());
+    const maxLen = Math.max(firstWord.length, candFirst.length);
+    const threshold = Math.max(1, Math.floor(maxLen * 0.25));
+    if (dist <= threshold && dist < bestDist) {
+      bestDist = dist;
+      bestMatch = candidate;
+    }
+  }
+
+  if (bestMatch && bestDist > 0) {
+    const correctedFirst = bestMatch.split(/\s+/)[0];
+    return {
+      name: correctedFirst + (nameParts.length > 1 ? " " + nameParts.slice(1).join(" ") : ""),
+      brand: bestMatch,
+      corrected: true,
+    };
+  }
+  return { name, brand: brand || "", corrected: false };
+}
+
+// Rule-based sanity flags — cheap, catches the obvious database errors.
+function sanityFlags(name, cal100, p100, c100, f100) {
+  const flags = [];
+  const n = (name || "").toLowerCase();
+
+  // Macro-calorie consistency: cal ≈ p*4 + c*4 + f*9 (±25%)
+  if (cal100 > 5) {
+    const implied = (p100||0)*4 + (c100||0)*4 + (f100||0)*9;
+    if (implied > 0 && Math.abs(implied - cal100) / cal100 > 0.25) {
+      flags.push("MACRO_CAL_INCONSISTENT");
+    }
+  }
+
+  // Sugar-free label but calorie level suggests real sugar (>20 cal/100g is plausible for SF)
+  // We flag when calories are higher than expected for a "zero" product
+  const isSugarFree = n.includes("sugar free") || n.includes("sugar-free") || n.includes("zero sugar");
+  if (isSugarFree && cal100 > 30) flags.push("SUGAR_FREE_HIGH_CAL");
+
+  // Suspiciously low non-zero calories (common OFF data error)
+  if (cal100 > 0 && cal100 < 3 && !n.includes("zero") && !n.includes("diet")) {
+    flags.push("SUSPICIOUSLY_LOW_CAL");
+  }
+
+  return flags;
+}
+
+function computeInitialConfidence(source, hasServing, flags) {
+  const base = {
+    usda_gtin:        0.80,
+    off_with_serving: 0.65,
+    off_brand_table:  0.60,
+    off_ai:           0.55,
+    canonical:        null, // already stored
+  }[source] ?? 0.45;
+
+  let conf = base;
+  if (!hasServing) conf -= 0.10;
+  if (flags && flags.length > 0) conf = Math.min(conf, 0.45);
+  return Math.max(0.10, Math.min(0.95, Math.round(conf * 100) / 100));
+}
+
+async function getCanonical(env, upc) {
+  try {
+    const r = await sbAdmin(env, "GET",
+      "canonical_products?upc=eq." + encodeURIComponent(upc) + "&select=*&limit=1");
+    if (r.ok && Array.isArray(r.data) && r.data.length > 0) return r.data[0];
+  } catch (e) {}
+  return null;
+}
+
+async function writeCanonical(env, upc, entry) {
+  try {
+    const r = await sbAdmin(env, "GET",
+      "canonical_products?upc=eq." + encodeURIComponent(upc) + "&select=scan_count,confidence,ocr_validated&limit=1");
+    if (r.ok && Array.isArray(r.data) && r.data.length > 0) {
+      const prev = r.data[0];
+      const patch = { scan_count: prev.scan_count + 1, updated_at: new Date().toISOString() };
+      // Only overwrite quality fields when new confidence is higher and not yet OCR-validated
+      if (!prev.ocr_validated && entry.confidence != null && entry.confidence > prev.confidence) {
+        Object.assign(patch, entry);
+        patch.scan_count = prev.scan_count + 1;
+      }
+      await sbAdmin(env, "PATCH", "canonical_products?upc=eq." + encodeURIComponent(upc), patch);
+    } else {
+      await sbAdmin(env, "POST", "canonical_products",
+        { ...entry, upc, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+    }
+  } catch (e) {}
+}
+
+function canonicalToFood(c) {
+  const sg = c.serving_g || 100;
+  return {
+    fdcId: "canonical-" + c.upc,
+    description: c.name,
+    brandOwner: c.brand || "",
+    dataType: "Branded",
+    gtinUpc: c.upc,
+    foodNutrients: [
+      { nutrientId: 1008, value: c.cal_100g || 0 },
+      { nutrientId: 1003, value: c.p_100g   || 0 },
+      { nutrientId: 1005, value: c.c_100g   || 0 },
+      { nutrientId: 1004, value: c.f_100g   || 0 },
+    ],
+    servingSize: sg,
+    servingSizeUnit: "g",
+    householdServingFullText: c.serving_desc || (sg + "g"),
+    foodPortions: sg !== 100 ? [{ portionDescription: "100g", gramWeight: 100 }] : [],
+  };
+}
+
 async function callClaude(apiKey, system, messages, maxTokens, model) {
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -1544,20 +1700,58 @@ export default {
       const { upc } = body;
       if (!upc) return jsonRes({ error: "Missing upc" }, 400, cors);
 
-      // ── 1. USDA FoodData Central — manufacturer-submitted, authoritative for US products ──
+      // ── 0. Canonical cache — shared across all users, set on first scan ──
+      const canonical = await getCanonical(env, upc);
+      if (canonical && canonical.confidence >= 0.75) {
+        ctx.waitUntil(writeCanonical(env, upc, {})); // increment scan_count only
+        return jsonRes({
+          foods: [canonicalToFood(canonical)],
+          confidence: canonical.confidence,
+          source: "canonical",
+          flags: canonical.flags || [],
+          ocr_validated: canonical.ocr_validated || false,
+        }, 200, cors);
+      }
+
+      // Helper — write to canonical and return a formatted response
+      function finalize(food, source, hasServing) {
+        const n = food.foodNutrients || [];
+        const nv = (id) => (n.find(x => x.nutrientId === id) || {}).value || 0;
+        const cal = nv(1008), p = nv(1003), c = nv(1005), f = nv(1004);
+        const flags = sanityFlags(food.description, cal, p, c, f);
+        const nm = normalizeBrands(food.description, food.brandOwner);
+        if (nm.corrected) {
+          food = { ...food, description: nm.name, brandOwner: nm.brand };
+        }
+        const confidence = computeInitialConfidence(source, hasServing, flags);
+        const entry = {
+          name: food.description || "",
+          brand: food.brandOwner || "",
+          cal_100g: cal, p_100g: p, c_100g: c, f_100g: f,
+          serving_desc: food.householdServingFullText || null,
+          serving_g: food.servingSize || null,
+          confidence, db_source: source.startsWith("usda") ? "usda" : "off",
+          flags: flags, scan_count: 1,
+          ocr_validated: false,
+          corrections: [],
+        };
+        ctx.waitUntil(writeCanonical(env, upc, entry));
+        return jsonRes({ foods: [food], confidence, source, flags }, 200, cors);
+      }
+
+      // ── 1. USDA FoodData Central — manufacturer-submitted, authoritative for US ──
       try {
         const params = new URLSearchParams({ query: upc, pageSize: "5", api_key: env.USDA_API_KEY });
         const r = await fetch("https://api.nal.usda.gov/fdc/v1/foods/search?" + params.toString());
         if (r.ok) {
           const d = await r.json();
-          const foods = d.foods || [];
-          // Exact GTIN match only — never fall back to foods[0] (wrong product risk)
-          const match = foods.find(f => f.gtinUpc === upc);
-          if (match) return jsonRes({ foods: [match] }, 200, cors);
+          const match = (d.foods || []).find(f => f.gtinUpc === upc);
+          if (match) return finalize(match, "usda_gtin", !!(match.servingSize));
         }
       } catch (e) {}
 
-      // ── 2. Open Food Facts — crowd-sourced, good coverage for international products ──
+      // ── 2. Open Food Facts — crowd-sourced, good international coverage ──
+      let offFallback = null;
       try {
         const r = await fetch("https://world.openfoodfacts.org/api/v0/product/" + encodeURIComponent(upc) + ".json",
           { headers: { "User-Agent": "MacroTrack/1.0 (https://macrotrack.live)" } });
@@ -1566,84 +1760,117 @@ export default {
           if (d.status === 1 && d.product) {
             const p = d.product;
             const n = p.nutriments || {};
-
             const productName = (p.product_name_en || p.product_name || p.abbreviated_product_name || "").trim() || "Unknown Product";
             const brand = (p.brands || "").split(",")[0].trim();
-
-            // Energy: prefer kcal/100g; fall back from kJ (1 kcal = 4.184 kJ)
             const kcal100 = Math.round(
               parseFloat(n["energy-kcal_100g"]) ||
               parseFloat(n["energy-kcal"])       ||
-              (parseFloat(n["energy_100g"]) / 4.184) ||
-              0
-            );
-
-            // Serving size: prefer numeric serving_quantity, then parse from serving_size string
-            let servGrams = parseFloat(p.serving_quantity) || 0;
-            if (!servGrams && p.serving_size) {
-              const m = String(p.serving_size).match(/(\d+(?:\.\d+)?)/);
-              if (m) servGrams = parseFloat(m[1]);
+              (parseFloat(n["energy_100g"]) / 4.184) || 0);
+            const p100 = Math.round(parseFloat(n.proteins_100g)      || 0);
+            const c100 = Math.round(parseFloat(n.carbohydrates_100g) || 0);
+            const f100 = Math.round(parseFloat(n.fat_100g)           || 0);
+            function parseVol(s) {
+              const ml = s.match(/(\d+(?:\.\d+)?)\s*m[lL]/);
+              const oz = s.match(/(\d+(?:\.\d+)?)\s*fl\.?\s*oz/i);
+              const g  = s.match(/(\d+(?:\.\d+)?)\s*g\b/i);
+              return ml ? parseFloat(ml[1]) : oz ? Math.round(parseFloat(oz[1]) * 29.574) : g ? parseFloat(g[1]) : 0;
             }
-            if (!servGrams) servGrams = 100;
-            const servLabel = p.serving_size ? p.serving_size.trim() : (servGrams + "g");
+            let servGrams = parseFloat(p.serving_quantity) || 0;
+            if (!servGrams && p.serving_size) servGrams = parseVol(String(p.serving_size));
+            if (!servGrams && p.quantity)     servGrams = parseVol(String(p.quantity));
 
-            const extraPortions = servGrams !== 100
-              ? [{ portionDescription: "100g", gramWeight: 100 }]
-              : [];
-
-            return jsonRes({ foods: [{
-              fdcId: "off-" + upc,
-              description: productName,
-              brandOwner: brand,
-              dataType: "Branded",
-              gtinUpc: upc,
-              foodNutrients: [
-                { nutrientId: 1008, value: kcal100 },
-                { nutrientId: 1003, value: Math.round(parseFloat(n.proteins_100g)      || 0) },
-                { nutrientId: 1005, value: Math.round(parseFloat(n.carbohydrates_100g) || 0) },
-                { nutrientId: 1004, value: Math.round(parseFloat(n.fat_100g)           || 0) },
-              ],
-              servingSize: servGrams,
-              servingSizeUnit: "g",
-              householdServingFullText: servLabel,
-              foodPortions: extraPortions,
-            }]}, 200, cors);
+            if (servGrams > 0) {
+              const servLabel = p.serving_size ? p.serving_size.trim() : (servGrams + "g");
+              return finalize({
+                fdcId: "off-" + upc,
+                description: productName, brandOwner: brand,
+                dataType: "Branded", gtinUpc: upc,
+                foodNutrients: [
+                  { nutrientId: 1008, value: kcal100 }, { nutrientId: 1003, value: p100 },
+                  { nutrientId: 1005, value: c100 },    { nutrientId: 1004, value: f100 },
+                ],
+                servingSize: servGrams, servingSizeUnit: "g",
+                householdServingFullText: servLabel,
+                foodPortions: servGrams !== 100 ? [{ portionDescription: "100g", gramWeight: 100 }] : [],
+              }, "off_with_serving", true);
+            }
+            offFallback = { name: productName, brand, kcal100, p100, c100, f100 };
           }
         }
       } catch (e) {}
 
-      // ── 3. AI fallback — Claude estimates from UPC; flagged so UI can warn the user ──
-      try {
-        const aiResult = await callClaude(env.ANTHROPIC_API_KEY,
-          "You are a product nutrition database. Return ONLY valid JSON.",
-          [{ role: "user", content: `Look up barcode/UPC "${upc}". If you recognise this product, return its nutrition facts as JSON:\n{"found":true,"name":"Product Name","brand":"Brand","serving":"1 serving (Xg)","servingGrams":X,"cal100":X,"p100":X,"c100":X,"f100":X}\nIf unknown, return {"found":false}.` }],
-          200
-        );
-        if (!aiResult.error) {
-          const txt = aiResult.text.replace(/```json|```/g, "").trim();
-          const ai = JSON.parse(txt);
-          if (ai.found && ai.name) {
-            const sg = Number(ai.servingGrams) || 100;
-            return jsonRes({ foods: [{
-              fdcId: "ai-upc-" + upc,
-              description: ai.name,
-              brandOwner: ai.brand || "",
-              dataType: "AI Estimate",
-              gtinUpc: upc,
-              foodNutrients: [
-                { nutrientId: 1008, value: Number(ai.cal100) || 0 },
-                { nutrientId: 1003, value: Number(ai.p100)   || 0 },
-                { nutrientId: 1005, value: Number(ai.c100)   || 0 },
-                { nutrientId: 1004, value: Number(ai.f100)   || 0 },
-              ],
-              servingSize: sg,
-              servingSizeUnit: "g",
-              householdServingFullText: ai.serving || (sg + "g"),
-              foodPortions: sg !== 100 ? [{ portionDescription: "100g", gramWeight: 100 }] : [],
-            }]}, 200, cors);
-          }
+      // ── 3. Known-brand serving table — instant fallback for popular single-serve drinks ──
+      if (offFallback) {
+        const BRAND_CANS = {
+          reign: 473, bang: 473, "c4": 473, ghost: 473, gorilla: 473,
+          celsius: 355, "alani nu": 355, alani: 355, prime: 355, bubly: 355,
+          monster: 473, rockstar: 473, "nos": 473, "full throttle": 473,
+          "red bull": 250, "5-hour energy": 57,
+          "white claw": 355, truly: 355, bud: 355, michelob: 355,
+        };
+        const brandKey = offFallback.brand.toLowerCase();
+        const canKey = Object.keys(BRAND_CANS).find(k => brandKey.includes(k));
+        if (canKey) {
+          const sg = BRAND_CANS[canKey];
+          return finalize({
+            fdcId: "off-" + upc,
+            description: offFallback.name, brandOwner: offFallback.brand,
+            dataType: "Branded", gtinUpc: upc,
+            foodNutrients: [
+              { nutrientId: 1008, value: offFallback.kcal100 }, { nutrientId: 1003, value: offFallback.p100 },
+              { nutrientId: 1005, value: offFallback.c100 },    { nutrientId: 1004, value: offFallback.f100 },
+            ],
+            servingSize: sg, servingSizeUnit: "g",
+            householdServingFullText: "1 can (" + sg + " mL)",
+            foodPortions: [{ portionDescription: "100g", gramWeight: 100 }],
+          }, "off_brand_table", true);
         }
-      } catch (e) {}
+      }
+
+      // ── 4. AI serving fallback — ONLY when OFF found the product ──
+      if (offFallback) {
+        try {
+          const aiPrompt = `A user scanned a packaged food product. The database identifies it as:\nName: "${offFallback.name}"\nBrand: "${offFallback.brand}"\nUPC: ${upc}\n\nWhat is the standard single-serving size for this product? Return ONLY a JSON object:\n{"found":true,"name":"Full product name","brand":"Brand name","serving":"1 can (473 mL)","servingGrams":473,"cal100":2.11,"p100":0,"c100":0.63,"f100":0}\nAll fields required. servingGrams = ml or g in one serving. cal100/p100/c100/f100 = per 100g.\nIf completely unknown: {"found":false}`;
+          const aiResult = await callClaude(env.ANTHROPIC_API_KEY,
+            "You are a nutrition facts database. Respond with ONLY a valid JSON object — no markdown, no explanation, no extra text.",
+            [{ role: "user", content: aiPrompt }], 300, "claude-sonnet-4-6");
+          if (!aiResult.error) {
+            const raw = aiResult.text || "";
+            const start = raw.indexOf("{"), end = raw.lastIndexOf("}");
+            const ai = JSON.parse(start >= 0 ? raw.slice(start, end + 1) : raw);
+            if (ai.found && ai.name) {
+              const sg = Number(ai.servingGrams) || 100;
+              return finalize({
+                fdcId: "ai-upc-" + upc,
+                description: offFallback.name, brandOwner: offFallback.brand,
+                dataType: "Branded", gtinUpc: upc,
+                foodNutrients: [
+                  { nutrientId: 1008, value: Number(ai.cal100) || 0 },
+                  { nutrientId: 1003, value: Number(ai.p100)   || 0 },
+                  { nutrientId: 1005, value: Number(ai.c100)   || 0 },
+                  { nutrientId: 1004, value: Number(ai.f100)   || 0 },
+                ],
+                servingSize: sg, servingSizeUnit: "g",
+                householdServingFullText: ai.serving || (sg + "mL"),
+                foodPortions: sg !== 100 ? [{ portionDescription: "100g", gramWeight: 100 }] : [],
+              }, "off_ai", true);
+            }
+          }
+        } catch (e) {}
+
+        // AI failed — return OFF data with 100g so client brand table can fix serving
+        return finalize({
+          fdcId: "off-" + upc,
+          description: offFallback.name, brandOwner: offFallback.brand,
+          dataType: "Branded", gtinUpc: upc,
+          foodNutrients: [
+            { nutrientId: 1008, value: offFallback.kcal100 }, { nutrientId: 1003, value: offFallback.p100 },
+            { nutrientId: 1005, value: offFallback.c100 },    { nutrientId: 1004, value: offFallback.f100 },
+          ],
+          servingSize: 100, servingSizeUnit: "g",
+          householdServingFullText: "100g", foodPortions: [],
+        }, "off_ai", false);
+      }
 
       return jsonRes({ foods: [] }, 200, cors);
     }
@@ -1692,20 +1919,157 @@ export default {
       if (!imageBase64 || !mediaType) return jsonRes({ error: "Missing image data" }, 400, cors);
       const result = await callClaude(
         env.ANTHROPIC_API_KEY,
-        "You are reading a nutrition facts panel from a food package photo. Extract EXACTLY what is printed — do not estimate. Return ONLY valid JSON: {\"name\":\"product name\",\"serving\":\"serving description from label\",\"servingGrams\":100,\"cal\":0,\"p\":0,\"c\":0,\"f\":0,\"confidence\":\"high/medium/low\"}. All macro values are per serving as printed. Integers only. If the label is unreadable, set confidence to \"low\" and estimate.",
+        `You are reading a nutrition facts panel from a food package photo. Extract EXACTLY what is printed on the label — do not estimate or substitute.
+Return ONLY valid JSON with these fields:
+{
+  "name": "product name from label",
+  "brand": "brand name from label",
+  "serving": "serving size description as printed (e.g. '1 can (8.4 fl oz)')",
+  "servingGrams": 250,
+  "cal": 20,
+  "p": 0,
+  "c": 2,
+  "f": 0,
+  "sugar": 0,
+  "sodium": 80,
+  "is_sugar_free": false,
+  "per_container": false,
+  "confidence": "high"
+}
+Rules: all macro/mineral values are PER SERVING as printed. Integers only. confidence = "high" if label clearly visible, "medium" if partially obscured, "low" if mostly unreadable. per_container = true if label says "per container" not "per serving". is_sugar_free = true if front of pack says "sugar free" or "zero sugar".`,
         [{ role: "user", content: [
           { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
-          { type: "text", text: "Read the nutrition facts label. Return per-serving values exactly as printed." }
+          { type: "text", text: "Read this nutrition facts label and return the JSON." }
         ]}],
-        300
+        400,
+        "claude-sonnet-4-6"
       );
       if (result.error) return jsonRes({ error: result.error }, 502, cors);
       try {
-        const data = JSON.parse(result.text.replace(/```json|```/g, "").trim());
+        const raw = result.text.replace(/```json|```/g, "").trim();
+        const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
+        const data = JSON.parse(s >= 0 ? raw.slice(s, e + 1) : raw);
         return jsonRes({ ...data, isLabel: true }, 200, cors);
       } catch (e) {
         return jsonRes({ error: "Could not read label" }, 500, cors);
       }
+    }
+
+    // ── VALIDATE BARCODE (compare DB result vs OCR label scan) ──────────────
+    if (type === "validate_barcode") {
+      const { upc, ocrResult } = body;
+      let { dbResult } = body;
+      if (!upc || !dbResult || !ocrResult) return jsonRes({ error: "Missing fields" }, 400, cors);
+
+      // Convert DB per-serving values to per-100g for fair comparison
+      const dbServG = dbResult.servingGrams || 100;
+      const db = {
+        cal: Math.round((dbResult.cal / dbServG) * 100),
+        p:   Math.round((dbResult.p   / dbServG) * 100),
+        c:   Math.round((dbResult.c   / dbServG) * 100),
+        f:   Math.round((dbResult.f   / dbServG) * 100),
+      };
+      const ocrServG = ocrResult.servingGrams || 100;
+      const ocr = {
+        cal: Math.round((ocrResult.cal / ocrServG) * 100),
+        p:   Math.round((ocrResult.p   / ocrServG) * 100),
+        c:   Math.round((ocrResult.c   / ocrServG) * 100),
+        f:   Math.round((ocrResult.f   / ocrServG) * 100),
+      };
+
+      const corrections = [];
+      const fieldWeights = { cal: 0.40, p: 0.20, c: 0.20, f: 0.20 };
+      let weightedConf = 0;
+
+      for (const field of ["cal", "p", "c", "f"]) {
+        const dbVal = db[field], ocrVal = ocr[field];
+        const denom = Math.max(ocrVal, 1);
+        const delta = Math.abs(dbVal - ocrVal) / denom;
+        let fieldConf, useOcr;
+
+        if (delta < 0.08) {
+          fieldConf = 1.0; useOcr = false;
+        } else if (delta < 0.25) {
+          fieldConf = 0.72; useOcr = true;
+        } else {
+          fieldConf = 0.38; useOcr = true;
+          corrections.push({
+            field,
+            db_val_per_serving: dbResult[field],
+            ocr_val_per_serving: ocrResult[field],
+            db_per_100g: dbVal,
+            ocr_per_100g: ocrVal,
+            delta_pct: Math.round(delta * 100),
+          });
+        }
+        weightedConf += fieldConf * fieldWeights[field];
+        if (useOcr && ocrResult.confidence !== "low") {
+          // Prefer OCR value — it's from the physical label
+          dbResult = { ...dbResult, [field]: ocrResult[field] };
+        }
+      }
+
+      // Name normalization via brand dict
+      const nm = normalizeBrands(ocrResult.name || dbResult.name, ocrResult.brand || dbResult.brand);
+      const finalName = nm.name;
+      const finalBrand = nm.brand;
+
+      // Additional flags from OCR
+      const ocrFlags = sanityFlags(finalName, ocr.cal, ocr.p, ocr.c, ocr.f);
+      if (ocrResult.is_sugar_free) {
+        const n = (finalName || "").toLowerCase();
+        if (!n.includes("sugar free") && !n.includes("zero sugar")) ocrFlags.push("SUGAR_FREE_UNLABELED");
+      }
+
+      const finalConf = Math.max(0.10, Math.min(0.97, Math.round(weightedConf * 100) / 100));
+
+      // Persist corrections + boost confidence in canonical_products
+      const correctionRecord = corrections.length > 0 ? {
+        at: new Date().toISOString(),
+        source: "user_label_scan",
+        ocr_confidence: ocrResult.confidence,
+        fields: corrections,
+      } : null;
+
+      ctx.waitUntil((async () => {
+        try {
+          const existing = await sbAdmin(env, "GET",
+            "canonical_products?upc=eq." + encodeURIComponent(upc) + "&select=scan_count,corrections,confidence&limit=1");
+          const prev = existing.ok && existing.data[0];
+          const prevCorrections = (prev && Array.isArray(prev.corrections)) ? prev.corrections : [];
+          const patch = {
+            name: finalName, brand: finalBrand,
+            cal_100g: ocr.cal, p_100g: ocr.p, c_100g: ocr.c, f_100g: ocr.f,
+            serving_desc: ocrResult.serving, serving_g: ocrServG,
+            confidence: finalConf,
+            ocr_validated: true,
+            flags: ocrFlags,
+            validated_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            scan_count: (prev ? prev.scan_count : 0) + 1,
+            corrections: correctionRecord
+              ? [...prevCorrections.slice(-9), correctionRecord]
+              : prevCorrections,
+          };
+          if (prev) {
+            await sbAdmin(env, "PATCH", "canonical_products?upc=eq." + encodeURIComponent(upc), patch);
+          } else {
+            await sbAdmin(env, "POST", "canonical_products", { ...patch, upc, db_source: "ocr", created_at: new Date().toISOString() });
+          }
+        } catch (e) {}
+      })());
+
+      return jsonRes({
+        confidence: finalConf,
+        ocr_validated: true,
+        corrections,
+        flags: ocrFlags,
+        finalResult: {
+          name: finalName, brand: finalBrand,
+          cal: dbResult.cal, p: dbResult.p, c: dbResult.c, f: dbResult.f,
+          serving: ocrResult.serving, servingGrams: ocrServG,
+        },
+      }, 200, cors);
     }
 
     // ── MEAL PLAN ─────────────────────────────────────────────────────────
@@ -2616,6 +2980,38 @@ Example output: [{"name":"Flat Bench Press","sets":3,"reps":"5","weight":"225 lb
       } catch (e) {
         return jsonRes({ error: "Failed to parse AI response" }, 500, cors);
       }
+    }
+
+    // ── ADMIN: Canonical DB stats + low-confidence products ─────────────────
+    if (type === "admin_canonical_stats") {
+      const { adminKey } = body;
+      if (adminKey !== "MACROTRACK_ADMIN_2026") return jsonRes({ error: "Unauthorized" }, 401, cors);
+
+      const [allR, lowR, ocrR, flaggedR] = await Promise.all([
+        sbAdmin(env, "GET", "canonical_products?select=count&limit=1"),
+        sbAdmin(env, "GET", "canonical_products?confidence=lt.0.75&select=upc,name,brand,confidence,flags,scan_count,ocr_validated,corrections,db_source,updated_at&order=confidence.asc&limit=50"),
+        sbAdmin(env, "GET", "canonical_products?ocr_validated=eq.true&select=count&limit=1"),
+        sbAdmin(env, "GET", "canonical_products?flags=not.eq.%5B%5D&select=upc,name,brand,confidence,flags,scan_count,ocr_validated&order=scan_count.desc&limit=25"),
+      ]);
+
+      const total = allR.ok && Array.isArray(allR.data) ? allR.data.length : 0;
+      const ocrCount = ocrR.ok && Array.isArray(ocrR.data) ? ocrR.data.length : 0;
+      const lowConf = lowR.ok && Array.isArray(lowR.data) ? lowR.data : [];
+      const flagged = flaggedR.ok && Array.isArray(flaggedR.data) ? flaggedR.data : [];
+
+      return jsonRes({ total, ocrCount, lowConf, flagged }, 200, cors);
+    }
+
+    // ── ADMIN: Force-update a canonical entry ────────────────────────────────
+    if (type === "admin_canonical_update") {
+      const { adminKey, upc, patch } = body;
+      if (adminKey !== "MACROTRACK_ADMIN_2026") return jsonRes({ error: "Unauthorized" }, 401, cors);
+      if (!upc || !patch) return jsonRes({ error: "Missing upc or patch" }, 400, cors);
+      const r = await sbAdmin(env, "PATCH",
+        "canonical_products?upc=eq." + encodeURIComponent(upc),
+        { ...patch, updated_at: new Date().toISOString() });
+      if (!r.ok) return jsonRes({ error: "Update failed" }, 500, cors);
+      return jsonRes({ ok: true }, 200, cors);
     }
 
     return jsonRes({ error: "Unknown request type: " + type }, 400, cors);

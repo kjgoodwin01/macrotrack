@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script>(function(){function applyNative(){var isNative=window.location.protocol==='capacitor:'||!!window.Capacitor;if(!isNative)return;document.documentElement.classList.add('native');document.documentElement.style.setProperty('--native-safe-top','59px');var s=document.createElement('style');s.textContent='.nav{padding-bottom:env(safe-area-inset-bottom,34px)!important}html.native .ob-wrap{padding-top:var(--native-safe-top,59px)!important}';document.head.appendChild(s);function measure(){var el=document.createElement('div');el.style.cssText='position:fixed;top:0;left:0;width:1px;pointer-events:none;opacity:0;height:env(safe-area-inset-top,0px)';document.body.appendChild(el);var h=el.offsetHeight;el.remove();if(h>0)document.documentElement.style.setProperty('--native-safe-top',h+'px');}if(document.body){measure();}else{document.addEventListener('DOMContentLoaded',function(){requestAnimationFrame(measure);});}}applyNative();})();</script>
+  <script>(function(){function applyNative(){var isNative=window.location.protocol==='capacitor:'||!!window.Capacitor;if(!isNative)return;document.documentElement.classList.add('native');document.documentElement.style.setProperty('--native-safe-top','59px');var s=document.createElement('style');s.textContent='.nav{padding-bottom:env(safe-area-inset-bottom,34px)!important}html.native .ob-wrap{padding-top:var(--native-safe-top,59px)!important}html.native.keyboard-open .nav{display:none!important}html.native.keyboard-open .fab{display:none!important}';document.head.appendChild(s);if(window.visualViewport){window.visualViewport.addEventListener('resize',function(){var kbH=window.innerHeight-window.visualViewport.height-window.visualViewport.offsetTop;document.documentElement.classList.toggle('keyboard-open',kbH>100);});}function measure(){var el=document.createElement('div');el.style.cssText='position:fixed;top:0;left:0;width:1px;pointer-events:none;opacity:0;height:env(safe-area-inset-top,0px)';document.body.appendChild(el);var h=el.offsetHeight;el.remove();if(h>0)document.documentElement.style.setProperty('--native-safe-top',h+'px');}if(document.body){measure();}else{document.addEventListener('DOMContentLoaded',function(){requestAnimationFrame(measure);});}}applyNative();})();</script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -2562,6 +2562,12 @@ function AddFoodModal({
   const [bLoad, setBLoad] = useState(false);
   const [bErr, setBErr] = useState("");
   const [bFood, setBFood] = useState(null);
+  const [bConfidence, setBConfidence] = useState(null);   // 0.0–1.0 from worker
+  const [bFlags, setBFlags] = useState([]);               // sanity flag strings
+  const [bSource, setBSource] = useState(null);           // "canonical"|"usda_gtin"|etc.
+  const [bVerifying, setBVerifying] = useState(false);    // label scan in progress
+  const [bCorrections, setBCorrections] = useState(null); // [{field,db_val,ocr_val}]
+  const [bOcrDone, setBOcrDone] = useState(false);        // label scan completed
   const [scannerKey, setScannerKey] = useState(0);
   const [img, setImg] = useState(null);
   const [scanning, setScanning] = useState(false);
@@ -2574,6 +2580,7 @@ function AddFoodModal({
   const [mCa, setMCa] = useState("");
   const [mF, setMF] = useState("");
   const fRef = useRef(null);
+  const lRef = useRef(null); // barcode label-scan file input
   const tRef = useRef(null);
 
   // ── NLP state ──
@@ -2682,66 +2689,144 @@ function AddFoodModal({
     setBLoad(true);
     setBErr("");
     setBFood(null);
+    setBConfidence(null);
+    setBFlags([]);
+    setBSource(null);
+    setBVerifying(false);
+    setBCorrections(null);
+    setBOcrDone(false);
     try {
-      // 1. Try USDA via Cloudflare Worker first — authoritative for US branded products
-      let found = false;
-      try {
-        const r = await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "barcode_lookup", upc: c })
-        });
-        if (r.ok) {
+      // Fetch USDA (via worker) and Open Food Facts in parallel.
+      // OFF is primary for barcode scans — its data comes directly from product labels
+      // and is more accurate for serving sizes and branded beverage macros.
+      // USDA is the fallback when OFF doesn't have the product.
+      function withTimeout(promise, ms) {
+        var tid;
+        return Promise.race([
+          promise,
+          new Promise(function(_, rej) { tid = setTimeout(function() { rej(new Error("timeout")); }, ms); })
+        ]).finally(function() { clearTimeout(tid); });
+      }
+      // Worker handles USDA + OFF + canonical in one call.
+      // We still fetch OFF in parallel for the name/brand override path below,
+      // but the worker response is authoritative for macros + confidence.
+      const [workerResult, offResult] = await Promise.allSettled([
+        withTimeout((async () => {
+          const r = await fetch((workerUrl || DEFAULT_WORKER_URL).replace(/\/$/, ""), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "barcode_lookup", upc: c })
+          });
+          if (!r.ok) throw new Error("worker error");
           const d = await r.json();
           const foods = d.foods || [];
-          if (foods.length > 0) {
-            setBFood(parseFood(foods[0]));
-            found = true;
+          if (!foods.length) throw new Error("no results");
+          return { food: parseFood(foods[0]), confidence: d.confidence, source: d.source, flags: d.flags || [] };
+        })(), 6000),
+        withTimeout((async () => {
+          const r = await fetch("https://world.openfoodfacts.org/api/v0/product/" + encodeURIComponent(c) + ".json");
+          if (!r.ok) throw new Error("off error");
+          const d = await r.json();
+          if (d.status !== 1 || !d.product) throw new Error("not found");
+          return d.product;
+        })(), 4000)
+      ]);
+
+      const workerData = workerResult.status === "fulfilled" ? workerResult.value : null;
+      const usdaFood = workerData ? workerData.food : null;
+      const offProduct = offResult.status === "fulfilled" ? offResult.value : null;
+      const offName = offProduct ? (offProduct.product_name || offProduct.product_name_en || "").trim() : "";
+      const offBrand = offProduct ? (offProduct.brands || "").split(",")[0].trim() : "";
+
+      if (offProduct && offName) {
+        // OFF primary: nutrition and serving from actual product label.
+        // Apply brand-name typo correction — both OFF and USDA can have the same typo.
+        let fixedName = offName;
+        if (offBrand) {
+          const np = fixedName.trim().split(/\s+/);
+          const bf = offBrand.trim().split(/\s+/)[0];
+          if (np.length > 1 && np[0].toLowerCase() !== bf.toLowerCase()) {
+            const a = np[0].toLowerCase(), b = bf.toLowerCase();
+            if (a.length === b.length) {
+              let diffs = 0;
+              for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diffs++;
+              if (diffs === 1) fixedName = bf + " " + np.slice(1).join(" ");
+            }
           }
         }
-      } catch (e) { /* Worker unavailable — fall through to Open Food Facts */ }
-
-      // 2. Fall back to Open Food Facts — crowd-sourced, good for international products
-      if (!found) {
-        const offRes = await fetch("https://world.openfoodfacts.org/api/v0/product/" + encodeURIComponent(c) + ".json");
-        if (!offRes.ok) throw new Error("Not found");
-        const offData = await offRes.json();
-        if (offData.status !== 1 || !offData.product) {
-          setBErr("No food found for that barcode. Try searching by name.");
-          setTimeout(() => { setBErr(""); setScannerKey(k => k + 1); }, 2000);
-          return;
-        }
-        const p = offData.product;
-        const nm = p.nutriments || {};
+        const nm = offProduct.nutriments || {};
         const cal100 = nm["energy-kcal_100g"] ||
           Math.round((nm["energy-kj_100g"] || nm["energy_100g"] || 0) / 4.184);
-        const name = (p.product_name || p.product_name_en || "").trim();
-        if (!name) {
-          setBErr("No food found for that barcode. Try searching by name.");
-          setTimeout(() => { setBErr(""); setScannerKey(k => k + 1); }, 2000);
-          return;
+        // Extract serving quantity — try serving_quantity, then serving_size string,
+        // then the total product quantity field (works for single-serve cans/bottles).
+        const servRaw = (offProduct.serving_size || "").trim();
+        let servQty = parseFloat(offProduct.serving_quantity) || 0;
+        function parseVolumeStr(s) {
+          const mlM = s.match(/(\d+(?:\.\d+)?)\s*m[lL]/);
+          const ozM = s.match(/(\d+(?:\.\d+)?)\s*fl\.?\s*oz/i);
+          const gM  = s.match(/(\d+(?:\.\d+)?)\s*g\b/i);
+          if (mlM) return parseFloat(mlM[1]);
+          if (ozM) return Math.round(parseFloat(ozM[1]) * 29.574);
+          if (gM)  return parseFloat(gM[1]);
+          return 0;
         }
+        if (!servQty && servRaw) servQty = parseVolumeStr(servRaw);
+        if (!servQty && offProduct.quantity) servQty = parseVolumeStr(String(offProduct.quantity));
         const servings = [];
-        const servQty = parseFloat(p.serving_quantity) || 0;
         if (servQty > 0) {
-          const label = (p.serving_size || "").trim() ||
-            ("1 serving (" + Math.round(servQty) + "g)");
+          const label = (servRaw && !/^\d+\.?\d*$/.test(servRaw))
+            ? servRaw
+            : "1 serving (" + Math.round(servQty) + "g)";
           servings.push({ label: label, grams: Math.round(servQty) });
+        }
+        // Known single-serve brands: use hardcoded can size (USDA often has wrong serving metadata)
+        const BRAND_CANS = {
+          reign: 473, bang: 473, "c4": 473, ghost: 473, gorilla: 473,
+          celsius: 355, "alani nu": 355, alani: 355, prime: 355,
+          monster: 473, rockstar: 473, "nos": 473,
+          "red bull": 250, "5-hour energy": 57,
+        };
+        if (servings.length === 0) {
+          const bKey = (offBrand || (usdaFood ? usdaFood.brand : "")).toLowerCase();
+          const hit = Object.keys(BRAND_CANS).find(function(k) { return bKey.includes(k); });
+          if (hit) servings.push({ label: "1 can (" + BRAND_CANS[hit] + " mL)", grams: BRAND_CANS[hit] });
+        }
+        // If still no serving, borrow from USDA (skip suspicious powder/scoop servings for beverages)
+        if (servings.length === 0 && usdaFood) {
+          usdaFood.servings.filter(function(s) { return s.grams !== 100 && s.grams >= 100; }).forEach(function(s) {
+            servings.push(s);
+          });
         }
         if (!servings.find(function(s) { return s.grams === 100; })) {
           servings.push({ label: "100g", grams: 100 });
         }
+        const conf = workerData ? workerData.confidence : null;
+        const src = workerData ? workerData.source : "off";
+        const flg = workerData ? workerData.flags : [];
+        setBConfidence(conf);
+        setBSource(src);
+        setBFlags(flg);
         setBFood({
-          fdcId: c,
-          name: name,
-          brand: (p.brands || "").split(",")[0].trim(),
+          fdcId: usdaFood ? usdaFood.fdcId : c,
+          name: fixedName,
+          brand: offBrand || (usdaFood ? usdaFood.brand : ""),
           dataType: "Branded",
           cal100: Math.round(cal100 * 10) / 10,
           p100: Math.round((nm["proteins_100g"] || 0) * 10) / 10,
           c100: Math.round((nm["carbohydrates_100g"] || 0) * 10) / 10,
           f100: Math.round((nm["fat_100g"] || 0) * 10) / 10,
-          servings: servings
+          servings: servings,
+          _upc: c,
         });
+      } else if (usdaFood) {
+        // Worker result used directly (canonical / USDA / AI path)
+        setBConfidence(workerData ? workerData.confidence : null);
+        setBSource(workerData ? workerData.source : "usda");
+        setBFlags(workerData ? workerData.flags : []);
+        setBFood({ ...usdaFood, _upc: c });
+      } else {
+        setBErr("No food found for that barcode. Try searching by name.");
+        setTimeout(() => { setBErr(""); setScannerKey(k => k + 1); }, 2000);
       }
     } catch (e) {
       setBErr("Lookup failed. Check your connection and try again.");
@@ -2797,6 +2882,79 @@ function AddFoodModal({
     if (rawFood) reportFood(workerUrl, rawFood);
     onAdd(entry);
     onClose();
+  }
+
+  // ── Barcode label scan — validates DB macros against the physical label ──
+  async function handleLabelScan(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file || !bFood || !workerUrl) return;
+    // Reset input so the same file can be selected again
+    e.target.value = "";
+    setBVerifying(true);
+    try {
+      const compressed = await compressImage(await new Promise(res => {
+        const reader = new FileReader();
+        reader.onload = ev => res(ev.target.result);
+        reader.readAsDataURL(file);
+      }), 800, 0.80);
+      const base64 = compressed.split(",")[1];
+
+      // Step 1: read the physical label
+      const labelRes = await fetch(workerUrl.replace(/\/$/, ""), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "label_scan", imageBase64: base64, mediaType: "image/jpeg" })
+      });
+      if (!labelRes.ok) throw new Error("label scan failed");
+      const ocr = await labelRes.json();
+      if (!ocr.cal && ocr.cal !== 0) throw new Error("unreadable label");
+
+      // Build a dbResult from current bFood (use first non-100g serving if available)
+      const servEntry = bFood.servings && bFood.servings.find(s => s.grams !== 100) || { grams: 100 };
+      const f = servEntry.grams / 100;
+      const dbResult = {
+        cal: Math.round(bFood.cal100 * f),
+        p:   Math.round(bFood.p100  * f),
+        c:   Math.round(bFood.c100  * f),
+        f:   Math.round(bFood.f100  * f),
+        servingGrams: servEntry.grams,
+      };
+
+      // Step 2: compare DB vs OCR and persist corrections
+      const upc = bFood._upc || barcode;
+      const valRes = await fetch(workerUrl.replace(/\/$/, ""), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "validate_barcode", upc, dbResult, ocrResult: ocr })
+      });
+      if (!valRes.ok) throw new Error("validation failed");
+      const val = await valRes.json();
+
+      setBCorrections(val.corrections || []);
+      setBConfidence(val.confidence);
+      setBOcrDone(true);
+
+      // If OCR corrected calories/macros, silently update bFood
+      if (val.corrections && val.corrections.length > 0 && val.finalResult) {
+        const fr = val.finalResult;
+        const sg = fr.servingGrams || 100;
+        const scale = 100 / sg;
+        setBFood(prev => ({
+          ...prev,
+          name: fr.name || prev.name,
+          brand: fr.brand || prev.brand,
+          cal100: Math.round(fr.cal * scale * 10) / 10,
+          p100:   Math.round(fr.p   * scale * 10) / 10,
+          c100:   Math.round(fr.c   * scale * 10) / 10,
+          f100:   Math.round(fr.f   * scale * 10) / 10,
+        }));
+      }
+    } catch (err) {
+      setBErr("Could not read label. Make sure the nutrition facts panel is visible.");
+      setTimeout(() => setBErr(""), 3000);
+    } finally {
+      setBVerifying(false);
+    }
   }
   function saveAsCustomMeal() {
     if (!saveMealName.trim() || !nlpResults) return;
@@ -3187,13 +3345,84 @@ function AddFoodModal({
   }), /*#__PURE__*/React.createElement("span", null, "Looking up\u2026")), bErr && /*#__PURE__*/React.createElement("div", {
     className: "err"
   }, bErr)) : /*#__PURE__*/React.createElement("div", null,
+    // Hidden file input for barcode label verification
+    /*#__PURE__*/React.createElement("input", {
+      ref: lRef, type: "file", accept: "image/*", capture: "environment",
+      style: { display: "none" }, onChange: handleLabelScan
+    }),
+
+    // AI Estimate warning
     bFood && bFood.dataType === "AI Estimate" && /*#__PURE__*/React.createElement("div", {
-      style: { background: "rgba(255,180,0,0.12)", border: "1px solid rgba(255,180,0,0.35)", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: "#f5c842", lineHeight: 1.4 }
+      style: { background: "rgba(255,180,0,0.12)", border: "1px solid rgba(255,180,0,0.35)", borderRadius: 10, padding: "10px 14px", marginBottom: 10, fontSize: 13, color: "#f5c842", lineHeight: 1.4 }
     }, "⚠️ AI estimate — not found in any database. Verify macros before logging."),
+
+    // Confidence badge + scan label button
+    bFood && bConfidence !== null && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex", alignItems: "center", gap: 8, marginBottom: 10,
+        padding: "8px 12px", borderRadius: 10, fontSize: 13, fontWeight: 600,
+        background: bOcrDone ? "rgba(16,185,129,0.12)" :
+                    bConfidence >= 0.80 ? "rgba(16,185,129,0.10)" :
+                    bConfidence >= 0.60 ? "rgba(255,180,0,0.10)" :
+                                          "rgba(239,68,68,0.10)",
+        border: "1px solid " + (bOcrDone ? "rgba(16,185,129,0.35)" :
+                bConfidence >= 0.80 ? "rgba(16,185,129,0.30)" :
+                bConfidence >= 0.60 ? "rgba(255,180,0,0.35)" :
+                                      "rgba(239,68,68,0.35)"),
+        color: bOcrDone ? "var(--eml)" :
+               bConfidence >= 0.80 ? "var(--eml)" :
+               bConfidence >= 0.60 ? "#f5c842" : "#ef4444",
+      }
+    },
+      /*#__PURE__*/React.createElement("span", null,
+        bOcrDone ? "✓ Label Verified" :
+        bSource === "canonical" ? "★ MacroTrack Verified" :
+        bConfidence >= 0.80 ? "✓ High Confidence" :
+        bConfidence >= 0.60 ? "⚠ Unverified — scan label to confirm" :
+                              "⚠ Low Confidence — scan label recommended"
+      ),
+      !bOcrDone && bSource !== "canonical" && bConfidence < 0.85 && workerUrl && /*#__PURE__*/React.createElement("button", {
+        onClick: function() { lRef.current && lRef.current.click(); },
+        disabled: bVerifying,
+        style: { marginLeft: "auto", background: "var(--acc)", color: "#fff", border: "none", borderRadius: 7, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }
+      }, bVerifying ? "Scanning…" : "Scan Label")
+    ),
+
+    // Sanity flag warnings (before OCR done)
+    bFood && bFlags && bFlags.length > 0 && !bOcrDone && /*#__PURE__*/React.createElement("div", {
+      style: { background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 10, padding: "8px 12px", marginBottom: 10, fontSize: 12, color: "#ef4444" }
+    }, bFlags.map(function(flag, i) {
+      return /*#__PURE__*/React.createElement("div", { key: i },
+        flag === "MACRO_CAL_INCONSISTENT" ? "Macros don’t add up to listed calories — label scan recommended." :
+        flag === "SUGAR_FREE_HIGH_CAL"    ? "Sugar-free label but higher-than-expected calories detected." :
+        flag === "SUSPICIOUSLY_LOW_CAL"   ? "Unusually low calories — possible database error." : flag
+      );
+    })),
+
+    // OCR corrections summary
+    bCorrections && bCorrections.length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: { background: "rgba(16,185,129,0.10)", border: "1px solid rgba(16,185,129,0.30)", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }
+    },
+      /*#__PURE__*/React.createElement("div", { style: { fontWeight: 700, color: "var(--eml)", fontSize: 13, marginBottom: 6 } },
+        "MacroTrack corrected data using the nutrition label:"
+      ),
+      bCorrections.map(function(cor, i) {
+        var lbl = { cal: "Calories", p: "Protein", c: "Carbs", f: "Fat" }[cor.field] || cor.field;
+        return /*#__PURE__*/React.createElement("div", { key: i, style: { fontSize: 12, color: "var(--txt2)" } },
+          lbl + ": " + cor.db_val_per_serving + " → " + cor.ocr_val_per_serving
+        );
+      })
+    ),
+
+    // No corrections — values confirmed
+    bOcrDone && (!bCorrections || bCorrections.length === 0) && /*#__PURE__*/React.createElement("div", {
+      style: { background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 10, padding: "8px 12px", marginBottom: 10, fontSize: 13, color: "var(--eml)" }
+    }, "✓ Nutrition label matches database — values confirmed accurate."),
+
     /*#__PURE__*/React.createElement(FoodDetail, {
       food: bFood,
       meal: meal,
-      onBack: () => setBFood(null),
+      onBack: function() { setBFood(null); setBConfidence(null); setBFlags([]); setBSource(null); setBCorrections(null); setBOcrDone(false); },
       onConfirm: confirm
     })
   )), tab === "photo" && /*#__PURE__*/React.createElement("div", null,

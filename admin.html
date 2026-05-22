@@ -130,12 +130,46 @@
     <div id="searchResult" style="margin-bottom:16px;"></div>
 
     <!-- All users -->
-    <div class="card">
+    <div class="card" style="margin-bottom:24px;">
       <div class="card-header">
         <div class="card-title" id="tableLabel">All Users</div>
         <button class="btn-sm" onclick="loadUsers()">↻ Refresh</button>
       </div>
       <div id="userTable"><div class="loading">Loading…</div></div>
+    </div>
+
+    <!-- Canonical Nutrition Database -->
+    <div class="card-header" style="background:none;border:none;padding:0;margin-bottom:14px;">
+      <div style="font-size:14px;font-weight:700;color:var(--txt2);letter-spacing:0.5px;">NUTRITION DATABASE</div>
+      <button class="btn-sm" onclick="loadCanonicalStats()">↻ Refresh</button>
+    </div>
+    <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
+      <div class="stat">
+        <div class="stat-n" style="color:var(--ind)" id="cTotal">—</div>
+        <div class="stat-l">Canonical Products</div>
+      </div>
+      <div class="stat">
+        <div class="stat-n" style="color:var(--em)" id="cOcr">—</div>
+        <div class="stat-l">OCR Verified</div>
+      </div>
+      <div class="stat">
+        <div class="stat-n" style="color:var(--amb)" id="cLow">—</div>
+        <div class="stat-l">Low Confidence</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header">
+        <div class="card-title">Low Confidence Products — need label scan</div>
+      </div>
+      <div id="lowConfTable"><div class="loading">Loading…</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Flagged Products — data quality issues</div>
+      </div>
+      <div id="flaggedTable"><div class="loading">Loading…</div></div>
     </div>
   </div>
 </div>
@@ -153,6 +187,7 @@
       document.getElementById("loginWrap").style.display = "none";
       document.getElementById("dash").style.display = "block";
       loadUsers();
+      loadCanonicalStats();
     } else {
       document.getElementById("loginErr").textContent = "Incorrect password.";
     }
@@ -273,6 +308,91 @@
     } finally {
       selectEl.disabled = false;
     }
+  }
+
+  async function loadCanonicalStats() {
+    try {
+      const r = await fetch(WORKER, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "admin_canonical_stats", adminKey: ADMIN_KEY })
+      });
+      const d = await r.json();
+      document.getElementById("cTotal").textContent = d.total ?? "—";
+      document.getElementById("cOcr").textContent = d.ocrCount ?? "—";
+      document.getElementById("cLow").textContent = (d.lowConf || []).length;
+      renderLowConf(d.lowConf || []);
+      renderFlagged(d.flagged || []);
+    } catch(e) {
+      document.getElementById("lowConfTable").innerHTML = '<div class="loading" style="color:#fb7185;">Failed to load.</div>';
+    }
+  }
+
+  function confBadge(c) {
+    const pct = Math.round((c || 0) * 100);
+    const color = c >= 0.80 ? "var(--em)" : c >= 0.60 ? "var(--amb)" : "#fb7185";
+    return `<span style="color:${color};font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;">${pct}%</span>`;
+  }
+
+  function renderLowConf(rows) {
+    const el = document.getElementById("lowConfTable");
+    if (!rows.length) { el.innerHTML = '<div class="empty">No low-confidence products.</div>'; return; }
+    const html = rows.map(p => {
+      const flags = (p.flags || []);
+      const flagBadges = flags.map(f =>
+        `<span style="background:rgba(239,68,68,0.12);color:#fb7185;border-radius:5px;padding:2px 7px;font-size:10px;margin-right:4px;">${esc(f)}</span>`
+      ).join("");
+      const corrections = Array.isArray(p.corrections) && p.corrections.length
+        ? `<span style="color:var(--em);font-size:11px;">✓ ${p.corrections.length} correction${p.corrections.length>1?"s":""}</span>`
+        : "";
+      const ocr = p.ocr_validated
+        ? `<span style="color:var(--em);font-size:11px;">OCR ✓</span>`
+        : `<button class="btn-sm" style="font-size:10px;padding:4px 8px;" onclick="forceConf('${esc(p.upc)}', 0.80)">Mark OK</button>`;
+      return `<tr>
+        <td class="mono">${esc(p.upc)}</td>
+        <td><strong>${esc(p.name)}</strong><br><span style="color:var(--mu);font-size:11px;">${esc(p.brand)}</span></td>
+        <td>${confBadge(p.confidence)}</td>
+        <td>${flagBadges}${corrections}</td>
+        <td style="color:var(--mu);font-size:12px;">${p.scan_count || 1}× scanned</td>
+        <td>${ocr}</td>
+      </tr>`;
+    }).join("");
+    el.innerHTML = `<table>
+      <thead><tr><th>UPC</th><th>Product</th><th>Confidence</th><th>Flags</th><th>Scans</th><th>Action</th></tr></thead>
+      <tbody>${html}</tbody>
+    </table>`;
+  }
+
+  function renderFlagged(rows) {
+    const el = document.getElementById("flaggedTable");
+    if (!rows.length) { el.innerHTML = '<div class="empty">No flagged products.</div>'; return; }
+    const html = rows.map(p => {
+      const flags = (p.flags || []).map(f =>
+        `<span style="background:rgba(239,68,68,0.12);color:#fb7185;border-radius:5px;padding:2px 7px;font-size:10px;margin-right:4px;">${esc(f)}</span>`
+      ).join("");
+      return `<tr>
+        <td class="mono">${esc(p.upc)}</td>
+        <td><strong>${esc(p.name)}</strong><br><span style="color:var(--mu);font-size:11px;">${esc(p.brand)}</span></td>
+        <td>${confBadge(p.confidence)}</td>
+        <td>${flags}</td>
+        <td style="color:var(--mu);font-size:12px;">${p.scan_count || 1}×</td>
+        <td>${p.ocr_validated ? '<span style="color:var(--em);font-size:11px;">OCR ✓</span>' : '<span style="color:var(--mu);font-size:11px;">Not verified</span>'}</td>
+      </tr>`;
+    }).join("");
+    el.innerHTML = `<table>
+      <thead><tr><th>UPC</th><th>Product</th><th>Confidence</th><th>Flags</th><th>Scans</th><th>OCR</th></tr></thead>
+      <tbody>${html}</tbody>
+    </table>`;
+  }
+
+  async function forceConf(upc, confidence) {
+    try {
+      await fetch(WORKER, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "admin_canonical_update", adminKey: ADMIN_KEY, upc, patch: { confidence, flags: [] } })
+      });
+      toast("Confidence updated", "ok");
+      loadCanonicalStats();
+    } catch(e) { toast("Failed", "bad"); }
   }
 
   function esc(s) {
